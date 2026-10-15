@@ -1132,3 +1132,73 @@ func.func @test_transpose_matmul_4D_no_split_transB_z16(%arg0: tensor<1x12x?x64x
 // CHECK:           return [[VAR_32_]] : tensor<1x12x?x?xf32>
 // CHECK:         }
 }
+
+
+// -----
+
+// Test: Rewrite4DAddTo3DPattern without Mul (backward compatibility)
+func.func @test_reshape_add_reshape_no_mul(%arg0: tensor<2x3x4xf32>, %arg1: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %shape_4d = onnx.Constant dense<[1, 2, 3, 4]> : tensor<4xi64>
+  %shape_3d = onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
+  
+  %0 = "onnx.Reshape"(%arg0, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %1 = "onnx.Reshape"(%arg1, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %2 = "onnx.Add"(%0, %1) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  %3 = "onnx.Reshape"(%2, %shape_3d) : (tensor<1x2x3x4xf32>, tensor<3xi64>) -> tensor<2x3x4xf32>
+  
+  return %3 : tensor<2x3x4xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_add_reshape_no_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x3x4xf32>, tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+// CHECK:           return [[VAR_0_]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+// Test: Rewrite4DAddTo3DPattern with Mul on one operand
+func.func @test_reshape_mul_add_reshape_one_mul(%arg0: tensor<2x3x4xf32>, %arg1: tensor<2x3x4xf32>, %arg2: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %shape_4d = onnx.Constant dense<[1, 2, 3, 4]> : tensor<4xi64>
+  %shape_3d = onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
+  
+  %0 = "onnx.Reshape"(%arg0, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %1 = "onnx.Reshape"(%arg1, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %2 = "onnx.Reshape"(%arg2, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %3 = "onnx.Mul"(%0, %1) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  %4 = "onnx.Add"(%3, %2) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  %5 = "onnx.Reshape"(%4, %shape_3d) : (tensor<1x2x3x4xf32>, tensor<3xi64>) -> tensor<2x3x4xf32>
+  
+  return %5 : tensor<2x3x4xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_mul_add_reshape_one_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<2x3x4xf32>, [[PARAM_2_:%.+]]: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x3x4xf32>, tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_2_]]) : (tensor<2x3x4xf32>, tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+// CHECK:           return [[VAR_1_]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+// Test: Rewrite4DAddTo3DPattern with Mul on both operands
+func.func @test_reshape_mul_add_reshape_both_mul(%arg0: tensor<2x3x4xf32>, %arg1: tensor<2x3x4xf32>, %arg2: tensor<2x3x4xf32>, %arg3: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %shape_4d = onnx.Constant dense<[1, 2, 3, 4]> : tensor<4xi64>
+  %shape_3d = onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
+  
+  %0 = "onnx.Reshape"(%arg0, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %1 = "onnx.Reshape"(%arg1, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %2 = "onnx.Reshape"(%arg2, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %3 = "onnx.Reshape"(%arg3, %shape_4d) : (tensor<2x3x4xf32>, tensor<4xi64>) -> tensor<1x2x3x4xf32>
+  %4 = "onnx.Mul"(%0, %1) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  %5 = "onnx.Mul"(%2, %3) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  %6 = "onnx.Add"(%4, %5) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  %7 = "onnx.Reshape"(%6, %shape_3d) : (tensor<1x2x3x4xf32>, tensor<3xi64>) -> tensor<2x3x4xf32>
+  
+  return %7 : tensor<2x3x4xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_mul_add_reshape_both_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<2x3x4xf32>, [[PARAM_2_:%.+]]: tensor<2x3x4xf32>, [[PARAM_3_:%.+]]: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x3x4xf32>, tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_2_]], [[PARAM_3_]]) : (tensor<2x3x4xf32>, tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_0_]], [[VAR_1_]]) : (tensor<2x3x4xf32>, tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+// CHECK:           return [[VAR_2_]] : tensor<2x3x4xf32>
+}

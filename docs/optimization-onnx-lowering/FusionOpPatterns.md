@@ -244,6 +244,11 @@ Split (N outputs of size 1 along the N axis)
 - **Idiom.** A single QKV projection MatMul whose result is split into Q, K
   and V. Each of these is reshaped and transposed into heads. Here `N = 3`,
   `H` is the number of heads and `D` the head dim.
+- **PyTorch `unbind` form.** `torch.unbind` exports as Reshape, then per
+  output a unit Slice, a Squeeze and a head Transpose. The `recompose-onnx`
+  pass rewrites that into the chain above: the unit Slices of an axis become
+  one Split, and a Transpose common to all the squeezed Split results moves
+  above the Split.
 - **Anchor.** The `Unstick`.
 - **Matched when:**
   - The Reshape leaves `A` and `S` unchanged and splits `C` into
