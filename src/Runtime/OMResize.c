@@ -296,9 +296,9 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
       free_interpolated_tensors(
           output_size_OMT, scale_factor_OMT, output_size, scale_factor);
       fprintf(stderr,
-          "Resize runtime: output dimension %d is invalid or product exceeds capacity\n",
+          "Resize runtime: output dimension %d is invalid or product exceeds "
+          "capacity\n",
           (int)i);
-      assert(0 && "Resize runtime: invalid output dimension or capacity overflow");
       return;
     }
     outputSize *= output_size[i];
@@ -309,9 +309,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
       (rank > 0 && outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank)) {
     free_interpolated_tensors(
         output_size_OMT, scale_factor_OMT, output_size, scale_factor);
-    fprintf(stderr,
-        "Resize runtime: outputSize exceeds capacity or overflows allocation size\n");
-    assert(0 && "Resize runtime: outputSize exceeds capacity or overflows allocation size");
+    fprintf(stderr, "Resize runtime: outputSize exceeds capacity or overflows "
+                    "allocation size\n");
     return;
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
