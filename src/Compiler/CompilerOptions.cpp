@@ -100,6 +100,7 @@ bool disableRecomposeOption;                           // onnx-mlir only
 bool enableAttentionOpConstruct;                       // common for both
 KVCacheType kvCache;                                   // common for both
 bool disableSplitMatMulBySlice;                        // common for both
+bool disableUnbindToSplit;                             // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -374,6 +375,15 @@ static llvm::cl::opt<bool, true> disableSplitMatMulBySliceOpt(
                    "the slice is folded into the constant weights. Default is "
                    "false."),
     llvm::cl::location(disableSplitMatMulBySlice), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableUnbindToSplitOpt(
+    "disable-unbind-to-split",
+    llvm::cl::desc("Disable rewriting unit Slices that are each squeezed along "
+                   "the sliced axis (the unbind idiom) into a Split, and "
+                   "hoisting a Transpose common to all the squeezed Split "
+                   "results above the Split. Default is false."),
+    llvm::cl::location(disableUnbindToSplit), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
