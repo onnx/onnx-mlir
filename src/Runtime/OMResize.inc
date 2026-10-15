@@ -19,7 +19,9 @@
 #endif
 
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
@@ -238,6 +240,14 @@ static void generate_coordinates(
   free(currentIter);
 }
 
+static void free_interpolated_tensors(OMTensor *output_size_OMT,
+    OMTensor *scale_factor_OMT, int64_t *output_size, float *scale_factor) {
+  if (output_size_OMT == NULL)
+    free(output_size);
+  if (scale_factor_OMT == NULL)
+    free(scale_factor);
+}
+
 static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     int64_t mode, OMTensor *output_size_OMT, OMTensor *scale_factor_OMT,
     Coeff_Func_t get_coeffs, int coeffs_n, OMTensor *roi,
@@ -255,12 +265,22 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   if (output_size_OMT != NULL)
     output_size = (int64_t *)omTensorGetDataPtr(output_size_OMT);
   if (scale_factor == NULL) {
+    for (int i = 0; i < rank; i++) {
+      assert(inputShape[i] > 0 && "inputShape dimension must be positive");
+      assert(output_size[i] > 0 && "output_size dimension must be positive");
+    }
     scale_factor = (float *)malloc(sizeof(float) * rank);
     assert(scale_factor && "failed to allocate memory for scale_factor");
     for (int i = 0; i < rank; i++) {
       scale_factor[i] = ((float)output_size[i]) / inputShape[i];
     }
   } else {
+    for (int i = 0; i < rank; i++) {
+      assert(inputShape[i] > 0 && "inputShape dimension must be positive");
+      assert(isfinite(scale_factor[i]) && scale_factor[i] > 0.0f &&
+             scale_factor[i] <= (float)INT64_MAX / (float)inputShape[i] &&
+             "scale_factor must be finite, positive, and bounded");
+    }
     output_size = (int64_t *)malloc(sizeof(int64_t) * rank);
     assert(output_size && "failed to allocate memory for output_size");
     for (int i = 0; i < rank; i++) {
@@ -268,9 +288,31 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     }
   }
 
+  // Validate each output dimension and check for integer overflow
+  // before using the product to size the allCoordinates allocation.
+  int64_t outputCap = omTensorGetNumElems(output_OMT);
   int64_t outputSize = 1;
   for (int i = 0; i < rank; i++) {
+    if (output_size[i] <= 0 || outputSize > outputCap / output_size[i]) {
+      free_interpolated_tensors(
+          output_size_OMT, scale_factor_OMT, output_size, scale_factor);
+      fprintf(stderr,
+          "Resize runtime: output dimension %d is invalid or product exceeds "
+          "capacity\n",
+          (int)i);
+      return;
+    }
     outputSize *= output_size[i];
+  }
+  // Guard: computed product must not exceed the pre-allocated output buffer
+  // and must not overflow the malloc argument (outputSize * rank * sizeof).
+  if (outputSize > outputCap ||
+      (rank > 0 && outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank)) {
+    free_interpolated_tensors(
+        output_size_OMT, scale_factor_OMT, output_size, scale_factor);
+    fprintf(stderr, "Resize runtime: outputSize exceeds capacity or overflows "
+                    "allocation size\n");
+    return;
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
 
@@ -306,12 +348,10 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     outputData[i] = r;
     free(Xs);
   }
-  if (output_size_OMT == NULL)
-    free(output_size);
-  if (scale_factor_OMT == NULL)
-    free(scale_factor);
   free(allCoordinates);
   free(coeffs_buffer);
+  free_interpolated_tensors(
+      output_size_OMT, scale_factor_OMT, output_size, scale_factor);
 }
 
 // The parameters that are not used are commented out.
