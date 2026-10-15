@@ -18,6 +18,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <functional>
+#include <unordered_map>
+
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
@@ -1621,11 +1624,66 @@ private:
 
 } // namespace detail
 
-// Call onnx::checker::check_function_call_cycles to detect recursive
-// Run shape inference with exception handling. Returns false (with a
-// diagnostic on llvm::errs()) if shape inference fails or detects recursive
-// model-local functions; returns true on success.
+// Check if model-local functions contain recursive cycles. Returns false
+// (with a diagnostic on llvm::errs()) if a cycle is found; returns true on success.
+static bool checkFunctionCallCycles(const onnx::ModelProto &model) {
+  if (model.functions_size() == 0)
+    return true;
+
+  // Build a map of identifier (domain:name) to FunctionProto
+  std::unordered_map<std::string, const onnx::FunctionProto *> funcMap;
+  for (const auto &func : model.functions()) {
+    std::string id = func.domain() + ":" + func.name();
+    funcMap[id] = &func;
+  }
+
+  // 0 = unvisited, 1 = visiting (on current stack), 2 = visited
+  std::unordered_map<std::string, int> state;
+
+  std::function<bool(const std::string &)> dfs =
+      [&](const std::string &id) -> bool {
+    state[id] = 1; // mark visiting
+    auto it = funcMap.find(id);
+    if (it != funcMap.end()) {
+      for (const auto &node : it->second->node()) {
+        std::string calleeId = node.domain() + ":" + node.op_type();
+        if (funcMap.count(calleeId)) {
+          if (state[calleeId] == 1) {
+            // Cycle detected!
+            llvm::errs() << "model-local function '" << calleeId
+                         << "' is directly or indirectly recursive; "
+                            "onnx-mlir does not support recursive model-local "
+                            "functions\n";
+            return false;
+          }
+          if (state[calleeId] == 0) {
+            if (!dfs(calleeId))
+              return false;
+          }
+        }
+      }
+    }
+    state[id] = 2; // mark visited
+    return true;
+  };
+
+  for (const auto &func : model.functions()) {
+    std::string id = func.domain() + ":" + func.name();
+    if (state[id] == 0) {
+      if (!dfs(id))
+        return false;
+    }
+  }
+
+  return true;
+}
+
+// Run shape inference with cycle check and exception handling. Returns false
+// (with a diagnostic on llvm::errs()) if shape inference fails or detects
+// recursive model-local functions; returns true on success.
 static bool checkAndInferShapes(onnx::ModelProto &model) {
+  if (!checkFunctionCallCycles(model))
+    return false;
   try {
     onnx::shape_inference::InferShapes(model);
   } catch (const onnx::checker::ValidationError &e) {
