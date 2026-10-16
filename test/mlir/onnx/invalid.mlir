@@ -832,3 +832,18 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
   "onnx.Return"(%0) : (tensor<*xf16>) -> ()
 }
 
+// -----
+
+func.func @test_transpose_perm_too_short(%arg0: tensor<4x3x2x1xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 2 elements but rank is 4}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 1]} : (tensor<4x3x2x1xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_transpose_perm_too_long(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 4 elements but rank is 2}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [1, 0, 0, 1]} : (tensor<2x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
