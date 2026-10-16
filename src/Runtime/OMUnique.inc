@@ -363,17 +363,20 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     for (int64_t i = 0; i < inputRank; i++) {
       if (__builtin_mul_overflow(
               elementNum, (uint64_t)inputShape[i], &elementNum)) {
+        assert(0 && "Unique runtime: element count overflow");
         *totalPtr = 0;
         return;
       }
     }
     uint64_t sliceDataBytes;
     if (__builtin_mul_overflow(dataSize, elementNum, &sliceDataBytes)) {
+      assert(0 && "Unique runtime: sliceDataBytes overflow");
       *totalPtr = 0;
       return;
     }
     void *sliceDataPtr = (YPtr == NULL) ? malloc(sliceDataBytes) : YPtr;
     if ((YPtr == NULL) && (sliceDataPtr == NULL) && (elementNum != 0)) {
+      assert(0 && "Unique runtime: allocation failure for sliceDataPtr");
       *totalPtr = 0;
       return;
     }
@@ -396,6 +399,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         continue;
       if (__builtin_mul_overflow(numOfElementsInSlice, (uint64_t)inputShape[i],
               &numOfElementsInSlice)) {
+        assert(0 && "Unique runtime: numOfElementsInSlice overflow");
         *totalPtr = 0;
         return;
       }
@@ -406,6 +410,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     if (__builtin_mul_overflow(
             numOfElementsInSlice, (uint64_t)numOfSlices, &sliceDataBytes) ||
         __builtin_mul_overflow(sliceDataBytes, dataSize, &sliceDataBytes)) {
+      assert(0 && "Unique runtime: sliceDataBytes overflow");
       *totalPtr = 0;
       return;
     }
@@ -422,6 +427,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
       if (YPtr == NULL)
         free(sliceDataPtr);
       free(tmpIndicesPtr);
+      assert(0 && "Unique runtime: sliceElemBytes overflow");
       *totalPtr = 0;
       return;
     }
@@ -432,6 +438,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         free(sliceDataPtr);
       free(tmpIndicesPtr);
       free(sliceData);
+      assert(0 && "Unique runtime: allocation failure");
       *totalPtr = 0;
       return;
     }

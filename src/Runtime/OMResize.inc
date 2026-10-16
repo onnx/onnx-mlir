@@ -242,10 +242,10 @@ static void generate_coordinates(
 
 static void free_interpolated_tensors(OMTensor *output_size_OMT,
     OMTensor *scale_factor_OMT, int64_t *output_size, float *scale_factor) {
-  if (output_size_OMT == NULL)
-    free(output_size);
   if (scale_factor_OMT == NULL)
     free(scale_factor);
+  else if (output_size_OMT == NULL)
+    free(output_size);
 }
 
 static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
@@ -300,6 +300,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
           "Resize runtime: output dimension %d is invalid or product exceeds "
           "capacity\n",
           (int)i);
+      assert(
+          0 && "Resize runtime: invalid output dimension or capacity overflow");
       return;
     }
     outputSize *= output_size[i];
@@ -312,6 +314,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
         output_size_OMT, scale_factor_OMT, output_size, scale_factor);
     fprintf(stderr, "Resize runtime: outputSize exceeds capacity or overflows "
                     "allocation size\n");
+    assert(0 && "Resize runtime: outputSize exceeds capacity or overflows "
+                "allocation size");
     return;
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);

@@ -274,9 +274,10 @@ OMTensor *omTensorCreateEmpty(
   int64_t numElems = getNumElems(shape, rank);
   if (numElems < 0)
     return NULL;
-  if ((uint64_t)numElems > SIZE_MAX / (uint64_t)datasize)
+  size_t totalBytes;
+  if (__builtin_mul_overflow((size_t)numElems, (size_t)datasize, &totalBytes))
     return NULL;
-  if (((dataPtr = malloc((size_t)numElems * (size_t)datasize)) == NULL) ||
+  if (((dataPtr = malloc(totalBytes)) == NULL) ||
       ((tensor = omTensorCreateWithOwnership(
             dataPtr, shape, rank, dtype, /*owning=*/true)) == NULL)) {
     free(dataPtr); // OK if dataPtr == NULL
