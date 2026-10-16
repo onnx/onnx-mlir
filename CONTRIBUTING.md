@@ -52,7 +52,7 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 ## Skills for AI coding agents
 
 * The [.agents/skills](.agents/skills) directory holds task guides in the Agent Skills format (one `SKILL.md` per task), loaded by agents that support the format when a task matches: adding ONNX operations (dialect, lowering, end to end), new passes, op fusion, grounded lit tests, debugging compilation, NNPA performance, LLVM/MLIR upgrades, and coding conventions. `onnx-mlir-internals` and `nnpa-internals` hold background reference pages.
-* The skills are generated from a knowledge base maintained by the IBM onnx-mlir team and regenerated as onnx-mlir evolves, so please don't edit them in place; report fixes in an issue or PR description instead. Details, including how to use them with Claude Code, are in the [skills README](.agents/skills/README.md).
+* The skills are generated from a knowledge base maintained by the IBM onnx-mlir team and regenerated as onnx-mlir evolves, so please don't edit them in place; report fixes in an issue or PR description instead. Details are in the [skills README](.agents/skills/README.md).
 * The [Using AI tools](#using-ai-tools) policy applies to changes made with these skills too.
 
 ## Running ONNX models in Python and C
