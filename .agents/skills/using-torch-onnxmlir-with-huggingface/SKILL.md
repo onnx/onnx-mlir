@@ -518,7 +518,7 @@ This skill was grounded against the following sources:
 
 **Repositories and SHAs:**
 - `onnx-mlir@f4b8e8de`: Main source for torch_onnxmlir implementation and documentation
-- `onnx-mlir@c92e126` (2026-08-06 sync): re-verified `cache_dir` default and `explain_context()` API against this later commit — see `sync-status.md`'s `94c6bc1`/`de23de78`/`7cea64f` entries for the commits that introduced/changed these
+- `onnx-mlir@c92e126` (2026-08-06 sync): re-verified `cache_dir` default and `explain_context()` API against this later commit; commits `94c6bc1`/`de23de78`/`7cea64f` introduced or changed these
 - `onnx-mlir@b505d64`: re-verified Hashing and Cache Key Generation, the cache-key bullet under Session Cache Implementation, and Test Coverage against `backend.py` (`generate_hash_key`, `_stable_args_str`, `_tensor_sha256`, `_PARAM_FULL_HASH_LIMIT = 1024`), `config.py`, `tests/test_hash_key.py` and `tests/conftest.py`; also re-checked the `config` defaults, `TORCHONNXMLIR_CACHE_DIR`, the tested encoder/decoder model lists and the `ENCODER_MODEL`/`DECODER_MODEL`/`COMPILER_PATH` test variables
 - `onnx-mlir@5534bc7`: re-verified the disk-cache layout, `0o700` directory mode, and hash check (Cache Structure, Cache Integrity, Session Cache Implementation) against `sessioncache.py` and the README's "Security note on the disk cache"; `tests/test_cache_integrity.py` covers them
 

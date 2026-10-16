@@ -20,11 +20,17 @@ export. If a skill is wrong or missing something, open an issue or PR that
 describes the fix; it will be folded into the knowledge base and come back
 through the next export.
 
-## Claude Code
+## Agents that read another directory
 
-Claude Code reads skills from `.claude/skills/`. Until it also reads
-`.agents/skills/`, link it locally (the link is not committed):
+Some agents look for skills in their own directory rather than
+`.agents/skills/`. The repository commits a symlink for each, so they
+find the same files with no setup:
 
-```bash
-mkdir -p .claude && ln -s ../.agents/skills .claude/skills
-```
+| Agent       | Reads skills from | Committed link        |
+|-------------|-------------------|-----------------------|
+| Claude Code | `.claude/skills/` | `-> ../.agents/skills` |
+| IBM Bob     | `.bob/skills/`    | `-> ../.agents/skills` |
+
+On Windows, git checks a symlink out as a plain text file unless
+`core.symlinks` is enabled; there, recreate the link by hand or point the
+agent at `.agents/skills/`.
