@@ -1,15 +1,19 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-# AGENTS.md
-
-Guidance for AI coding agents working in onnx-mlir. `CLAUDE.md` is a symlink
-to this file. Humans: see [CONTRIBUTING.md](CONTRIBUTING.md).
+# onnx-mlir
 
 onnx-mlir compiles ONNX models to native code using MLIR and LLVM. A model is
 imported into the ONNX dialect, transformed (shape inference, constant
-propagation, decompositions), lowered to the Krnl dialect, then to
-Affine/SCF/MemRef and LLVM. On IBM Z, the NNPA accelerator path branches off
-the ONNX dialect into the ZHigh and ZLow dialects.
+propagation, decompositions), and lowered. The main path goes through the
+Krnl dialect, then Affine/SCF/MemRef and LLVM. Other paths start from the
+same ONNX dialect:
+
+- Linalg: `--use-linalg-path` replaces Krnl for selected ops (`--linalg-ops`).
+- StableHLO and TOSA: conversion passes in `src/Conversion/ONNXToStablehlo/`
+  and `ONNXToTOSA/`, run through `onnx-mlir-opt`. StableHLO is built when
+  `ONNX_MLIR_ENABLE_STABLEHLO` is on, which is the default.
+- NNPA (IBM Z): the accelerator lowers supported ops through the ZHigh and
+  ZLow dialects (`src/Accelerators/NNPA/`).
 
 ## Where things are
 
