@@ -99,19 +99,37 @@ def put_image_manifest(
     return resp
 
 
-def get_pr_mergeable_state(url, token):
-    """Get pull request source mergeable state."""
+def get_pr_data(url, token):
+    """Get pull request data dict from GitHub API.
 
+    Returns a dict with at least 'mergeable_state', 'head_repo_full_name',
+    and 'base_repo_full_name' keys; falls back to safe defaults on error.
+    """
+
+    defaults = {
+        "mergeable_state": "unknown",
+        "head_repo_full_name": None,
+        "base_repo_full_name": None,
+    }
     try:
         resp = requests.get(
             url=url,
             headers={"Accept": "application/json", "Authorization": "token " + token},
         )
         resp.raise_for_status()
-        return resp.json()["mergeable_state"]
+        data = resp.json()
+        return {
+            "mergeable_state": data.get("mergeable_state", "unknown"),
+            "head_repo_full_name": (data.get("head") or {})
+            .get("repo", {})
+            .get("full_name"),
+            "base_repo_full_name": (data.get("base") or {})
+            .get("repo", {})
+            .get("full_name"),
+        }
     except Exception as e:
         logging.exception(e)
-        return "unknown"
+        return defaults
 
 
 def image_publishable(
@@ -142,27 +160,43 @@ def image_publishable(
     )
 
     # If url is 'none', it's a push event from merging so skip
-    # mergeable state check.
-    #
-    # Note that when our (and/or some other) build is marked as required,
-    # while the build(s) are ongoing, the mergeable state will be "blocked".
-    # So for publish triggered by "publish this please" phrase, we have a
-    # catch 22 problem. But if we can come to this point, we know that at
-    # least our build successfully built the docker images. So we allow
-    # the blocked mergeable state to publish our images.
+    # mergeable state and fork checks.
     if github_pr_request_url != "none":
-        state = get_pr_mergeable_state(github_pr_request_url, github_repo_access_token)
+        pr_data = get_pr_data(github_pr_request_url, github_repo_access_token)
+        state = pr_data["mergeable_state"]
         logging.info(
             "pull request url: %s, mergeable state: %s, %s",
             github_pr_request_url,
             state,
             pr_mergeable_state[state]["desc"],
         )
+        # f009 fix: for the 'publish this please' phrase, reject if the PR
+        # head comes from a fork repo.  Same-repo PRs are allowed to proceed
+        # (the sender has already passed the admin gate).
+        #
+        # We intentionally do NOT require state == 'clean' here because when
+        # CI is still running the state is 'blocked' (required checks pending).
+        # That is the normal situation when a phrase-triggered publish fires —
+        # the catch-22 the original code was designed to handle.  We only
+        # reject states that indicate the branch itself is unfit to merge
+        # (behind, dirty, draft) regardless of phrase.
+        if github_pr_phrase == "publish":
+            head_repo = pr_data["head_repo_full_name"]
+            base_repo = pr_data["base_repo_full_name"]
+            if head_repo != base_repo:
+                raise Exception(
+                    "publish aborted: PR head is from a fork repo "
+                    f"({head_repo} != {base_repo})"
+                )
         if not pr_mergeable_state[state]["mergeable"]:
             raise Exception("publish aborted due to unmergeable state")
     if not remote_labels:
         logging.info("publish due to invalid remote labels")
         return True
+    # The 'publish' phrase force-publishes even when local and remote images
+    # have the same sha1 date — this is intentional (e.g. to recover from a
+    # registry corruption or repush a re-tagged image).  Fork PRs are already
+    # blocked above, so the force here only applies to same-repo admins.
     if github_pr_phrase == "publish":
         logging.info("publish forced by trigger phrase")
         return True
