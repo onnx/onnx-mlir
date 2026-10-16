@@ -40,10 +40,20 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 * We have support on how to trace performance issue using instrumentation. Details are found [here](docs/Instrumentation.md).
 * We have support to debug numerical errors. See [here](docs/DebuggingNumericalError.md).
 
+## Using AI tools
+
+* AI coding tools and agents may be used, and onnx-mlir follows the [LLVM AI Tool Use Policy](https://llvm.org/docs/AIToolPolicy.html). In short:
+  * You are the author of your contribution and fully responsible for it: review and understand every change before requesting review, and be able to answer reviewers' questions yourself rather than relaying them to a tool.
+  * Mention substantial AI assistance in the PR description or with an `Assisted-by: <tool>` commit trailer, alongside the required DCO sign-off.
+  * No autonomous agents: a human must approve every commit, PR, and comment made on the project.
+  * You must have the right to contribute the code under the project's Apache-2.0 license, whatever tool produced it.
+  * Contributions that cost reviewers more than they add may be closed.
+
 ## Skills for AI coding agents
 
 * The [.agents/skills](.agents/skills) directory holds task guides in the Agent Skills format (one `SKILL.md` per task), loaded by agents that support the format when a task matches: adding ONNX operations (dialect, lowering, end to end), new passes, op fusion, grounded lit tests, debugging compilation, NNPA performance, LLVM/MLIR upgrades, and coding conventions. `onnx-mlir-internals` and `nnpa-internals` hold background reference pages.
 * The skills are generated from a knowledge base maintained by the IBM onnx-mlir team and regenerated as onnx-mlir evolves, so please don't edit them in place; report fixes in an issue or PR description instead. Details, including how to use them with Claude Code, are in the [skills README](.agents/skills/README.md).
+* The [Using AI tools](#using-ai-tools) policy applies to changes made with these skills too.
 
 ## Running ONNX models in Python and C
 
