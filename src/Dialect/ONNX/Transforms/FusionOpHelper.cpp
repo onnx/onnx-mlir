@@ -17,6 +17,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+
 #define DEBUG_TYPE "op-fusion"
 
 using namespace mlir;
@@ -186,6 +188,17 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
   insertionAnchor = nullptr;
   insertAfterAnchor = false;
 
+  // All chain ops must be in one block: the placement below orders them with
+  // isBeforeInBlock(), and the FusedOp replaces them at a single position.
+  // Detection may have walked into a nested region (e.g. a single user inside
+  // an If branch); decline to fuse rather than move ops across regions.
+  if (!areInSameBlock(ops)) {
+    LLVM_DEBUG(llvm::dbgs() << "FusionOpKindHelper: chain ops are not all in "
+                               "one block; declining to fuse\n");
+    return false;
+  }
+  Block *block = ops.front()->getBlock();
+
   // Build the set of values produced by the chain ops themselves; these
   // are visible inside the body via the clone mapping and never external.
   DenseSet<Value> chainProduced;
@@ -232,12 +245,13 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
       collectExternals(operand);
 
   // Latest-positioned external input with a defining op in this block.
-  // Block arguments (no defining op) dominate everything, so they impose no
-  // ordering constraint and are skipped here.
+  // Block arguments (no defining op) and values defined in an enclosing block
+  // dominate everything in this block, so they impose no ordering constraint
+  // and are skipped here.
   Operation *latestInputDef = nullptr;
   for (Value v : fusedInputs) {
     Operation *defOp = v.getDefiningOp();
-    if (!defOp)
+    if (!defOp || defOp->getBlock() != block)
       continue;
     if (!latestInputDef || latestInputDef->isBeforeInBlock(defOp))
       latestInputDef = defOp;
@@ -247,11 +261,14 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
   // itself part of the chain (i.e. a use that survives past replaceAndErase).
   // ops.back() is the default insertion point (see below); this loop exists
   // to detect when that default is unsafe -- when some non-chain use of a
-  // yielded value sits before ops.back()'s original position.
+  // yielded value sits before ops.back()'s original position. A use nested in
+  // a region (e.g. inside an If branch) is positioned at its ancestor op in
+  // this block, which must then come after the FusedOp.
   Operation *earliestUse = nullptr;
   for (Value v : finalResults) {
     for (OpOperand &use : v.getUses()) {
-      Operation *owner = use.getOwner();
+      Operation *owner = block->findAncestorOpInBlock(*use.getOwner());
+      assert(owner && "use of a chain value outside of the chain's block");
       if (chainOps.contains(owner))
         continue;
       if (!earliestUse || owner->isBeforeInBlock(earliestUse))

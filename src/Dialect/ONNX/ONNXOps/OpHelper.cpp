@@ -216,6 +216,11 @@ bool hasShapeAndRank(Operation *op) {
   return true;
 }
 
+bool areInSameBlock(ArrayRef<Operation *> ops) {
+  return llvm::all_of(ops,
+      [&](Operation *op) { return op->getBlock() == ops.front()->getBlock(); });
+}
+
 /// Test if a value has only one use except ONNXDimOp.
 bool hasOneUseExceptDimOp(Value val) {
   int64_t numOfUsersExceptDim = 0;
