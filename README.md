@@ -152,6 +152,7 @@ Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/D
 
 We are welcoming contributions from the community.
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
+If you use an AI coding agent, task guides (skills) for common onnx-mlir development tasks are available in `.agents/skills`; see [CONTRIBUTING](CONTRIBUTING.md#skills-for-ai-coding-agents).
 
 ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
 Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#step-7-commit--push) for specific instructions.
