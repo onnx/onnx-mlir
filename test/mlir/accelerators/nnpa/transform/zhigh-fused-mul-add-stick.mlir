@@ -431,3 +431,46 @@ func.func @no_fuse_unproven_dynamic_dim(%x1: tensor<?x12x?x32xf32>, %x2: tensor<
 // CHECK:           return [[VAR_4_]] : tensor<?x?x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:         }
 }
+
+// -----
+
+// The Reshape -> Stick tail is inside an If branch, not in the block of the
+// join: the chain ops must all be in one block, so nothing is fused.
+func.func @no_fuse_stick_tail_in_if(%x1: tensor<2x4x8x64xf32>, %x2: tensor<2x4x8x64xf32>,
+    %cos: tensor<8x64xf32>, %sin: tensor<8x64xf32>, %c: tensor<i1>)
+    -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>> {
+  %shape = onnx.Constant dense<[8, 8, 64]> : tensor<3xi64>
+  %0 = "onnx.Mul"(%x1, %cos) : (tensor<2x4x8x64xf32>, tensor<8x64xf32>) -> tensor<2x4x8x64xf32>
+  %1 = "onnx.Mul"(%x2, %sin) : (tensor<2x4x8x64xf32>, tensor<8x64xf32>) -> tensor<2x4x8x64xf32>
+  %2 = "onnx.Add"(%0, %1) : (tensor<2x4x8x64xf32>, tensor<2x4x8x64xf32>) -> tensor<2x4x8x64xf32>
+  %3 = "onnx.If"(%c) ({
+    %4 = "onnx.Reshape"(%2, %shape) <{allowzero = 0 : si64}> : (tensor<2x4x8x64xf32>, tensor<3xi64>) -> tensor<8x8x64xf32>
+    %5 = "zhigh.Stick"(%4) <{layout = "3D"}> : (tensor<8x8x64xf32>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+    onnx.Yield %5 : tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+  }, {
+    %4 = "onnx.Reshape"(%x1, %shape) <{allowzero = 0 : si64}> : (tensor<2x4x8x64xf32>, tensor<3xi64>) -> tensor<8x8x64xf32>
+    %5 = "zhigh.Stick"(%4) <{layout = "3D"}> : (tensor<8x8x64xf32>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+    onnx.Yield %5 : tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+  }) : (tensor<i1>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+  return %3 : tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+
+// CHECK-LABEL:  func.func @no_fuse_stick_tail_in_if
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8x64xf32>, [[PARAM_1_:%.+]]: tensor<2x4x8x64xf32>, [[PARAM_2_:%.+]]: tensor<8x64xf32>, [[PARAM_3_:%.+]]: tensor<8x64xf32>, [[PARAM_4_:%.+]]: tensor<i1>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[8, 8, 64]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_2_]]) : (tensor<2x4x8x64xf32>, tensor<8x64xf32>) -> tensor<2x4x8x64xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_1_]], [[PARAM_3_]]) : (tensor<2x4x8x64xf32>, tensor<8x64xf32>) -> tensor<2x4x8x64xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Add"([[VAR_1_]], [[VAR_2_]]) : (tensor<2x4x8x64xf32>, tensor<2x4x8x64xf32>) -> tensor<2x4x8x64xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.If"([[PARAM_4_]]) ({
+// CHECK:             [[VAR_5_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<2x4x8x64xf32>, tensor<3xi64>) -> tensor<8x8x64xf32>
+// CHECK:             [[VAR_6_:%.+]] = "zhigh.Stick"([[VAR_5_]]) <{layout = "3D"}> : (tensor<8x8x64xf32>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:             onnx.Yield [[VAR_6_]] : tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           }, {
+// CHECK:             [[VAR_5_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<2x4x8x64xf32>, tensor<3xi64>) -> tensor<8x8x64xf32>
+// CHECK:             [[VAR_6_1_:%.+]] = "zhigh.Stick"([[VAR_5_1_]]) <{layout = "3D"}> : (tensor<8x8x64xf32>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:             onnx.Yield [[VAR_6_1_]] : tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           }) : (tensor<i1>) -> tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           return [[VAR_4_]] : tensor<8x8x64xf16, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:         }
+
+}
