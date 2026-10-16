@@ -780,6 +780,13 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
     if (totalWidth > N)
       return rewriter.notifyMatchFailure(
           matmulOp, "Slices overlap: splitting would add MatMul work");
+    // A new MatMul is created at its Slice (or Split): one nested in a region,
+    // e.g. a Loop body, would be recomputed on every iteration.
+    SmallVector<Operation *> opsToCheck(Y.getUsers());
+    opsToCheck.push_back(matmulOp);
+    if (!onnx_mlir::areInSameBlock(opsToCheck))
+      return rewriter.notifyMatchFailure(
+          matmulOp, "a user is not in the block of the MatMul");
     // Tested last, so that the debug message below is only printed for
     // MatMuls that would otherwise have been split.
     if (!B.hasOneUse()) {
@@ -802,9 +809,15 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
       Value newB =
           create.onnx.slice(newBType, B, create.onnx.constantInt64({start}),
               create.onnx.constantInt64({end}), axisLast, stepOne);
-      SmallVector<int64_t> yShape(yType.getShape());
-      yShape.back() = end - start;
-      Type newYType = RankedTensorType::get(yShape, yType.getElementType());
+      // Keep the type of the replaced value when ranked: it may have more
+      // static dims than Y (e.g. 1x8x512 vs ?x?x512), which users such as a
+      // func.return may require.
+      Type newYType = slice.getType();
+      if (!mlir::isa<RankedTensorType>(newYType)) {
+        SmallVector<int64_t> yShape(yType.getShape());
+        yShape.back() = end - start;
+        newYType = RankedTensorType::get(yShape, yType.getElementType());
+      }
       Value newY = create.onnx.matmul(newYType, A, newB);
       rewriter.replaceAllUsesWith(slice, newY);
     }

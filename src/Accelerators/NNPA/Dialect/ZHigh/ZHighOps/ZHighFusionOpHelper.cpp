@@ -1394,7 +1394,8 @@ static bool isSplitHeadsStickTail(const DimAnalysis *dimAnalysis,
 }
 
 /// Match the stick-3DS chain of \p splitResult, each op being the single use
-/// of the previous value. Returns std::nullopt if there is none.
+/// of the previous value, all in the block of \p startOp. Returns std::nullopt
+/// if there is none (the output then stays F32).
 static std::optional<SplitHeadsStickTail> matchSplitHeadsStickTail(
     const DimAnalysis *dimAnalysis, Value splitResult, int64_t splitAxis,
     int64_t D, Operation *startOp) {
@@ -1406,6 +1407,10 @@ static std::optional<SplitHeadsStickTail> matchSplitHeadsStickTail(
     return std::nullopt;
   auto stickOp = singleUserOfOpType<ZHighStickOp>(reshapeOp.getReshaped());
   if (!stickOp)
+    return std::nullopt;
+  // The tails are sorted with isBeforeInBlock(), and pulled into the FusedOp.
+  if (!areInSameBlock({startOp, squeezeOp.getOperation(),
+          reshapeOp.getOperation(), stickOp.getOperation()}))
     return std::nullopt;
   if (!isSplitHeadsStickTail(dimAnalysis, splitResult, squeezeOp, reshapeOp,
           stickOp, splitAxis, D))
@@ -1551,6 +1556,8 @@ bool UnstickSplitHeadsFusionHelper::detectIfBeneficial(
       return returnFailure("split result has no shape");
   splitAxis = axis;
   ops.push_back(splitOp.getOperation());
+  if (!areInSameBlock(ops))
+    return returnFailure("chain ops are not all in the block of the unstick");
 
   // ---- Step 5: per output, optional Squeeze -> Reshape -> 3DS Stick -------
   // Tails are appended in the block order of their Stick, so that ops.back()
@@ -1859,11 +1866,11 @@ bool MulAddStickFusionHelper::detectFromJoin(
   auto mulB = joinOp->getOperand(1).getDefiningOp<ONNXMulOp>();
   if (!mulA || !mulB || mulA == mulB)
     return returnFailure("join: operands are not two distinct Muls");
+  if (!areInSameBlock({joinOp, mulA.getOperation(), mulB.getOperation()}))
+    return returnFailure("mul: not in the block of the join");
   for (ONNXMulOp mulOp : {mulA, mulB}) {
     if (!mulOp.getC().hasOneUse())
       return returnFailure("mul: result has more than one use");
-    if (mulOp->getBlock() != joinOp->getBlock())
-      return returnFailure("mul: not in the block of the join");
     if (!isMulAddStickPairMul(mulOp, joinOut, dimAnalysis))
       return returnFailure("mul: unsupported shapes, types, or constant");
   }

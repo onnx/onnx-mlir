@@ -558,3 +558,75 @@ func.func @unstick_split_heads_no_stick_squeeze_extra_use(%arg0: tensor<2x8x192x
 
 }
 
+// -----
+
+// V's Squeeze -> Reshape -> Stick is inside an If branch, not in the block of
+// the Unstick: it is left outside, and V becomes an "f32" output. The FusedOp
+// is placed before the If, which holds a use of one of its outputs.
+
+func.func @unstick_split_heads_stick_tail_in_if(%arg0: tensor<2x8x1152xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %arg1: tensor<i1>)
+    -> (tensor<2x12x8x32xf32>, tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) {
+  %shape = onnx.Constant dense<[2, 8, 3, 12, 32]> : tensor<5xi64>
+  %vshape = onnx.Constant dense<[24, 8, 32]> : tensor<3xi64>
+  %ones = onnx.Constant dense<1> : tensor<3xi64>
+  %axes = onnx.Constant dense<2> : tensor<1xi64>
+  %u = "zhigh.Unstick"(%arg0)
+         : (tensor<2x8x1152xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x8x1152xf32>
+  %r = "onnx.Reshape"(%u, %shape) <{allowzero = 0 : si64}>
+         : (tensor<2x8x1152xf32>, tensor<5xi64>) -> tensor<2x8x3x12x32xf32>
+  %t = "onnx.Transpose"(%r) <{perm = [0, 3, 2, 1, 4]}>
+         : (tensor<2x8x3x12x32xf32>) -> tensor<2x12x3x8x32xf32>
+  %s:3 = "onnx.Split"(%t, %ones) <{axis = 2 : si64}>
+         : (tensor<2x12x3x8x32xf32>, tensor<3xi64>)
+         -> (tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>)
+  %q = "onnx.Squeeze"(%s#0, %axes) : (tensor<2x12x1x8x32xf32>, tensor<1xi64>) -> tensor<2x12x8x32xf32>
+  %k = "onnx.Squeeze"(%s#1, %axes) : (tensor<2x12x1x8x32xf32>, tensor<1xi64>) -> tensor<2x12x8x32xf32>
+  %q2 = "onnx.Add"(%q, %k) : (tensor<2x12x8x32xf32>, tensor<2x12x8x32xf32>) -> tensor<2x12x8x32xf32>
+  %vs = "onnx.If"(%arg1) ({
+    %v = "onnx.Squeeze"(%s#2, %axes) : (tensor<2x12x1x8x32xf32>, tensor<1xi64>) -> tensor<2x12x8x32xf32>
+    %vr = "onnx.Reshape"(%v, %vshape) <{allowzero = 0 : si64}>
+           : (tensor<2x12x8x32xf32>, tensor<3xi64>) -> tensor<24x8x32xf32>
+    %vt = "zhigh.Stick"(%vr) <{layout = "3DS"}>
+           : (tensor<24x8x32xf32>) -> tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    onnx.Yield %vt : tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  }, {
+    %kr = "onnx.Reshape"(%k, %vshape) <{allowzero = 0 : si64}>
+           : (tensor<2x12x8x32xf32>, tensor<3xi64>) -> tensor<24x8x32xf32>
+    %kt = "zhigh.Stick"(%kr) <{layout = "3DS"}>
+           : (tensor<24x8x32xf32>) -> tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    onnx.Yield %kt : tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  }) : (tensor<i1>) -> tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %q2, %vs : tensor<2x12x8x32xf32>, tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @unstick_split_heads_stick_tail_in_if
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x8x1152xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[PARAM_1_:%.+]]: tensor<i1>) -> (tensor<2x12x8x32xf32>, tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[24, 8, 32]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]]:3 = "onnx.Fused"([[PARAM_0_]]) <{kind = "zhigh.unstick-split-heads"}> ({
+// CHECK:           ^bb0([[REGION_ARG_0_:%.+]]: tensor<2x8x1152xf16, #zhigh.layout<{dataLayout = "3DS"}>>):
+// CHECK-DAG:         [[VAR_7_:%.+]] = onnx.Constant dense<1> : tensor<3xi64>
+// CHECK-DAG:         [[VAR_8_:%.+]] = onnx.Constant dense<[2, 8, 3, 12, 32]> : tensor<5xi64>
+// CHECK-DAG:         [[VAR_9_:%.+]] = "zhigh.Unstick"([[REGION_ARG_0_]]) : (tensor<2x8x1152xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x8x1152xf32>
+// CHECK:             [[VAR_10_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_8_]]) <{allowzero = 0 : si64}> : (tensor<2x8x1152xf32>, tensor<5xi64>) -> tensor<2x8x3x12x32xf32>
+// CHECK:             [[VAR_11_:%.+]] = "onnx.Transpose"([[VAR_10_]]) <{perm = [0, 3, 2, 1, 4]}> : (tensor<2x8x3x12x32xf32>) -> tensor<2x12x3x8x32xf32>
+// CHECK:             [[VAR_12_:%.+]]:3 = "onnx.Split"([[VAR_11_]], [[VAR_7_]]) <{axis = 2 : si64}> : (tensor<2x12x3x8x32xf32>, tensor<3xi64>) -> (tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>)
+// CHECK:             onnx.Yield [[VAR_12_]]#0, [[VAR_12_]]#1, [[VAR_12_]]#2 : tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>
+// CHECK:           }) {headDim = 32 : i64, numHeads = 12 : i64, numSplits = 3 : i64, onnx_node_name = "zhigh.Unstick-onnx.Reshape-onnx.Transpose-onnx.Split", outputModes = ["f32", "f32", "f32"], splitAxis = 2 : i64, transposePattern = [0, 3, 2, 1, 4]} : (tensor<2x8x1152xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> (tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>, tensor<2x12x1x8x32xf32>)
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Squeeze"([[VAR_2_]]#0, [[VAR_1_]]) : (tensor<2x12x1x8x32xf32>, tensor<1xi64>) -> tensor<2x12x8x32xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Squeeze"([[VAR_2_]]#1, [[VAR_1_]]) : (tensor<2x12x1x8x32xf32>, tensor<1xi64>) -> tensor<2x12x8x32xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Add"([[VAR_3_]], [[VAR_4_]]) : (tensor<2x12x8x32xf32>, tensor<2x12x8x32xf32>) -> tensor<2x12x8x32xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.If"([[PARAM_1_]]) ({
+// CHECK-DAG:         [[VAR_7_1_:%.+]] = "onnx.Squeeze"([[VAR_2_]]#2, [[VAR_1_]]) : (tensor<2x12x1x8x32xf32>, tensor<1xi64>) -> tensor<2x12x8x32xf32>
+// CHECK:             [[VAR_8_1_:%.+]] = "onnx.Reshape"([[VAR_7_1_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<2x12x8x32xf32>, tensor<3xi64>) -> tensor<24x8x32xf32>
+// CHECK:             [[VAR_9_1_:%.+]] = "zhigh.Stick"([[VAR_8_1_]]) <{layout = "3DS"}> : (tensor<24x8x32xf32>) -> tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:             onnx.Yield [[VAR_9_1_]] : tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           }, {
+// CHECK:             [[VAR_7_2_:%.+]] = "onnx.Reshape"([[VAR_4_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<2x12x8x32xf32>, tensor<3xi64>) -> tensor<24x8x32xf32>
+// CHECK:             [[VAR_8_2_:%.+]] = "zhigh.Stick"([[VAR_7_2_]]) <{layout = "3DS"}> : (tensor<24x8x32xf32>) -> tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:             onnx.Yield [[VAR_8_2_]] : tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           }) : (tensor<i1>) -> tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_5_]], [[VAR_6_]] : tensor<2x12x8x32xf32>, tensor<24x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+
+}
