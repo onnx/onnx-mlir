@@ -151,3 +151,65 @@
 // CHECK:         }
 
 
+
+// -----
+
+// Test SAME_UPPER with a stride larger than the kernel. The total pad is -1, so
+// one extra zero is added at the start to reach input_size * stride.
+
+  func.func @test_convtrans_same_upper_negative_pad(%arg0: tensor<1x1x3xf32>, %arg1: tensor<1x1x1xf32>) -> tensor<1x1x6xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "SAME_UPPER", group = 1 : si64, strides = [2]} : (tensor<1x1x3xf32>, tensor<1x1x1xf32>, none) -> tensor<1x1x6xf32>
+    onnx.Return %1 : tensor<1x1x6xf32>
+  }
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convtrans_same_upper_negative_pad
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x1x1xf32>) -> tensor<1x1x6xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.UpsampleAndPad"([[PARAM_0_]]) <{pads = [1, 0], strides = [2]}> : (tensor<1x1x3xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<4xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_2_]]) <{allowzero = 0 : si64}> : (tensor<1x1x1xf32>, tensor<4xi64>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<9223372036854775807> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<-9223372036854775808> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK:           [[VAR_8_:%.+]] = "onnx.Slice"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]]) : (tensor<1x1x1x1xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3]}> : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<1> : tensor<3xi64>
+// CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x1x1x1xf32>, tensor<3xi64>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_11_]], [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1], group = 1 : si64, kernel_shape = [1], pads = [0, 0], strides = [1]}> : (tensor<*xf32>, tensor<1x1x1xf32>, none) -> tensor<1x1x6xf32>
+// CHECK:           onnx.Return [[VAR_12_]] : tensor<1x1x6xf32>
+// CHECK:         }
+
+// -----
+
+// Test SAME_LOWER with a total pad of -3. The extra zero of the odd total goes
+// at the end.
+
+  func.func @test_convtrans_same_lower_negative_pad(%arg0: tensor<1x1x3xf32>, %arg1: tensor<1x1x1xf32>) -> tensor<1x1x12xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "SAME_LOWER", group = 1 : si64, strides = [4]} : (tensor<1x1x3xf32>, tensor<1x1x1xf32>, none) -> tensor<1x1x12xf32>
+    onnx.Return %1 : tensor<1x1x12xf32>
+  }
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convtrans_same_lower_negative_pad
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x1x1xf32>) -> tensor<1x1x12xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.UpsampleAndPad"([[PARAM_0_]]) <{pads = [1, 2], strides = [4]}> : (tensor<1x1x3xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<4xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_2_]]) <{allowzero = 0 : si64}> : (tensor<1x1x1xf32>, tensor<4xi64>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<9223372036854775807> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<-9223372036854775808> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK:           [[VAR_8_:%.+]] = "onnx.Slice"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]]) : (tensor<1x1x1x1xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3]}> : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<1> : tensor<3xi64>
+// CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x1x1x1xf32>, tensor<3xi64>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_11_]], [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1], group = 1 : si64, kernel_shape = [1], pads = [0, 0], strides = [1]}> : (tensor<*xf32>, tensor<1x1x1xf32>, none) -> tensor<1x1x12xf32>
+// CHECK:           onnx.Return [[VAR_12_]] : tensor<1x1x12xf32>
+// CHECK:         }
