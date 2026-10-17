@@ -28,6 +28,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -414,16 +415,17 @@ struct DecomposeConvTransposePattern
         int64_t sH = strides[i];
         int64_t opH = outputPadding[i];
 
+        // A negative total adds zeros to reach the SAME output size. Round
+        // down, as the ONNX reference does, to place an odd extra zero.
         int64_t totalPad = opH + ((kH - 1) * dH + 1) - sH;
-        totalPad = std::max(0LL, (long long)totalPad);
 
         if (autoPad == "SAME_UPPER") {
           // Extra padding on bottom/right.
-          padTop[i] = totalPad / 2;
+          padTop[i] = llvm::divideFloorSigned(totalPad, 2);
           padBottom[i] = totalPad - padTop[i];
         } else { // SAME_LOWER
           // Extra padding on top/left.
-          padBottom[i] = totalPad / 2;
+          padBottom[i] = llvm::divideFloorSigned(totalPad, 2);
           padTop[i] = totalPad - padBottom[i];
         }
       }

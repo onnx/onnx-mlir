@@ -80,15 +80,14 @@ if (autoPad == "VALID") {
 #### SAME_UPPER / SAME_LOWER Modes
 ```cpp
 int64_t totalPad = opH + ((kH - 1) * dH + 1) - sH;
-totalPad = std::max(0LL, (long long)totalPad);
 
 if (autoPad == "SAME_UPPER") {
     // Extra padding on bottom/right
-    padTop[i] = totalPad / 2;
+    padTop[i] = llvm::divideFloorSigned(totalPad, 2);
     padBottom[i] = totalPad - padTop[i];
 } else { // SAME_LOWER
     // Extra padding on top/left
-    padBottom[i] = totalPad / 2;
+    padBottom[i] = llvm::divideFloorSigned(totalPad, 2);
     padTop[i] = totalPad - padBottom[i];
 }
 ```
@@ -101,6 +100,8 @@ input_size × stride = stride × (input_size - 1) + output_padding +
 Simplifying:
 pad_start + pad_end = output_padding + ((kernel_size - 1) × dilation + 1) - stride
 ```
+
+The total is negative when the stride is larger than `output_padding + (kernel_size - 1) × dilation + 1`. The negative pads then add zeros at the output edges, so the output still has `input_size × stride` elements. Rounding the half down, as the ONNX reference implementation does, puts the extra zero of an odd negative total at the start for SAME_UPPER and at the end for SAME_LOWER.
 
 #### NOTSET Mode
 ```cpp
