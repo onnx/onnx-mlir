@@ -940,6 +940,7 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
           // Free old buffers.
           free_ztensor(&ones_zt);
           free_ztensor(&scratch_tile);
+          free_ztensor(&p_tile);
           free_ztensor(&bias_qkt);
           uint32_t last_T =
               transpose_kt ? si_kt.last_tile_shape[E2] : si_kt.last_tile_shape[E1];
@@ -1024,6 +1025,22 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
               &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &pv_tmp);
         if (status == ZDNN_OK)
           status = zdnn_add(&o_acc, &pv_tmp, &o_acc);
+      }
+
+      // Restore full-size tile buffers after processing a tail tile so
+      // that the next batch iteration starts with correctly-sized buffers.
+      if (has_tail_tile && status == ZDNN_OK) {
+        free_ztensor(&ones_zt);
+        free_ztensor(&scratch_tile);
+        free_ztensor(&p_tile);
+        free_ztensor(&bias_qkt);
+        status = create_3ds_ztensor(1, T, 1, &ones_zt, fp32_buf);
+        if (status == ZDNN_OK)
+          status = create_3ds_ztensor(1, S, T, &scratch_tile, NULL);
+        if (status == ZDNN_OK)
+          status = create_3ds_ztensor(1, S, T, &p_tile, NULL);
+        if (status == ZDNN_OK)
+          status = create_2ds_zero_bias(1, T, &bias_qkt);
       }
 
       // Final normalization: output = O / D.
