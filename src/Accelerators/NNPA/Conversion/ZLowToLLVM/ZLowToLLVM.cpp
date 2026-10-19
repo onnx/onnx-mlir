@@ -1112,13 +1112,12 @@ public:
     // KT: 3DS {S, N, P} when transposeKT=0, {S, P, N} when transposeKT=1
     bool transposeKT = fusedOp.getTransposeKT() != 0;
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getKT());
-    ZTensor ktZTensor =
-        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_3DS,
-            /*originalDims=*/
-                transposeKT ? SmallVector<Value>{S, P, N}
-                            : SmallVector<Value>{S, N, P},
-            /*isTransformed=*/true);
+    ZTensor ktZTensor = zTensorHelper.getZTensor(stickI8Ptr,
+        /*dataType=*/zDNNDataType,
+        /*layout=*/ZDNN_3DS,
+        /*originalDims=*/
+        transposeKT ? SmallVector<Value>{S, P, N} : SmallVector<Value>{S, N, P},
+        /*isTransformed=*/true);
 
     // Mask: 3DS {S, M, P}
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getMask());
