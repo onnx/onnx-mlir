@@ -567,13 +567,13 @@ static inline void cache_flush(const void *ptr, uintptr_t offset) {
 // Broadcast a column vector [1, S, 1] to a tile [1, S, T] in stickified space.
 // 3DS layout: (e4, e2, e1) -> (e4, ceil(e1/64), 1, ceil(e2/32), 32, 64).
 // Each stick row in the source has one DLFLOAT16 value at position 0.
-// We replicate it across all 64 positions, then copy page 0 to all T/64 pages.
+// We replicate it across all 64 positions, then copy page 0 to all ceil(T/64) pages.
 static void broadcast_column_to_tile(
     const zdnn_ztensor *col, zdnn_ztensor *tile) {
   uint32_t S = col->pre_transformed_desc->dim2;
   uint32_t T = tile->pre_transformed_desc->dim1;
   uint32_t num_stick_groups = (S + 31) / 32;
-  uint32_t num_pages = T / 64;
+  uint32_t num_pages = (T + 63) / 64;
   uint32_t page_bytes = num_stick_groups * 4096;
 
   const char *src = (const char *)col->buffer;
