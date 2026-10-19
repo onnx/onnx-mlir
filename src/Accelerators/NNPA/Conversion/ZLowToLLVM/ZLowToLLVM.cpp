@@ -1115,8 +1115,9 @@ public:
     ZTensor ktZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS,
-            /*originalDims=*/transposeKT ? SmallVector<Value>{S, P, N}
-                                         : SmallVector<Value>{S, N, P},
+            /*originalDims=*/
+                transposeKT ? SmallVector<Value>{S, P, N}
+                            : SmallVector<Value>{S, N, P},
             /*isTransformed=*/true);
 
     // Mask: 3DS {S, M, P}

@@ -567,7 +567,8 @@ static inline void cache_flush(const void *ptr, uintptr_t offset) {
 // Broadcast a column vector [1, S, 1] to a tile [1, S, T] in stickified space.
 // 3DS layout: (e4, e2, e1) -> (e4, ceil(e1/64), 1, ceil(e2/32), 32, 64).
 // Each stick row in the source has one DLFLOAT16 value at position 0.
-// We replicate it across all 64 positions, then copy page 0 to all ceil(T/64) pages.
+// We replicate it across all 64 positions, then copy page 0 to all ceil(T/64)
+// pages.
 static void broadcast_column_to_tile(
     const zdnn_ztensor *col, zdnn_ztensor *tile) {
   uint32_t S = col->pre_transformed_desc->dim2;
@@ -693,8 +694,7 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
     zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
-  printf("[SDPA3D Basic, transpose_kt: %s]\n",
-      transpose_kt ? "true" : "false");
+  printf("[SDPA3D Basic, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
 #endif
   zdnn_status status = ZDNN_OK;
 
@@ -703,7 +703,7 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   // KT=[B,H,SK] when transpose_kt=false: SK is E1.
   // K=[B,SK,H]  when transpose_kt=true:  SK is E2.
   uint32_t SK = transpose_kt ? zdnnx_get_transformed_dim(KT, E2)
-                              : zdnnx_get_transformed_dim(KT, E1);
+                             : zdnnx_get_transformed_dim(KT, E1);
   uint32_t HV = zdnnx_get_transformed_dim(V, E1);
 
   zdnn_ztensor scores = {0}, probs = {0}, bias1 = {0}, bias2 = {0};
@@ -796,8 +796,7 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
     uint32_t tile_size, bool transpose_kt, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
-  printf("[SDPA3D Flash, transpose_kt: %s]\n",
-      transpose_kt ? "true" : "false");
+  printf("[SDPA3D Flash, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
 #endif
   zdnn_status status = ZDNN_OK;
   uint32_t S = zdnnx_get_transformed_dim(Q, E2);
@@ -898,8 +897,8 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
       // 1. scores = Q * KT[0] + Mask[0]
       if (transpose_kt)
-        status = zdnn_matmul_transpose_op(&tq.data, &tkt.data, &bias_qkt,
-            false, true, MATMUL_OP_ADDITION, &scratch_tile);
+        status = zdnn_matmul_transpose_op(&tq.data, &tkt.data, &bias_qkt, false,
+            true, MATMUL_OP_ADDITION, &scratch_tile);
       else
         status = zdnn_matmul_op(
             &tq.data, &tkt.data, &bias_qkt, MATMUL_OP_ADDITION, &scratch_tile);
@@ -942,8 +941,8 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
           free_ztensor(&scratch_tile);
           free_ztensor(&p_tile);
           free_ztensor(&bias_qkt);
-          uint32_t last_T =
-              transpose_kt ? si_kt.last_tile_shape[E2] : si_kt.last_tile_shape[E1];
+          uint32_t last_T = transpose_kt ? si_kt.last_tile_shape[E2]
+                                         : si_kt.last_tile_shape[E1];
 
           // ones [1, T, 1] for row-sum matmul.
           // Reuse fp32_buf that is larger than last_T.

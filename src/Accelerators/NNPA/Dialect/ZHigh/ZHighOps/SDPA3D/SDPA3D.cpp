@@ -24,8 +24,7 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighSDPA3DOpShapeHelper::computeShape() {
-  ZHighSDPA3DOp fusedOp =
-      llvm::dyn_cast<ZHighSDPA3DOp>(op);
+  ZHighSDPA3DOp fusedOp = llvm::dyn_cast<ZHighSDPA3DOp>(op);
   ZHighSDPA3DOp::Adaptor operandAdaptor(operands, fusedOp);
   DimsExpr outputDims;
 

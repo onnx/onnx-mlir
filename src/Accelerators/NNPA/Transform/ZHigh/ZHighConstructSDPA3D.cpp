@@ -115,9 +115,9 @@ struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
 
     // Pass transposeKT through to SDPA3D — runtime handles the transpose
     // inside zdnn_matmul_transpose_op (zero-cost NNPA hardware transpose).
-    IntegerAttr transposeKTAttr = rewriter.getIntegerAttr(
-        rewriter.getIntegerType(64, /*isSigned=*/true),
-        innerMatmul.getTransposeB() != 0 ? 1 : 0);
+    IntegerAttr transposeKTAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            innerMatmul.getTransposeB() != 0 ? 1 : 0);
 
     // Replace the trailing MatMul with the fused op.
     rewriter.replaceOpWithNewOp<ZHighSDPA3DOp>(

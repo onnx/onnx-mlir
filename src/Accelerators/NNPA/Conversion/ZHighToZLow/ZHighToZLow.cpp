@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -1277,9 +1277,9 @@ struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
 
     // Get transposeKT attribute from ZHigh op.
     ZHighSDPA3DOp sdpa3dOp = mlir::cast<ZHighSDPA3DOp>(op);
-    IntegerAttr transposeKTAttr = rewriter.getIntegerAttr(
-        rewriter.getIntegerType(64, /*isSigned=*/true),
-        sdpa3dOp.getTransposeKT());
+    IntegerAttr transposeKTAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            sdpa3dOp.getTransposeKT());
 
     // Emit zlow.sdpa3d.
     ZLowSDPA3DOp::create(rewriter, loc, operandAdaptor.getQ(),
