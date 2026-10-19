@@ -76,6 +76,7 @@ zdnn_status zdnnx_reduce(const zdnn_ztensor *input, void *save_area,
 
 // Fused operations
 zdnn_status zdnnx_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
-    const zdnn_ztensor *Mask, const zdnn_ztensor *V, zdnn_ztensor *output);
+    const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
+    zdnn_ztensor *output);
 
 #endif // ZDNNX_ZDNNX_OPS_H

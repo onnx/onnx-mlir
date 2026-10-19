@@ -20,7 +20,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -28,27 +27,33 @@ using namespace onnx_mlir::zhigh;
 
 namespace {
 
+// Fuse the standard scaled dot-product attention (SDPA) subgraph:
+//
+//   trailing MatMul
+//       |      \
+//    Softmax    V
+//       |
+//      Add
+//      / \
+//  inner   Mask
+//  MatMul
+//   / \
+//  Q   KT (or K when transposeB=1)
+//
+// into a single zhigh.SDPA3D op:
+//   Output = SDPA3D(Q, KT, Mask, V, transposeKT)
+//
+// Constraints:
+//   - All operands (Q, KT/K, Mask, V) must be 3DS layout.
+//   - Both MatMuls must have no bias.
+//   - Trailing MatMul must have transposeA=0 and transposeB=0.
+//   - Inner MatMul must have transposeA=0; transposeB is propagated as
+//     the transposeKT attribute so the runtime can use NNPA hardware
+//     transpose (zero-cost, no data copy).
+//   - Softmax must use ACT_NONE.
+//   - All intermediate results must be single-use.
 struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
   using OpRewritePattern<ZHighMatMulOp>::OpRewritePattern;
-
-  // Insert ZHighUnstick -> ONNXTranspose(perm=[0,2,1]) -> ZHighStick(3DS)
-  // to swap the last two dimensions of a 3DS tensor.
-  Value transpose3DS(
-      Value input, Location loc, PatternRewriter &rewriter) const {
-    Value unsticked = ZHighUnstickOp::create(rewriter, loc, input);
-    auto inType = mlir::cast<RankedTensorType>(unsticked.getType());
-    ArrayRef<int64_t> inShape = inType.getShape();
-    SmallVector<int64_t, 3> transposedShape(
-        {inShape[0], inShape[2], inShape[1]});
-    RankedTensorType transposedType =
-        RankedTensorType::get(transposedShape, inType.getElementType());
-    ArrayAttr perm = rewriter.getI64ArrayAttr({0, 2, 1});
-    Value transposed =
-        ONNXTransposeOp::create(rewriter, loc, transposedType, unsticked, perm);
-    StringAttr layout = rewriter.getStringAttr("3DS");
-    return ZHighStickOp::create(
-        rewriter, loc, transposed, layout, /*saturation=*/IntegerAttr());
-  }
 
   LogicalResult matchAndRewrite(
       ZHighMatMulOp trailingMatmul, PatternRewriter &rewriter) const override {
@@ -91,7 +96,9 @@ struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
     if (!innerMatmul || !innerMatmul.getResult().hasOneUse())
       return failure();
 
-    // Inner MatMul: no bias.
+    // Inner MatMul: no transposeA, no bias.
+    if (innerMatmul.getTransposeA() != 0)
+      return failure();
     if (!mlir::isa<NoneType>(innerMatmul.getB().getType()))
       return failure();
 
@@ -106,16 +113,15 @@ struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
         ZTensorEncodingAttr::DataLayout::_3DS)
       return failure();
 
-    // Handle transposes on the inner MatMul operands.
-    // SDPA3D expects Q=[s,m,n] and KT=[s,n,p].
-    Location loc = trailingMatmul.getLoc();
-    if (innerMatmul.getTransposeA() != 0)
-      Q = transpose3DS(Q, loc, rewriter);
-    if (innerMatmul.getTransposeB() != 0)
-      KT = transpose3DS(KT, loc, rewriter);
+    // Pass transposeKT through to SDPA3D — runtime handles the transpose
+    // inside zdnn_matmul_transpose_op (zero-cost NNPA hardware transpose).
+    IntegerAttr transposeKTAttr = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true),
+        innerMatmul.getTransposeB() != 0 ? 1 : 0);
 
     // Replace the trailing MatMul with the fused op.
-    rewriter.replaceOpWithNewOp<ZHighSDPA3DOp>(trailingMatmul, Q, KT, mask, V);
+    rewriter.replaceOpWithNewOp<ZHighSDPA3DOp>(
+        trailingMatmul, Q, KT, mask, V, transposeKTAttr);
     return success();
   }
 };

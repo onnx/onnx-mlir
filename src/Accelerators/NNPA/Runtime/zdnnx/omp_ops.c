@@ -657,7 +657,8 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 }
 
 zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
-    const zdnn_ztensor *Mask, const zdnn_ztensor *V, zdnn_ztensor *output) {
+    const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
+    zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP SDPA3D]\n");
 #endif
@@ -670,7 +671,7 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "SDPA3D Out");
 
   if (zdnnx_has_one_tile(&si_q))
-    return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, output);
+    return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, transpose_kt, output);
 
   uint32_t BH = zdnnx_get_num_tiles(&si_q, E4);
   uint32_t num_threads = zdnnx_get_num_zaiu_threads();
@@ -685,7 +686,7 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
 
     zdnn_status status = zdnnx_seq_sdpa_3d(
-        &tq.data, &tkt.data, &tmask.data, &tv.data, &tout.data);
+        &tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt, &tout.data);
     assert(status == ZDNN_OK);
   }
 

@@ -250,17 +250,20 @@ def ZLowSDPA3DOp:ZLow_Op<"sdpa3d",
 
   Operands (all 3DS stickified memrefs):
     Q:    [s, m, n]  — queries
-    KT:   [s, n, p]  — keys (already transposed)
+    KT:   [s, n, p]  — keys (already transposed if transposeKT=0)
+          [s, p, n]  — keys (not transposed if transposeKT=1)
     Mask: [s, m, p]  — additive attention mask
     V:    [s, p, q]  — values
     Out:  [s, m, q]  — attention output
   shape: memref<5xi64> = [s, m, n, p, q].
+  transposeKT: 0 = KT already transposed, 1 = KT is K, transpose done in hardware.
   }];
   let arguments = (ins ZMemRef:$Q,
                        ZMemRef:$KT,
                        ZMemRef:$Mask,
                        ZMemRef:$V,
                        MemRefOf<[I64]>:$shape,
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeKT,
                        ZMemRef:$Out);
 }
 

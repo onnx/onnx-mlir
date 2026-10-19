@@ -1109,11 +1109,14 @@ public:
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
             /*isTransformed=*/true);
 
-    // KT: 3DS {S, N, P}
+    // KT: 3DS {S, N, P} when transposeKT=0, {S, P, N} when transposeKT=1
+    bool transposeKT = fusedOp.getTransposeKT() != 0;
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getKT());
     ZTensor ktZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, N, P},
+            /*layout=*/ZDNN_3DS,
+            /*originalDims=*/transposeKT ? SmallVector<Value>{S, P, N}
+                                         : SmallVector<Value>{S, N, P},
             /*isTransformed=*/true);
 
     // Mask: 3DS {S, M, P}
@@ -1137,6 +1140,11 @@ public:
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, Q},
             /*isTransformed=*/true);
 
+    // transposeKT value for runtime.
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    Value transposeKTVal = create.llvm.constant(
+        rewriter.getI64Type(), static_cast<int64_t>(transposeKT ? 1 : 0));
+
     // Call zdnnx_sdpa_3d runtime function.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNNX_SDPA3D,
         {
@@ -1144,6 +1152,7 @@ public:
             toOpaquePtr(rewriter, loc, module, ktZTensor.val),
             toOpaquePtr(rewriter, loc, module, maskZTensor.val),
             toOpaquePtr(rewriter, loc, module, vZTensor.val),
+            transposeKTVal,
             toOpaquePtr(rewriter, loc, module, outZTensor.val),
         });
 

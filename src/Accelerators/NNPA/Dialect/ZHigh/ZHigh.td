@@ -646,22 +646,36 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
 
     All operands use 3DS layout with a shared batch dimension s:
       Q:    [s, m, n]  — queries
-      KT:   [s, n, p]  — keys (already transposed)
+      KT:   [s, n, p]  — keys (already transposed, when transposeKT=0)
+            [s, p, n]  — keys (not transposed, when transposeKT=1)
       Mask: [s, m, p]  — additive attention mask
       V:    [s, p, q]  — values
       Out:  [s, m, q]  — attention output
+
+    When transposeKT=1, KT is actually K and the inner Q*K matmul uses
+    hardware transpose to produce KT.
   }];
   let arguments = (ins ZTensor_3DS:$Q,
                        ZTensor_3DS:$KT,
                        ZTensor_3DS:$Mask,
-                       ZTensor_3DS:$V);
+                       ZTensor_3DS:$V,
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeKT);
   let results = (outs ZTensor_3DS:$Out);
   let builders = [
+    OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
+                   "::mlir::Value":$Mask, "::mlir::Value":$V,
+                   "::mlir::IntegerAttr":$transposeKT), [{
+      Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, Q, KT, Mask, V, transposeKT);
+    }]>,
     OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
                    "::mlir::Value":$Mask, "::mlir::Value":$V), [{
       Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, Q, KT, Mask, V);
+      build($_builder, $_state, resType, Q, KT, Mask, V,
+            $_builder.getIntegerAttr(
+                $_builder.getIntegerType(64, /*isSigned=*/true), 0));
     }]>
   ];
   let hasVerifier = 1;
