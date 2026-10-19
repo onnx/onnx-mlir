@@ -82,11 +82,11 @@ if (autoPad == "VALID") {
 int64_t totalPad = opH + ((kH - 1) * dH + 1) - sH;
 
 if (autoPad == "SAME_UPPER") {
-    // Extra padding on bottom/right
+    // Odd total: extra crop at the end, or extra zero at the start
     padTop[i] = llvm::divideFloorSigned(totalPad, 2);
     padBottom[i] = totalPad - padTop[i];
 } else { // SAME_LOWER
-    // Extra padding on top/left
+    // Odd total: extra crop at the start, or extra zero at the end
     padBottom[i] = llvm::divideFloorSigned(totalPad, 2);
     padTop[i] = totalPad - padBottom[i];
 }

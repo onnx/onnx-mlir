@@ -151,7 +151,6 @@
 // CHECK:         }
 
 
-
 // -----
 
 // Test SAME_UPPER with a stride larger than the kernel. The total pad is -1, so

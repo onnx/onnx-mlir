@@ -373,30 +373,34 @@ struct DecomposeConvTransposePattern
         // Calculate total padding needed.
         // Formula: total_pad = stride * (input - 1) + output_padding + kernel -
         // output_shape.
-        // Note: Unlike SAME_UPPER/SAME_LOWER without output_shape, we do NOT
-        // clamp to non-negative here because negative padding is valid and will
-        // be swapped to the opposite side below.
+        // A negative total adds zeros. For SAME_UPPER and SAME_LOWER, split it
+        // as the ONNX reference does, rounding down. As of October 2026, ONNX
+        // Runtime 1.31 instead puts the extra zero of an odd negative
+        // SAME_UPPER total at the end.
         int64_t totalPad =
             sH * (inputSize - 1) + opH + ((kH - 1) * dH + 1) - outputSize;
 
-        // Distribute padding based on auto_pad mode.
-        if (autoPad == "SAME_UPPER" || autoPad == "NOTSET") {
+        if (autoPad == "SAME_UPPER") {
+          // Odd total: extra crop at the end, or extra zero at the start.
+          padTop[i] = llvm::divideFloorSigned(totalPad, 2);
+          padBottom[i] = totalPad - padTop[i];
+        } else if (autoPad == "SAME_LOWER") {
+          // Odd total: extra crop at the start, or extra zero at the end.
+          padBottom[i] = llvm::divideFloorSigned(totalPad, 2);
+          padTop[i] = totalPad - padBottom[i];
+        } else if (totalPad < 0) { // NOTSET or VALID
+          // The ONNX reference uses zero pads here, so the extra output
+          // elements are zeros at the end.
+          padTop[i] = 0;
+          padBottom[i] = totalPad;
+        } else if (autoPad == "NOTSET") {
           // Extra padding on bottom/right (default behavior).
           padTop[i] = totalPad / 2;
           padBottom[i] = totalPad - padTop[i];
-        } else { // SAME_LOWER
+        } else { // VALID
           // Extra padding on top/left.
           padBottom[i] = totalPad / 2;
           padTop[i] = totalPad - padBottom[i];
-        }
-
-        // When pads are negative, swap them to opposite sides.
-        // This matches ONNX Runtime behavior where negative padding adds zeros
-        // on opposite edges.
-        if (padTop[i] < 0) {
-          int64_t temp = padTop[i];
-          padTop[i] = padBottom[i];
-          padBottom[i] = temp;
         }
       }
     } else if (autoPad == "VALID") {
@@ -417,14 +421,16 @@ struct DecomposeConvTransposePattern
 
         // A negative total adds zeros to reach the SAME output size. Round
         // down, as the ONNX reference does, to place an odd extra zero.
+        // As of October 2026, ONNX Runtime 1.31 clamps the total to 0 and
+        // returns fewer than input_size * stride elements.
         int64_t totalPad = opH + ((kH - 1) * dH + 1) - sH;
 
         if (autoPad == "SAME_UPPER") {
-          // Extra padding on bottom/right.
+          // Odd total: extra crop at the end, or extra zero at the start.
           padTop[i] = llvm::divideFloorSigned(totalPad, 2);
           padBottom[i] = totalPad - padTop[i];
         } else { // SAME_LOWER
-          // Extra padding on top/left.
+          // Odd total: extra crop at the start, or extra zero at the end.
           padBottom[i] = llvm::divideFloorSigned(totalPad, 2);
           padTop[i] = totalPad - padBottom[i];
         }
