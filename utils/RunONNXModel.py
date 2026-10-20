@@ -671,7 +671,7 @@ def data_without_top_bottom_quartile(data, percent):
 
 
 def cache_string(model_name, compile_option):
-    return "model: " + model_name + "; compile option: " + compile_option
+    return json.dumps({"model": model_name, "compile_option": compile_option})
 
 
 def check_mlir_has_entry_point(mlir_path):
@@ -851,18 +851,35 @@ class InferenceSession:
             #  if we have saved the options in the "compiler_option.txt" file, and
             #  if we have provided compiler options
             if os.path.exists(compiler_option_file):
-                expected_string = cache_string(args.model, args.compile_args)
                 with open(compiler_option_file, "r") as f:
                     options_from_file = f.read()
                     if args.compile_args:
-                        if options_from_file != expected_string:
+                        try:
+                            saved_dict = json.loads(options_from_file)
+                            saved_compile_option = saved_dict.get("compile_option", "")
+                            if saved_compile_option != args.compile_args:
+                                print(
+                                    "Try to load model from",
+                                    args.load_model,
+                                    " using different options than when saved, abort",
+                                )
+                                print(
+                                    '  Saved compile option: "'
+                                    + saved_compile_option
+                                    + '"'
+                                )
+                                print(
+                                    '  Current compile option: "'
+                                    + args.compile_args
+                                    + '"'
+                                )
+                                exit(1)
+                        except json.JSONDecodeError as e:
                             print(
-                                "Try to load model from",
-                                args.load_model,
-                                " using different options than when saved, abort",
+                                "Error: Failed to parse compiler options file as JSON:",
+                                str(e),
                             )
-                            print('  Save options: "' + options_from_file + '"')
-                            print('  Load options: "' + expected_string + '"')
+                            print("  File content:", options_from_file)
                             exit(1)
                     else:
                         print('  Cached model options: "' + options_from_file + '"')
