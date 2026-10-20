@@ -764,6 +764,10 @@ class InferenceSession:
                     + args.cache_model
                     + '": save model this run.'
                 )
+                if not args.model:
+                    print("error: no input model to compile, use argument --model.")
+                    print(parser.format_usage())
+                    exit(1)
                 args.save_model = args.cache_model
             else:
                 print(
@@ -1411,8 +1415,10 @@ def load_user_config(config_file):
 def handle_args():
     global args
     args = parser.parse_args()
-    if not (args.model or args.load_model):
-        print("error: no input model, use argument --model and/or --load-model.")
+    if not (args.model or args.load_model or args.cache_model):
+        print(
+            "error: no input model, use argument --model and/or --load-model and/or --cache-model."
+        )
         print(parser.format_usage())
         exit(1)
 
