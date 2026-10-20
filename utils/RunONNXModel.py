@@ -198,6 +198,19 @@ parser.add_argument(
     " by --verify-with-softmax=<axis>.",
 )
 parser.add_argument(
+    "--verify-with-cosine-similarity",
+    action="store_true",
+    help="Verify the output using cosine similarity between actual and reference outputs."
+    " Each output tensor is flattened and compared independently.",
+)
+parser.add_argument(
+    "--cosine-threshold",
+    type=str,
+    default="0.99",
+    help="Cosine similarity threshold for verification. Values >= threshold are considered correct."
+    " Default is 0.99. Valid range: -1.0 to 1.0.",
+)
+parser.add_argument(
     "--verify-every-value",
     action="store_true",
     help="Verify every value of the output using atol and rtol.",
@@ -370,15 +383,20 @@ def verify_arg():
         args.verify
         and (args.verify_with_softmax is None)
         and (not args.verify_every_value)
+        and (not args.verify_with_cosine_similarity)
     ):
         raise RuntimeError(
             "Choose verification mode: --verify-with-softmax or "
-            "--verify-every-value or both"
+            "--verify-every-value or --verify-with-cosine-similarity or combinations"
         )
     if args.verify_with_softmax is not None and (not args.verify):
         raise RuntimeError("Must specify --verify to use --verify-with-softmax")
     if args.verify_every_value and (not args.verify):
         raise RuntimeError("Must specify --verify to use --verify-every-value")
+    if args.verify_with_cosine_similarity and (not args.verify):
+        raise RuntimeError(
+            "Must specify --verify to use --verify-with-cosine-similarity"
+        )
 
     if args.verify and args.verify.lower() == "onnxruntime":
         if not args.model or (args.model and not args.model.endswith(".onnx")):
@@ -453,6 +471,26 @@ def ordinal(n):
 
 def softmax(x, axis_value):
     return np.exp(x) / np.sum(np.exp(x), axis=axis_value, keepdims=True)
+
+
+def cosine_similarity(actual, reference):
+    """Compute cosine similarity between two arrays.
+
+    Formula: cos(θ) = (A · B) / (||A|| * ||B||)
+    Returns value in range [-1, 1].
+    """
+    actual_flat = actual.flatten()
+    reference_flat = reference.flatten()
+
+    dot_product = np.dot(actual_flat, reference_flat)
+    norm_actual = np.linalg.norm(actual_flat)
+    norm_reference = np.linalg.norm(reference_flat)
+
+    # Handle zero vectors.
+    if norm_actual == 0.0 or norm_reference == 0.0:
+        return 1.0 if norm_actual == 0.0 and norm_reference == 0.0 else 0.0
+
+    return dot_product / (norm_actual * norm_reference)
 
 
 def extend_model_output(model, intermediate_outputs):
@@ -1157,6 +1195,52 @@ class InferenceSession:
                     print()
                     exit(1)
 
+            # Verify using cosine similarity. Keep verifying the remaining outputs
+            # even if an earlier one is erroneous, so that every output's
+            # status is known instead of stopping on the first failure.
+            if args.verify_with_cosine_similarity:
+                threshold = float(args.cosine_threshold)
+                cosine_status = []
+                for i, name in enumerate(self.output_names):
+                    print(
+                        "Verifying using cosine similarity "
+                        "for output {}:{}".format(name, list(outs[i].shape)),
+                        "using threshold={} ...".format(args.cosine_threshold),
+                    )
+                    similarity = cosine_similarity(outs[i], ref_outs[i])
+                    is_correct = similarity >= threshold
+                    print(
+                        "  cosine similarity: {:.6f}".format(similarity),
+                        "(threshold: {:.6f})".format(threshold),
+                    )
+                    if is_correct:
+                        print("  correct.\n")
+                    else:
+                        print(
+                            "  FAILED: similarity {:.6f} < threshold {:.6f}\n".format(
+                                similarity, threshold
+                            )
+                        )
+                    cosine_status.append((name, is_correct, similarity))
+
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct, _ in cosine_status):
+                    print(
+                        "Summary of cosine similarity verification for {} output(s):".format(
+                            len(cosine_status)
+                        )
+                    )
+                    for name, is_correct, similarity in cosine_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print(
+                            "  {}: {} (similarity: {:.6f})".format(
+                                name, status, similarity
+                            )
+                        )
+                    print()
+                    exit(1)
+
             # For each output tensor, compare every value. Keep verifying the
             # remaining outputs even if an earlier one is erroneous, so that
             # every output's status is known instead of aborting on the first
@@ -1319,6 +1403,8 @@ def handle_args():
         user_config = load_user_config(args.config_file)
         parser.set_defaults(**user_config)
         args = parser.parse_args()
+
+    verify_arg()
 
     # print(args)
 
