@@ -744,6 +744,7 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   return status;
 }
 
+// clang-format off
 // FlashAttention for standard scaled dot-product attention (SDPA):
 //   Output = Softmax(Q * KT + Mask) * V
 //
@@ -753,8 +754,8 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 // Inputs (all 3DS stickified):
 //   Q      [B, S, H]   -- queries
 //   KT     [B, H, SK]  -- transposed keys
-//   Mask   [B, S, SK]  -- attention mask (additive, -inf for masked
-//   positions) V      [B, SK, HV] -- values
+//   Mask   [B, S, SK]  -- attention mask (additive, -inf for masked positions)
+//   V      [B, SK, HV] -- values
 // Output:
 //   output [B, S, HV]
 //
@@ -792,6 +793,7 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 //   pv_tmp       [S,HV]  -- scratch for P*V[c] and broadcast temporaries
 //   block_max    [S,1]   -- reused as tile_rowsum (non-overlapping lifetimes)
 //   + several    [S,1]   -- M, D, old_max, correction
+// clang-format on
 static zdnn_status flash_attention(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
     uint32_t tile_size, bool transpose_kt, zdnn_ztensor *output) {
