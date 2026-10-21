@@ -644,6 +644,13 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
   let description = [{
     Fused standard attention: Output = Softmax(Q * KT + Mask) * V.
 
+    Dimension definitions:
+      s: batch size (typically batch_size * num_heads)
+      m: query sequence length
+      n: head dimension (embedding size per head)
+      p: key/value sequence length
+      q: value head dimension (output embedding size per head)
+
     All operands use 3DS layout with a shared batch dimension s:
       Q:    [s, m, n]  — queries
       KT:   [s, n, p]  — keys (already transposed, when transposeKT=0)
@@ -654,6 +661,8 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
 
     When transposeKT=1, KT is actually K and the inner Q*K matmul uses
     hardware transpose to produce KT.
+
+    The transposeKT attribute defaults to 0 (off).
   }];
   let arguments = (ins ZTensor_3DS:$Q,
                        ZTensor_3DS:$KT,

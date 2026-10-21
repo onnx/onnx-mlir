@@ -787,7 +787,7 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 //
 // Memory footprint (per batch element):
 //   scratch_tile [S,T]   -- scores before softmax
-//   p_tile       [S,T]   -- exp(scores - M), separate buffer because
+//   p_tile       [S,T]   -- exp(scores - new_max), separate buffer because
 //                           broadcast_column_to_tile overwrites its target
 //   o_acc        [S,HV]  -- output accumulator
 //   pv_tmp       [S,HV]  -- scratch for P*V[c] and broadcast temporaries
@@ -898,12 +898,9 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
       zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
 
       // 1. scores = Q * KT[0] + Mask[0]
-      if (transpose_kt)
+      if (status == ZDNN_OK)
         status = zdnn_matmul_transpose_op(&tq.data, &tkt.data, &bias_qkt, false,
-            true, MATMUL_OP_ADDITION, &scratch_tile);
-      else
-        status = zdnn_matmul_op(
-            &tq.data, &tkt.data, &bias_qkt, MATMUL_OP_ADDITION, &scratch_tile);
+            transpose_kt, MATMUL_OP_ADDITION, &scratch_tile);
       if (status == ZDNN_OK)
         status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
@@ -969,12 +966,9 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
         zdnnx_set_tile(&si_v, &tv, NULL, b, 0, c, 0);
 
         // 1. scores = Q * KT[c] + Mask[c]  [S, T]
-        if (transpose_kt)
+        if (status == ZDNN_OK)
           status = zdnn_matmul_transpose_op(&tq.data, &tkt.data, &bias_qkt,
-              false, true, MATMUL_OP_ADDITION, &scratch_tile);
-        else
-          status = zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt,
-              MATMUL_OP_ADDITION, &scratch_tile);
+              false, transpose_kt, MATMUL_OP_ADDITION, &scratch_tile);
         if (status == ZDNN_OK)
           status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
