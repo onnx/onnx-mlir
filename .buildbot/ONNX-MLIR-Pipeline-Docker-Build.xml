@@ -492,11 +492,6 @@ def checkout_pr_source(url, remote, refspec, branch, recursive) {
     ])
 }
 </script>
-    <!-- sandbox remains false: the outer script uses new Date(), Math.min(),
-         and .format() which are rejected by the Jenkins sandbox whitelist.
-         The security gate is instead the exact-token admin check above (f002)
-         and the fact that this outer script itself is maintained in the
-         protected repo, not sourced from the PR head. -->
     <sandbox>false</sandbox>
   </definition>
   <triggers/>
