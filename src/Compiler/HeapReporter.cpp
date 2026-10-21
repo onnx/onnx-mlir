@@ -13,11 +13,14 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LLVM.h"
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
 #if defined(__APPLE__)
+#include "llvm/Support/Program.h"
+#include <fstream>
 #include <unistd.h> // Unsupported on MSVC.
 #endif
 
@@ -76,15 +79,54 @@ void HeapReporter::reportBegin(const std::string &heading) {
   }
   // Capture the first 40 lines of heap output, which include the top level
   // numbers and a handful of the largest allocation classes.
-  command =
-      "heap -s " + std::to_string(getpid()) + " | head -n40 >> " + logFilename;
+  command = "heap -s " + std::to_string(getpid());
   logMessage(logFilename,
       heading + "\nusing heap report command: '" + command + "'\n");
 }
 
 void HeapReporter::reportHeap(const std::string &heading) {
   logMessage(logFilename, "\n" + heading + ":\n", llvm::sys::fs::OF_Append);
-  std::system(command.c_str());
+
+  llvm::SmallString<128> tmpPath;
+  if (llvm::sys::fs::createTemporaryFile("heap-report", "log", tmpPath)) {
+    llvm::errs() << "Error: could not create temporary file for heap report\n";
+    return;
+  }
+  std::string tmpFilename = tmpPath.str().str();
+
+  auto heapPathOrErr = llvm::sys::findProgramByName("heap");
+  if (!heapPathOrErr) {
+    llvm::errs() << "Error: 'heap' executable not found in PATH\n";
+    llvm::sys::fs::remove(tmpFilename);
+    return;
+  }
+
+  std::string pidStr = std::to_string(getpid());
+  std::vector<StringRef> argsRef = {heapPathOrErr.get(), "-s", pidStr};
+  std::optional<StringRef> redirects[] = {
+      std::nullopt, StringRef(tmpFilename), std::nullopt};
+  std::string errMsg;
+  int rc = llvm::sys::ExecuteAndWait(heapPathOrErr.get(),
+      llvm::ArrayRef(argsRef), /*Env=*/std::nullopt,
+      /*Redirects=*/redirects, /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
+  if (rc != 0) {
+    llvm::errs() << "Error running heap command: " << errMsg << "\n";
+  }
+
+  std::error_code EC;
+  llvm::raw_fd_ostream os(
+      logFilename, EC, llvm::sys::fs::OF_Text | llvm::sys::fs::OF_Append);
+  if (EC) {
+    llvm::errs() << "Error: '" << EC.message() << "' opening heap report file '"
+                 << logFilename << "'\n";
+    exit(1);
+  }
+  std::ifstream ifs(tmpFilename);
+  std::string line;
+  for (int i = 0; i < 40 && std::getline(ifs, line); ++i)
+    os << line << "\n";
+  ifs.close();
+  llvm::sys::fs::remove(tmpFilename);
 }
 #else
 // TODO: Support heap reporting on more operating systems.

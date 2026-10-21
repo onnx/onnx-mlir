@@ -51,6 +51,10 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   }
 
   // Perform transposition according to perm attribute.
+  if (ArrayAttrSize(permAttr) != (size_t)rank)
+    return op->emitError() << "Transpose op perm attribute has "
+                           << ArrayAttrSize(permAttr)
+                           << " elements but rank is " << rank;
   DimsExpr transposedDims;
   for (decltype(rank) i = 0; i < rank; ++i) {
     int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
