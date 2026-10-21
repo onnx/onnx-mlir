@@ -198,6 +198,19 @@ parser.add_argument(
     " by --verify-with-softmax=<axis>.",
 )
 parser.add_argument(
+    "--verify-with-cosine-similarity",
+    action="store_true",
+    help="Verify the output using cosine similarity between actual and reference outputs."
+    " Each output tensor is flattened and compared independently.",
+)
+parser.add_argument(
+    "--cosine-threshold",
+    type=str,
+    default="0.99",
+    help="Cosine similarity threshold for verification. Values >= threshold are considered correct."
+    " Default is 0.99. Valid range: -1.0 to 1.0.",
+)
+parser.add_argument(
     "--verify-every-value",
     action="store_true",
     help="Verify every value of the output using atol and rtol.",
@@ -370,15 +383,20 @@ def verify_arg():
         args.verify
         and (args.verify_with_softmax is None)
         and (not args.verify_every_value)
+        and (not args.verify_with_cosine_similarity)
     ):
         raise RuntimeError(
             "Choose verification mode: --verify-with-softmax or "
-            "--verify-every-value or both"
+            "--verify-every-value or --verify-with-cosine-similarity or combinations"
         )
     if args.verify_with_softmax is not None and (not args.verify):
         raise RuntimeError("Must specify --verify to use --verify-with-softmax")
     if args.verify_every_value and (not args.verify):
         raise RuntimeError("Must specify --verify to use --verify-every-value")
+    if args.verify_with_cosine_similarity and (not args.verify):
+        raise RuntimeError(
+            "Must specify --verify to use --verify-with-cosine-similarity"
+        )
 
     if args.verify and args.verify.lower() == "onnxruntime":
         if not args.model or (args.model and not args.model.endswith(".onnx")):
@@ -453,6 +471,26 @@ def ordinal(n):
 
 def softmax(x, axis_value):
     return np.exp(x) / np.sum(np.exp(x), axis=axis_value, keepdims=True)
+
+
+def cosine_similarity(actual, reference):
+    """Compute cosine similarity between two arrays.
+
+    Formula: cos(θ) = (A · B) / (||A|| * ||B||)
+    Returns value in range [-1, 1].
+    """
+    actual_flat = actual.flatten()
+    reference_flat = reference.flatten()
+
+    dot_product = np.dot(actual_flat, reference_flat)
+    norm_actual = np.linalg.norm(actual_flat)
+    norm_reference = np.linalg.norm(reference_flat)
+
+    # Handle zero vectors.
+    if norm_actual == 0.0 or norm_reference == 0.0:
+        return 1.0 if norm_actual == 0.0 and norm_reference == 0.0 else 0.0
+
+    return dot_product / (norm_actual * norm_reference)
 
 
 def extend_model_output(model, intermediate_outputs):
@@ -633,7 +671,7 @@ def data_without_top_bottom_quartile(data, percent):
 
 
 def cache_string(model_name, compile_option):
-    return "model: " + model_name + "; compile option: " + compile_option
+    return json.dumps({"model": model_name, "compile_option": compile_option})
 
 
 def check_mlir_has_entry_point(mlir_path):
@@ -726,6 +764,10 @@ class InferenceSession:
                     + args.cache_model
                     + '": save model this run.'
                 )
+                if not args.model:
+                    print("error: no input model to compile, use argument --model.")
+                    print(parser.format_usage())
+                    exit(1)
                 args.save_model = args.cache_model
             else:
                 print(
@@ -813,18 +855,35 @@ class InferenceSession:
             #  if we have saved the options in the "compiler_option.txt" file, and
             #  if we have provided compiler options
             if os.path.exists(compiler_option_file):
-                expected_string = cache_string(args.model, args.compile_args)
                 with open(compiler_option_file, "r") as f:
                     options_from_file = f.read()
                     if args.compile_args:
-                        if options_from_file != expected_string:
+                        try:
+                            saved_dict = json.loads(options_from_file)
+                            saved_compile_option = saved_dict.get("compile_option", "")
+                            if saved_compile_option != args.compile_args:
+                                print(
+                                    "Try to load model from",
+                                    args.load_model,
+                                    " using different options than when saved, abort",
+                                )
+                                print(
+                                    '  Saved compile option: "'
+                                    + saved_compile_option
+                                    + '"'
+                                )
+                                print(
+                                    '  Current compile option: "'
+                                    + args.compile_args
+                                    + '"'
+                                )
+                                exit(1)
+                        except json.JSONDecodeError as e:
                             print(
-                                "Try to load model from",
-                                args.load_model,
-                                " using different options than when saved, abort",
+                                "Error: Failed to parse compiler options file as JSON:",
+                                str(e),
                             )
-                            print('  Save options: "' + options_from_file + '"')
-                            print('  Load options: "' + expected_string + '"')
+                            print("  File content:", options_from_file)
                             exit(1)
                     else:
                         print('  Cached model options: "' + options_from_file + '"')
@@ -1157,6 +1216,52 @@ class InferenceSession:
                     print()
                     exit(1)
 
+            # Verify using cosine similarity. Keep verifying the remaining outputs
+            # even if an earlier one is erroneous, so that every output's
+            # status is known instead of stopping on the first failure.
+            if args.verify_with_cosine_similarity:
+                threshold = float(args.cosine_threshold)
+                cosine_status = []
+                for i, name in enumerate(self.output_names):
+                    print(
+                        "Verifying using cosine similarity "
+                        "for output {}:{}".format(name, list(outs[i].shape)),
+                        "using threshold={} ...".format(args.cosine_threshold),
+                    )
+                    similarity = cosine_similarity(outs[i], ref_outs[i])
+                    is_correct = similarity >= threshold
+                    print(
+                        "  cosine similarity: {:.6f}".format(similarity),
+                        "(threshold: {:.6f})".format(threshold),
+                    )
+                    if is_correct:
+                        print("  correct.\n")
+                    else:
+                        print(
+                            "  FAILED: similarity {:.6f} < threshold {:.6f}\n".format(
+                                similarity, threshold
+                            )
+                        )
+                    cosine_status.append((name, is_correct, similarity))
+
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct, _ in cosine_status):
+                    print(
+                        "Summary of cosine similarity verification for {} output(s):".format(
+                            len(cosine_status)
+                        )
+                    )
+                    for name, is_correct, similarity in cosine_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print(
+                            "  {}: {} (similarity: {:.6f})".format(
+                                name, status, similarity
+                            )
+                        )
+                    print()
+                    exit(1)
+
             # For each output tensor, compare every value. Keep verifying the
             # remaining outputs even if an earlier one is erroneous, so that
             # every output's status is known instead of aborting on the first
@@ -1310,8 +1415,10 @@ def load_user_config(config_file):
 def handle_args():
     global args
     args = parser.parse_args()
-    if not (args.model or args.load_model):
-        print("error: no input model, use argument --model and/or --load-model.")
+    if not (args.model or args.load_model or args.cache_model):
+        print(
+            "error: no input model, use argument --model and/or --load-model and/or --cache-model."
+        )
         print(parser.format_usage())
         exit(1)
 
@@ -1319,6 +1426,8 @@ def handle_args():
         user_config = load_user_config(args.config_file)
         parser.set_defaults(**user_config)
         args = parser.parse_args()
+
+    verify_arg()
 
     # print(args)
 
