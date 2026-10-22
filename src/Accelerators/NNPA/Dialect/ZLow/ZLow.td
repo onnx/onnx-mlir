@@ -240,6 +240,33 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable,
                        StrAttr:$act_func);
 }
 
+def ZLowSDPA3DOp:ZLow_Op<"sdpa3d",
+    [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let summary = "ZLow standard scaled dot-product attention (SDPA)";
+  let description = [{
+  Lowered form of zhigh.SDPA3D.
+  Computes Output = Softmax(Q * KT + Mask) * V on stickified zTensors.
+
+  Operands (all 3DS stickified memrefs):
+    Q:    [s, m, n]  — queries
+    KT:   [s, n, p]  — keys (already transposed if transposeKT=0)
+          [s, p, n]  — keys (not transposed if transposeKT=1)
+    Mask: [s, m, p]  — additive attention mask
+    V:    [s, p, q]  — values
+    Out:  [s, m, q]  — attention output
+  shape: memref<5xi64> = [s, m, n, p, q].
+  transposeKT: 0 = KT already transposed, 1 = KT is K, transpose done in hardware.
+  }];
+  let arguments = (ins ZMemRef:$Q,
+                       ZMemRef:$KT,
+                       ZMemRef:$Mask,
+                       ZMemRef:$V,
+                       MemRefOf<[I64]>:$shape,
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeKT,
+                       ZMemRef:$Out);
+}
+
 def ZLowSqrtOp:ZLow_Op<"sqrt", [MemRefsNormalizable]> {
   let summary = "ZLow sqrt operation";
   let description = [{
