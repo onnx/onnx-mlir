@@ -113,6 +113,8 @@ public class OMTensor {
      * @param flag true for boolean tensor, false for byte tensor
      *
      * @return OMTensor with boolean or byte data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(byte[] data, long[] shape, boolean flag) {
 	if (flag)
@@ -129,6 +131,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with byte data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(byte[] data, long[] shape) {
 	this(data, shape, false);
@@ -141,6 +145,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with short data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(short[] data, long[] shape) {
         setShortData(data);
@@ -154,6 +160,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with int data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(int[] data, long[] shape) {
         setIntData(data);
@@ -167,6 +175,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with long data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(long[] data, long[] shape) {
         setLongData(data);
@@ -180,6 +190,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with float data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(float[] data, long[] shape) {
         setFloatData(data);
@@ -193,6 +205,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with double data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(double[] data, long[] shape) {
         setDoubleData(data);
@@ -235,8 +249,7 @@ public class OMTensor {
          */
         _data = ByteBuffer.allocateDirect(data.length);
         _data.slice().put(data);
-        _dataType = ONNX_TYPE_INT8;
-        validateBufferSize();
+        _dataType = ONNX_TYPE_BOOL;
     }
 
     /* ---------- Byte data getter and setter ---------- */
@@ -273,7 +286,6 @@ public class OMTensor {
         _data = ByteBuffer.allocateDirect(data.length);
         _data.slice().put(data);
         _dataType = ONNX_TYPE_INT8;
-        validateBufferSize();
     }
 
     /* ---------- Short data getter and setter ---------- */
@@ -311,7 +323,6 @@ public class OMTensor {
         _data = ByteBuffer.allocateDirect(data.length*2).order(nativeEndian);
         _data.asShortBuffer().put(data);
         _dataType = ONNX_TYPE_INT16;
-        validateBufferSize();
     }
 
     /* ---------- Int data getter and setter ---------- */
@@ -349,7 +360,6 @@ public class OMTensor {
         _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
         _data.asIntBuffer().put(data);
         _dataType = ONNX_TYPE_INT32;
-        validateBufferSize();
     }
 
     /* ---------- Long data getter and setter ---------- */
@@ -387,7 +397,6 @@ public class OMTensor {
         _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
         _data.asLongBuffer().put(data);
         _dataType = ONNX_TYPE_INT64;
-        validateBufferSize();
     }
 
     /* ---------- Float data getter and setter ---------- */
@@ -425,7 +434,6 @@ public class OMTensor {
         _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
         _data.asFloatBuffer().put(data);
         _dataType = ONNX_TYPE_FLOAT;
-        validateBufferSize();
     }
 
     /* ---------- Double data getter and setter ---------- */
@@ -463,7 +471,6 @@ public class OMTensor {
         _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
         _data.asDoubleBuffer().put(data);
         _dataType = ONNX_TYPE_DOUBLE;
-        validateBufferSize();
     }
 
     /* ---------- Data shape getter and setter ---------- */
@@ -486,9 +493,7 @@ public class OMTensor {
         if (shape.length != _rank)
             throw new IllegalArgumentException(
                     "array length " + shape.length + " != rank " + _rank);
-        validateShape(shape);
         _shape = shape;
-        validateBufferSize();
     }
 
     /* ---------- Data strides getter and setter ---------- */
@@ -535,7 +540,6 @@ public class OMTensor {
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
         _dataType = dataType;
-        validateBufferSize();
     }
 
     /* ---------- Data buffer size getter ---------- */
@@ -587,10 +591,12 @@ public class OMTensor {
         }
     }
 
+    /* Types without a fixed element size (UNDEFINED, STRING) are not checked. */
     private void validateBufferSize() {
         if (_data == null || _shape == null) return;
-        long numElems = getNumElems();
         long elemSize = ONNX_TYPE_SIZE[_dataType];
+        if (elemSize == 0) return;
+        long numElems = getNumElems();
         long expectedBytes = numElems * elemSize;
         if (expectedBytes != _data.limit()) {
             throw new IllegalArgumentException(
@@ -623,6 +629,9 @@ public class OMTensor {
      * @param shape data shape
      * @param dataType data type
      * @param endian data endian
+     * @throws IllegalArgumentException if dataType is unknown, endian is
+     *         null, shape is null or has a negative dimension, or shape and
+     *         dataType do not match the size of data
      */
     protected OMTensor(ByteBuffer data, long[] shape, ByteOrder endian, int dataType) {
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
@@ -643,15 +652,18 @@ public class OMTensor {
      * @param shape data shape
      * @param strides data stride
      * @param dataType data type
+     * @throws IllegalArgumentException if shape is null or has a negative
+     *         dimension, shape and strides lengths differ, dataType is
+     *         unknown, or shape and dataType do not match the size of data
      */
     protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+        validateShape(shape);
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
-        validateShape(shape);
         /* data is owned by the native code. Make a copy to allow the JNI
            wrapper to clean up the native memory. */
         _data = ByteBuffer.allocateDirect(data.capacity()).order(nativeEndian);
