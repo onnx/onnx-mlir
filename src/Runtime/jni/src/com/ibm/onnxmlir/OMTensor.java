@@ -117,11 +117,11 @@ public class OMTensor {
      *         dimension, or does not match the size of data
      */
     public OMTensor(byte[] data, long[] shape, boolean flag) {
-	if (flag)
-	    setBoolData(data);
-	else
-	    setByteData(data);
-	putShape(shape);
+        if (flag)
+            setBoolData(data);
+        else
+            setByteData(data);
+        putShape(shape);
     }
 
     /**
@@ -135,7 +135,7 @@ public class OMTensor {
      *         dimension, or does not match the size of data
      */
     public OMTensor(byte[] data, long[] shape) {
-	this(data, shape, false);
+        this(data, shape, false);
     }
 
     /**
@@ -224,10 +224,10 @@ public class OMTensor {
      * @return bool data array
      */
     public byte[] getBoolData() {
-	if (_dataType != ONNX_TYPE_BOOL)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-	if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_BOOL)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        if (_data == null) return null;
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -260,10 +260,10 @@ public class OMTensor {
      * @return byte data array
      */
     public byte[] getByteData() {
-	if (_dataType != ONNX_TYPE_INT8 && _dataType != ONNX_TYPE_UINT8)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-	if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_INT8 && _dataType != ONNX_TYPE_UINT8)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        if (_data == null) return null;
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -296,9 +296,9 @@ public class OMTensor {
      * @return short data array
      */
     public short[] getShortData() {
-	if (_dataType != ONNX_TYPE_INT16 && _dataType != ONNX_TYPE_UINT16)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
+        if (_dataType != ONNX_TYPE_INT16 && _dataType != ONNX_TYPE_UINT16)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asShortBuffer() creates a new view so the position of the
@@ -333,9 +333,9 @@ public class OMTensor {
      * @return int data array
      */
     public int[] getIntData() {
-	if (_dataType != ONNX_TYPE_INT32 && _dataType != ONNX_TYPE_UINT32)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
+        if (_dataType != ONNX_TYPE_INT32 && _dataType != ONNX_TYPE_UINT32)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asIntBuffer() creates a new view so the position of the
@@ -370,9 +370,9 @@ public class OMTensor {
      * @return long data array
      */
     public long[] getLongData() {
-	if (_dataType != ONNX_TYPE_INT64 && _dataType != ONNX_TYPE_UINT64)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
+        if (_dataType != ONNX_TYPE_INT64 && _dataType != ONNX_TYPE_UINT64)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asLongBuffer() creates a new view so the position of the
@@ -407,9 +407,9 @@ public class OMTensor {
      * @return float data array
      */
     public float[] getFloatData() {
-	if (_dataType != ONNX_TYPE_FLOAT)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
+        if (_dataType != ONNX_TYPE_FLOAT)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asFloatBuffer() creates a new view so the position of the
@@ -444,9 +444,9 @@ public class OMTensor {
      * @return double data array
      */
     public double[] getDoubleData() {
-	if (_dataType != ONNX_TYPE_DOUBLE)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
+        if (_dataType != ONNX_TYPE_DOUBLE)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asDoubleBuffer() creates a new view so the position of the
@@ -613,11 +613,17 @@ public class OMTensor {
 
         /* Using signed indices helps detect when index falls below 0. */
         for (int i = _rank - 1; i >= 0; i--) {
-          _shape[i] = shape[i];
-          if (i == _rank - 1)
-            _strides[i] = 1;
-          else
-            _strides[i] = _strides[i+1] * _shape[i+1];
+            _shape[i] = shape[i];
+            if (i == _rank - 1) {
+                _strides[i] = 1;
+            } else {
+                try {
+                    _strides[i] = Math.multiplyExact(_strides[i + 1], _shape[i + 1]);
+                } catch (ArithmeticException e) {
+                    throw new IllegalArgumentException(
+                            "shape too large, stride overflows at index " + i);
+                }
+            }
         }
         validateBufferSize();
     }
@@ -637,12 +643,12 @@ public class OMTensor {
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
-	if (endian == null)
-	    throw new IllegalArgumentException("endian unknown");
+        if (endian == null)
+            throw new IllegalArgumentException("endian unknown");
 
         _data = data.order(endian);
         _dataType = dataType;
-	putShape(shape);
+        putShape(shape);
     }
 
     /**
