@@ -899,8 +899,8 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
       // 1. scores = Q * KT[0] + Mask[0]
       if (status == ZDNN_OK)
-        status = zdnn_matmul_transpose_op(&tq.data, &tkt.data, &bias_qkt, false,
-            transpose_kt, MATMUL_OP_ADDITION, &scratch_tile);
+        status = call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
+            transpose_kt, MATMUL_OP_ADDITION, &scratch_tile, false);
       if (status == ZDNN_OK)
         status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
@@ -967,8 +967,8 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
         // 1. scores = Q * KT[c] + Mask[c]  [S, T]
         if (status == ZDNN_OK)
-          status = zdnn_matmul_transpose_op(&tq.data, &tkt.data, &bias_qkt,
-              false, transpose_kt, MATMUL_OP_ADDITION, &scratch_tile);
+          status = call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
+              transpose_kt, MATMUL_OP_ADDITION, &scratch_tile, false);
         if (status == ZDNN_OK)
           status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
