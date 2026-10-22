@@ -14,8 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
 
 #include "seq_ops.h"
 #include "zdnnx.h"
@@ -514,4 +517,570 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
   zdnnx_free_buffer(tile_buff_c);
   zdnnx_free_buffer(tile_buff_y);
   return ZDNN_OK;
+}
+
+#define PAGE_4K 4096
+#define HUGE_PAGE_SIZE (1024 * 1024)
+
+static void *huge_page_malloc_4k(size_t size) {
+  if (size == 0)
+    return malloc(size);
+  void *ptr = NULL;
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+  if (size >= HUGE_PAGE_SIZE) {
+    if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) == 0) {
+      madvise(ptr, size, MADV_HUGEPAGE);
+      return ptr;
+    }
+  }
+#endif
+  if (posix_memalign(&ptr, PAGE_4K, size) == 0)
+    return ptr;
+  return malloc(size);
+}
+
+static inline void prefetch_read(const void *ptr, uintptr_t offset) {
+#if defined(__MVS__)
+  __dcbt((void *)((uintptr_t)ptr + offset));
+#else
+  __builtin_prefetch((void *)((uintptr_t)ptr + offset), 0);
+#endif
+}
+
+static inline void prefetch_write(const void *ptr, uintptr_t offset) {
+#if defined(__MVS__)
+  __dcbtst((void *)((uintptr_t)ptr + offset));
+#else
+  __builtin_prefetch((void *)((uintptr_t)ptr + offset), 1);
+#endif
+}
+
+static inline void cache_flush(const void *ptr, uintptr_t offset) {
+#if defined(__MVS__)
+  __dcbf((void *)((uintptr_t)ptr + offset));
+#else
+  (void)ptr;
+  (void)offset;
+#endif
+}
+
+// Broadcast a column vector [1, S, 1] to a tile [1, S, T] in stickified space.
+// 3DS layout: (e4, e2, e1) -> (e4, ceil(e1/64), 1, ceil(e2/32), 32, 64).
+// Each stick row in the source has one DLFLOAT16 value at position 0.
+// We replicate it across all 64 positions, then copy page 0 to all ceil(T/64)
+// pages.
+static void broadcast_column_to_tile(
+    const zdnn_ztensor *col, zdnn_ztensor *tile) {
+  uint32_t S = col->pre_transformed_desc->dim2;
+  uint32_t T = tile->pre_transformed_desc->dim1;
+  uint32_t num_stick_groups = (S + 31) / 32;
+  uint32_t num_pages = (T + 63) / 64;
+  uint32_t page_bytes = num_stick_groups * 4096;
+
+  const char *src = (const char *)col->buffer;
+  char *dst = (char *)tile->buffer;
+
+  for (uint32_t c = 0; c < num_stick_groups; c++) {
+    uint64_t group_offset = (uint64_t)c * 4096;
+    prefetch_read(src, group_offset);
+    for (uint32_t r = 0; r < 32; r++) {
+      uint64_t offset = group_offset + r * 128;
+      if (r + 1 < 32)
+        prefetch_read(src, offset + 128);
+      prefetch_write(dst, offset);
+      uint16_t val;
+      memcpy(&val, src + offset, sizeof(val));
+      uint16_t *row = (uint16_t *)(dst + offset);
+      for (uint32_t j = 0; j < 64; j++)
+        row[j] = val;
+      cache_flush(dst, offset);
+    }
+  }
+
+  for (uint32_t p = 1; p < num_pages; p++)
+    memcpy(dst + (uint64_t)p * page_bytes, dst, page_bytes);
+
+  tile->is_transformed = true;
+}
+
+// Free buffer and heap-allocated descriptors of an intermediate ztensor.
+static void free_ztensor(zdnn_ztensor *zt) {
+  free(zt->buffer);
+  free(zt->pre_transformed_desc);
+  free(zt->transformed_desc);
+}
+
+// Helper to create a 3DS ztensor, allocate buffer, and optionally stickify.
+static zdnn_status create_3ds_ztensor(
+    uint32_t s, uint32_t m, uint32_t n, zdnn_ztensor *zt, float *fp32_data) {
+  zdnn_tensor_desc *pre = malloc(sizeof(zdnn_tensor_desc));
+  zdnn_tensor_desc *trans = malloc(sizeof(zdnn_tensor_desc));
+  if (!pre || !trans) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
+  zdnn_init_pre_transformed_desc(ZDNN_3DS, FP32, pre, s, m, n);
+  zdnn_status rc = zdnn_generate_transformed_desc(pre, trans);
+  if (rc != ZDNN_OK) {
+    free(pre);
+    free(trans);
+    return rc;
+  }
+  zdnn_init_ztensor(pre, trans, zt);
+  uint64_t buf_size = zdnn_getsize_ztensor(trans);
+  zt->buffer = huge_page_malloc_4k(buf_size);
+  if (!zt->buffer) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
+  zt->buffer_size = buf_size;
+  if (fp32_data) {
+    rc = zdnn_transform_ztensor(zt, fp32_data);
+  } else {
+    zt->is_transformed = true;
+  }
+  return rc;
+}
+
+static zdnn_status create_2ds_zero_bias(
+    uint32_t s, uint32_t n, zdnn_ztensor *zt) {
+  zdnn_tensor_desc *pre = malloc(sizeof(zdnn_tensor_desc));
+  zdnn_tensor_desc *trans = malloc(sizeof(zdnn_tensor_desc));
+  if (!pre || !trans) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
+  zdnn_init_pre_transformed_desc(ZDNN_2DS, FP32, pre, s, n);
+  zdnn_status rc = zdnn_generate_transformed_desc(pre, trans);
+  if (rc != ZDNN_OK) {
+    free(pre);
+    free(trans);
+    return rc;
+  }
+  zdnn_init_ztensor(pre, trans, zt);
+  uint64_t buf_size = zdnn_getsize_ztensor(trans);
+  zt->buffer = huge_page_malloc_4k(buf_size);
+  if (!zt->buffer) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
+  zt->buffer_size = buf_size;
+  memset(zt->buffer, 0, zt->buffer_size);
+  zt->is_transformed = true;
+  return ZDNN_OK;
+}
+
+// Basic SDPA: Output = Softmax(Q * KT + Mask) * V
+//
+// Dimension key: B=batches*heads, S=seq_len, SK=key_seq_len, H=head_dim,
+//                HV=value_dim.
+//
+// Inputs (all 3DS stickified):
+//   Q      [B, S, H]   -- queries
+//   KT     [B, H, SK]  -- transposed keys
+//   Mask   [B, S, SK]  -- attention mask (additive)
+//   V      [B, SK, HV] -- values
+// Output:
+//   output [B, S, HV]
+//
+// Allocates full scratch [B,S,SK] internally, does matmul+add+softmax, then
+// trailing matmul with V. Used for small S and as fallback when
+// ZDNNX_SDPA_3D_BASIC is set.
+static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
+    const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
+    zdnn_ztensor *output) {
+#ifdef ZDNNX_DEBUG
+  printf("[SDPA3D Basic, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
+#endif
+  zdnn_status status = ZDNN_OK;
+
+  uint32_t B = zdnnx_get_transformed_dim(Q, E4);
+  uint32_t S = zdnnx_get_transformed_dim(Q, E2);
+  // KT=[B,H,SK] when transpose_kt=false: SK is E1.
+  // K=[B,SK,H]  when transpose_kt=true:  SK is E2.
+  uint32_t SK = transpose_kt ? zdnnx_get_transformed_dim(KT, E2)
+                             : zdnnx_get_transformed_dim(KT, E1);
+  uint32_t HV = zdnnx_get_transformed_dim(V, E1);
+
+  zdnn_ztensor scores = {0}, probs = {0}, bias1 = {0}, bias2 = {0};
+
+  // scores = Q * KT (or Q * K when transpose_kt)
+  status = create_3ds_ztensor(B, S, SK, &scores, NULL);
+  if (status == ZDNN_OK)
+    status = create_2ds_zero_bias(B, SK, &bias1);
+  if (status == ZDNN_OK) {
+    if (transpose_kt)
+      status = zdnnx_matmul_transpose_op(
+          Q, KT, &bias1, 0, 1, MATMUL_OP_ADDITION, &scores);
+    else
+      status = zdnnx_matmul_op(Q, KT, &bias1, MATMUL_OP_ADDITION, &scores);
+  }
+  free_ztensor(&bias1);
+
+  // masks = scores + Mask
+  if (status == ZDNN_OK)
+    status = zdnnx_add(&scores, Mask, &scores);
+
+  // probs = softmax(scores);
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(B, S, SK, &probs, NULL);
+
+  if (status == ZDNN_OK)
+    status = zdnnx_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
+  free_ztensor(&scores);
+
+  // output = probs * V
+  if (status == ZDNN_OK)
+    status = create_2ds_zero_bias(B, HV, &bias2);
+  if (status == ZDNN_OK)
+    status = zdnnx_matmul_op(&probs, V, &bias2, MATMUL_OP_ADDITION, output);
+  free_ztensor(&bias2);
+  free_ztensor(&probs);
+
+  return status;
+}
+
+// clang-format off
+// FlashAttention for standard scaled dot-product attention (SDPA):
+//   Output = Softmax(Q * KT + Mask) * V
+//
+// Dimension key: B=batches*heads, S=seq_len, SK=key_seq_len, H=head_dim,
+//                HV=value_dim, T=tile_size (SK is tiled into N_t tiles of T).
+//
+// Inputs (all 3DS stickified):
+//   Q      [B, S, H]   -- queries
+//   KT     [B, H, SK]  -- transposed keys
+//   Mask   [B, S, SK]  -- attention mask (additive, -inf for masked positions)
+//   V      [B, SK, HV] -- values
+// Output:
+//   output [B, S, HV]
+//
+// Computes exact attention without materializing the full [B, S, SK]
+// probability matrix. Instead, tiles KT/Mask/V along the key dimension
+// (SK = N_t * T) and maintains per batch element:
+//   M   [S,1]   -- running row-wise max of scores (for numerical stability)
+//   D   [S,1]   -- running row-wise sum of exp(scores - M)
+//   O   [S,HV]  -- running weighted output accumulator
+//
+// First tile (c=0) -- no prior state, write directly to accumulators:
+//   1. scores   = Q * KT[0] + Mask[0]                  [S, T]
+//   2. M        = row_max(scores)                       [S, 1]
+//   3. P        = exp(scores - M)                       [S, T]
+//   4. D        = row_sum(P)                            [S, 1]
+//   5. O        = P * V[0]                              [S, HV]
+//
+// Remaining tiles (c=1..N_t-1) -- online softmax update:
+//   1. scores   = Q * KT[c] + Mask[c]                  [S, T]
+//   2. new_max  = max(M, row_max(scores))              [S, 1]
+//   3. corr     = exp(M - new_max)                     [S, 1]
+//   4. M        = new_max
+//   6. P        = exp(scores - new_max)                [S, T]
+//   5. D        = D * corr + row_sum(P)
+//   7. O        = O * corr + P * V[c]
+//
+// After all tiles:
+//   output = O / D   (broadcast D across columns)
+//
+// Memory footprint (per batch element):
+//   scratch_tile [S,T]   -- scores before softmax
+//   p_tile       [S,T]   -- exp(scores - new_max), separate buffer because
+//                           broadcast_column_to_tile overwrites its target
+//   o_acc        [S,HV]  -- output accumulator
+//   pv_tmp       [S,HV]  -- scratch for P*V[c] and broadcast temporaries
+//   block_max    [S,1]   -- reused as tile_rowsum (non-overlapping lifetimes)
+//   + several    [S,1]   -- M, D, old_max, correction
+// clang-format on
+static zdnn_status flash_attention(const zdnn_ztensor *Q,
+    const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
+    uint32_t tile_size, bool transpose_kt, zdnn_ztensor *output) {
+#ifdef ZDNNX_DEBUG
+  printf("[SDPA3D Flash, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
+#endif
+  zdnn_status status = ZDNN_OK;
+  uint32_t S = zdnnx_get_transformed_dim(Q, E2);
+  uint32_t HV = zdnnx_get_transformed_dim(V, E1);
+  uint32_t T = (tile_size < S) ? tile_size : S;
+
+#ifdef ZDNNX_DEBUG
+  uint32_t SK = zdnnx_get_transformed_dim(Mask, E1);
+  uint32_t B = zdnnx_get_transformed_dim(Q, E4);
+  printf("[SDPA3D Flash] S=%u, SK=%u, T=%u, B=%u, HV=%u\n", S, SK, T, B, HV);
+#endif
+
+  float *fp32_buf = NULL;
+  zdnn_ztensor ones_zt = {0};
+  zdnn_ztensor max_row_zt = {0}, sum_row_zt = {0};
+  zdnn_ztensor old_max_zt = {0}, block_max_zt = {0};
+  zdnn_ztensor correction_zt = {0};
+  zdnn_ztensor scratch_tile = {0}, p_tile = {0}, bias_qkt = {0}, bias_1 = {0};
+  zdnn_ztensor o_acc = {0}, pv_tmp = {0}, bias_v = {0};
+
+  // ones [1, T, 1] for row-sum matmul.
+  fp32_buf = (float *)malloc(T * sizeof(float));
+  if (!fp32_buf)
+    status = ZDNN_ALLOCATION_FAILURE;
+  if (status == ZDNN_OK) {
+    for (uint32_t i = 0; i < T; i++)
+      fp32_buf[i] = 1.0f;
+    status = create_3ds_ztensor(1, T, 1, &ones_zt, fp32_buf);
+  }
+  // Helper [1, S, 1] tensors (reused across tiles).
+  // Running max [1, S, 1]
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, 1, &max_row_zt, NULL);
+  // Running sum [1, S, 1]
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, 1, &sum_row_zt, NULL);
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, 1, &old_max_zt, NULL);
+  // block_max_zt is also reused as tile_rowsum (non-overlapping lifetimes).
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, 1, &block_max_zt, NULL);
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, 1, &correction_zt, NULL);
+
+  // scratch_tile [1, S, T] -- holds scores.
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, T, &scratch_tile, NULL);
+  // p_tile [1, S, T] -- holds P = exp(scores - max).
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, T, &p_tile, NULL);
+
+  // Zero bias for Q*KT matmul: 2DS{1, T}, reused across all tiles.
+  if (status == ZDNN_OK)
+    status = create_2ds_zero_bias(1, T, &bias_qkt);
+  // Zero bias for sum matmul: 2DS{1, 1}.
+  if (status == ZDNN_OK)
+    status = create_2ds_zero_bias(1, 1, &bias_1);
+  // Output accumulator O [1, S, HV].
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, HV, &o_acc, NULL);
+  // Temp buffer for P * V[c] [1, S, HV].
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, HV, &pv_tmp, NULL);
+  // Zero bias for P*V matmul: 2DS{1, HV}.
+  if (status == ZDNN_OK)
+    status = create_2ds_zero_bias(1, HV, &bias_v);
+
+  if (status == ZDNN_OK) {
+    zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
+    zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "Flash Q");
+    // When transpose_kt, K=[B,SK,H]: split SK along E2.
+    // Otherwise, KT=[B,H,SK]: split SK along E1.
+    if (transpose_kt)
+      zdnnx_prepare_split_info(&si_kt, KT, 1, 0, T, 0, "Flash K(transKT)");
+    else
+      zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, T, "Flash KT");
+    zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, T, "Flash Mask");
+    zdnnx_prepare_split_info(&si_v, V, 1, 0, T, 0, "Flash V");
+    zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "Flash Out");
+
+    uint32_t num_tiles_batch = zdnnx_get_num_tiles(&si_q, E4);
+    uint32_t num_tiles_sequence = transpose_kt
+                                      ? zdnnx_get_num_tiles(&si_kt, E2)
+                                      : zdnnx_get_num_tiles(&si_kt, E1);
+
+    bool has_tail_tile = !zdnnx_is_equal_split(&si_kt);
+
+    zdnnx_tile tq, tkt, tmask, tv, tout;
+
+    for (uint32_t b = 0; b < num_tiles_batch && status == ZDNN_OK; ++b) {
+      zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
+
+      // -- First tile (c=0): no correction needed, write directly to
+      // accumulators.
+      zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
+      zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, 0);
+      zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
+
+      // 1. scores = Q * KT[0] + Mask[0]
+      if (status == ZDNN_OK)
+        status = call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
+            transpose_kt, MATMUL_OP_ADDITION, &scratch_tile, false);
+      if (status == ZDNN_OK)
+        status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
+
+      // 2. max_row = row_max(scores) -- directly into max_row
+      if (status == ZDNN_OK)
+        status =
+            zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &max_row_zt);
+
+      // 3. P = exp(scores - max_row)
+      if (status == ZDNN_OK)
+        broadcast_column_to_tile(&max_row_zt, &p_tile);
+      if (status == ZDNN_OK)
+        status = zdnn_sub(&scratch_tile, &p_tile, &p_tile);
+      if (status == ZDNN_OK)
+        status = zdnn_exp(&p_tile, &p_tile);
+
+      // 4. D = row_sum(P) -- directly into sum_row
+      if (status == ZDNN_OK)
+        status = zdnn_matmul_op(
+            &p_tile, &ones_zt, &bias_1, MATMUL_OP_ADDITION, &sum_row_zt);
+
+      // 5. O = P * V[0] -- directly into o_acc
+      if (status == ZDNN_OK)
+        status = zdnn_matmul_op(
+            &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &o_acc);
+
+      // -- Remaining tiles (c=1..N_t-1): full online softmax update.
+      for (uint32_t c = 1; c < num_tiles_sequence && status == ZDNN_OK; ++c) {
+        // If the last tile is partial, allocate smaller intermediate buffers.
+        // - ones_zt [1, T, 1]
+        // - scratch_tile [1, S, T]
+        // - p_tile [1, S, T]
+        // - bias_qkt [1, T]
+        if ((c == num_tiles_sequence - 1) && has_tail_tile) {
+          // Free old buffers.
+          free_ztensor(&ones_zt);
+          free_ztensor(&scratch_tile);
+          free_ztensor(&p_tile);
+          free_ztensor(&bias_qkt);
+          uint32_t last_T = transpose_kt ? si_kt.last_tile_shape[E2]
+                                         : si_kt.last_tile_shape[E1];
+
+          // ones [1, T, 1] for row-sum matmul.
+          // Reuse fp32_buf that is larger than last_T.
+          if (status == ZDNN_OK)
+            status = create_3ds_ztensor(1, last_T, 1, &ones_zt, fp32_buf);
+          // scratch_tile [1, S, T] -- holds scores.
+          if (status == ZDNN_OK)
+            status = create_3ds_ztensor(1, S, last_T, &scratch_tile, NULL);
+          // p_tile [1, S, T] -- holds P = exp(scores - max).
+          if (status == ZDNN_OK)
+            status = create_3ds_ztensor(1, S, last_T, &p_tile, NULL);
+          // Zero bias for Q*KT matmul: 2DS{1, T}, reused across all tiles.
+          if (status == ZDNN_OK)
+            status = create_2ds_zero_bias(1, last_T, &bias_qkt);
+        }
+
+        if (transpose_kt)
+          zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, c, 0);
+        else
+          zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, c);
+        zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, c);
+        zdnnx_set_tile(&si_v, &tv, NULL, b, 0, c, 0);
+
+        // 1. scores = Q * KT[c] + Mask[c]  [S, T]
+        if (status == ZDNN_OK)
+          status = call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
+              transpose_kt, MATMUL_OP_ADDITION, &scratch_tile, false);
+        if (status == ZDNN_OK)
+          status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
+
+        // 2. block_max = row_max(scores)  [S, 1]
+        if (status == ZDNN_OK)
+          status = zdnn_reduce(
+              &scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
+
+        // 3. Update running max via pointer swap.
+        if (status == ZDNN_OK) {
+          void *tmp = old_max_zt.buffer;
+          old_max_zt.buffer = max_row_zt.buffer;
+          max_row_zt.buffer = tmp;
+          status = zdnn_max(&old_max_zt, &block_max_zt, &max_row_zt);
+        }
+
+        // 4. correction = exp(old_max - new_max)  [S, 1]
+        if (status == ZDNN_OK)
+          status = zdnn_sub(&old_max_zt, &max_row_zt, &correction_zt);
+        if (status == ZDNN_OK)
+          status = zdnn_exp(&correction_zt, &correction_zt);
+
+        // 5. D = D * correction
+        if (status == ZDNN_OK)
+          status = zdnn_mul(&sum_row_zt, &correction_zt, &sum_row_zt);
+
+        // 6. P = exp(scores - max_row)  [S, T]
+        if (status == ZDNN_OK)
+          broadcast_column_to_tile(&max_row_zt, &p_tile);
+        if (status == ZDNN_OK)
+          status = zdnn_sub(&scratch_tile, &p_tile, &p_tile);
+        if (status == ZDNN_OK)
+          status = zdnn_exp(&p_tile, &p_tile);
+
+        // 7. D = D + row_sum(P)  (reuse block_max_zt as tile_rowsum)
+        if (status == ZDNN_OK)
+          status = zdnn_matmul_op(
+              &p_tile, &ones_zt, &bias_1, MATMUL_OP_ADDITION, &block_max_zt);
+        if (status == ZDNN_OK)
+          status = zdnn_add(&sum_row_zt, &block_max_zt, &sum_row_zt);
+
+        // 8. O = O * correction + P * V[c]
+        if (status == ZDNN_OK) {
+          broadcast_column_to_tile(&correction_zt, &pv_tmp);
+          status = zdnn_mul(&o_acc, &pv_tmp, &o_acc);
+        }
+        if (status == ZDNN_OK)
+          status = zdnn_matmul_op(
+              &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &pv_tmp);
+        if (status == ZDNN_OK)
+          status = zdnn_add(&o_acc, &pv_tmp, &o_acc);
+      }
+
+      // Restore full-size tile buffers after processing a tail tile so
+      // that the next batch iteration starts with correctly-sized buffers.
+      if (has_tail_tile && status == ZDNN_OK) {
+        free_ztensor(&ones_zt);
+        free_ztensor(&scratch_tile);
+        free_ztensor(&p_tile);
+        free_ztensor(&bias_qkt);
+        status = create_3ds_ztensor(1, T, 1, &ones_zt, fp32_buf);
+        if (status == ZDNN_OK)
+          status = create_3ds_ztensor(1, S, T, &scratch_tile, NULL);
+        if (status == ZDNN_OK)
+          status = create_3ds_ztensor(1, S, T, &p_tile, NULL);
+        if (status == ZDNN_OK)
+          status = create_2ds_zero_bias(1, T, &bias_qkt);
+      }
+
+      // Final normalization: output = O / D.
+      if (status == ZDNN_OK)
+        broadcast_column_to_tile(&sum_row_zt, &pv_tmp);
+      if (status == ZDNN_OK) {
+        zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
+        status = zdnn_div(&o_acc, &pv_tmp, &tout.data);
+      }
+    }
+  }
+
+  free_ztensor(&bias_v);
+  free_ztensor(&pv_tmp);
+  free_ztensor(&o_acc);
+  free_ztensor(&bias_1);
+  free_ztensor(&bias_qkt);
+  free_ztensor(&p_tile);
+  free_ztensor(&scratch_tile);
+  free_ztensor(&correction_zt);
+  free_ztensor(&block_max_zt);
+  free_ztensor(&old_max_zt);
+  free_ztensor(&sum_row_zt);
+  free_ztensor(&max_row_zt);
+  free_ztensor(&ones_zt);
+  free(fp32_buf);
+  return status;
+}
+
+zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
+    const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
+    zdnn_ztensor *output) {
+#ifdef ZDNNX_DEBUG
+  printf("[SDPA3D, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
+#endif
+
+  static int use_basic = -1;
+  if (use_basic == -1)
+    use_basic = (getenv("ZDNNX_SDPA_3D_BASIC") != NULL);
+
+  uint32_t S = zdnnx_get_transformed_dim(Q, E2);
+  uint32_t tile_size = 1024;
+  if (use_basic || S <= tile_size)
+    return sdpa_3d_basic(Q, KT, Mask, V, transpose_kt, output);
+  // Choose tile size T: aligned to 64.
+  return flash_attention(
+      Q, KT, Mask, V, /*tile_size*/ tile_size, transpose_kt, output);
 }
