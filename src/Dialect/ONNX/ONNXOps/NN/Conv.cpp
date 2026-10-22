@@ -430,17 +430,24 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       // Set output dim, then calculate pads using output dim.
       LiteralIndexExpr O(ArrayAttrIntVal(outputShapeOpt, i));
       outputDims.emplace_back(O);
-      // Set pads.
-      // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
-      IndexExpr pSum = IndexExpr::max(zeroIE, s * t1 + outPad + kdTerm - O);
-      IndexExpr pSmall = pSum.floorDiv(2);
+      // Set pads. A negative P adds zeros at the edges.
+      // P = s * (I - 1) + outPad + ((K - 1) * d + 1) - O;
+      IndexExpr pSum = s * t1 + outPad + kdTerm - O;
       if (autoPad == "SAME_UPPER") {
+        IndexExpr pSmall = pSum.floorDiv(2);
         pads[i] = pSmall;
         pads[i + spatialRank] = pSum - pSmall;
-      } else if (autoPad == "NOTSET" || autoPad == "VALID" ||
-                 autoPad == "SAME_LOWER") {
+      } else if (autoPad == "SAME_LOWER") {
+        IndexExpr pSmall = pSum.floorDiv(2);
         pads[i] = pSum - pSmall;
         pads[i + spatialRank] = pSmall;
+      } else if (autoPad == "NOTSET" || autoPad == "VALID") {
+        // The ONNX reference uses zero pads here, so a negative P adds the
+        // extra zeros at the end.
+        IndexExpr pPos = IndexExpr::max(zeroIE, pSum);
+        IndexExpr pSmall = pPos.floorDiv(2);
+        pads[i] = pPos - pSmall;
+        pads[i + spatialRank] = pSmall + IndexExpr::min(zeroIE, pSum);
       } else {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
@@ -466,9 +473,10 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         // Set output dim.
         IndexExpr O = I * s;
         outputDims.emplace_back(O);
-        // Set pads
-        // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
-        IndexExpr pSum = IndexExpr::max(zeroIE, s * t1 + outPad + kdTerm - O);
+        // Set pads. P is negative when the stride exceeds the effective
+        // kernel, which adds zeros to reach O.
+        // P = s * (I - 1) + outPad + ((K - 1) * d + 1) - O;
+        IndexExpr pSum = s * t1 + outPad + kdTerm - O;
         IndexExpr pSmall = pSum.floorDiv(2);
         if (autoPad == "SAME_UPPER") {
           pads[i] = pSmall;

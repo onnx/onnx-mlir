@@ -112,3 +112,58 @@ func.func @test_pads(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x2x3x3xf32>) -
 // CHECK:           [[VAR_2_:%.+]] = stablehlo.convolution([[PARAM_0_]], [[VAR_1_]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {stride = [1, 1], pad = {{.}}[1, 1], [0, 0]{{.}}, lhs_dilate = [3, 2], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x1x3x3xf32>, tensor<2x1x3x3xf32>) -> tensor<1x2x7x3xf32>
 // CHECK:           return [[VAR_2_]] : tensor<1x2x7x3xf32>
 // CHECK:         }
+
+// -----
+
+// SAME_UPPER with a stride larger than the kernel. The total pad is -1, so the
+// extra zero goes at the start to reach input_size * stride.
+
+func.func @test_same_upper_stride_exceeds_kernel(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x1x1xf32>) -> tensor<1x1x6x6xf32> {
+  %bias = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", strides = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x1x1xf32>, none) -> tensor<1x1x6x6xf32>
+  "func.return"(%0) : (tensor<1x1x6x6xf32>) -> ()
+}
+
+// CHECK-LABEL:  func.func @test_same_upper_stride_exceeds_kernel
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x1x1x1xf32>) -> tensor<1x1x6x6xf32> {
+// CHECK:           [[VAR_0_:%.+]] = stablehlo.reverse [[PARAM_1_]], dims = [2, 3] : tensor<1x1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.transpose [[VAR_0_]], dims = [1, 0, 2, 3] : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.convolution([[PARAM_0_]], [[VAR_1_]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {stride = [1, 1], pad = {{.}}[1, 0], [1, 0]{{.}}, lhs_dilate = [2, 2], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x1x3x3xf32>, tensor<1x1x1x1xf32>) -> tensor<1x1x6x6xf32>
+// CHECK:           return [[VAR_2_]] : tensor<1x1x6x6xf32>
+// CHECK:         }
+
+// -----
+
+// SAME_UPPER with output_shape and a total pad of -1.
+
+func.func @test_output_shape_same_upper_negative_pad(%arg0 : tensor<1x1x4x4xf32>, %arg1 : tensor<1x1x3x3xf32>) -> tensor<1x1x10x10xf32> {
+  %bias = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", strides = [2, 2], output_shape = [10, 10]} : (tensor<1x1x4x4xf32>, tensor<1x1x3x3xf32>, none) -> tensor<1x1x10x10xf32>
+  "func.return"(%0) : (tensor<1x1x10x10xf32>) -> ()
+}
+
+// CHECK-LABEL:  func.func @test_output_shape_same_upper_negative_pad
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x4x4xf32>, [[PARAM_1_:%.+]]: tensor<1x1x3x3xf32>) -> tensor<1x1x10x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = stablehlo.reverse [[PARAM_1_]], dims = [2, 3] : tensor<1x1x3x3xf32>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.transpose [[VAR_0_]], dims = [1, 0, 2, 3] : (tensor<1x1x3x3xf32>) -> tensor<1x1x3x3xf32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.convolution([[PARAM_0_]], [[VAR_1_]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {stride = [1, 1], pad = {{.}}[3, 2], [3, 2]{{.}}, lhs_dilate = [2, 2], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x1x4x4xf32>, tensor<1x1x3x3xf32>) -> tensor<1x1x10x10xf32>
+// CHECK:           return [[VAR_2_]] : tensor<1x1x10x10xf32>
+// CHECK:         }
+
+// -----
+
+// NOTSET with output_shape and a total pad of -2. Both extra zeros go at the end.
+
+func.func @test_output_shape_notset_negative_pad(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x1x1xf32>) -> tensor<1x1x9x9xf32> {
+  %bias = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %bias) {strides = [3, 3], output_shape = [9, 9]} : (tensor<1x1x3x3xf32>, tensor<1x1x1x1xf32>, none) -> tensor<1x1x9x9xf32>
+  "func.return"(%0) : (tensor<1x1x9x9xf32>) -> ()
+}
+
+// CHECK-LABEL:  func.func @test_output_shape_notset_negative_pad
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x1x1x1xf32>) -> tensor<1x1x9x9xf32> {
+// CHECK:           [[VAR_0_:%.+]] = stablehlo.reverse [[PARAM_1_]], dims = [2, 3] : tensor<1x1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.transpose [[VAR_0_]], dims = [1, 0, 2, 3] : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.convolution([[PARAM_0_]], [[VAR_1_]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {stride = [1, 1], pad = {{.}}[0, 2], [0, 2]{{.}}, lhs_dilate = [3, 3], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x1x3x3xf32>, tensor<1x1x1x1xf32>) -> tensor<1x1x9x9xf32>
+// CHECK:           return [[VAR_2_]] : tensor<1x1x9x9xf32>
+// CHECK:         }
