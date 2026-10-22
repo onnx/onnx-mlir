@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -1238,6 +1238,53 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
     // Emit ZLow.softmax.
     ZLowSoftmaxOp::create(rewriter, loc, input, workArea, shape, alloc,
         softmaxOp.getActFuncAttr());
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Lower ZHigh SDPA3D to ZLow SDPA3D
+//===----------------------------------------------------------------------===//
+struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
+  ZHighToZLowSDPA3DOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighSDPA3DOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ZHighSDPA3DOpAdaptor operandAdaptor(operands);
+
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
+    // Compute shape.
+    ZHighSDPA3DOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Allocate a buffer for the result MemRef: [s, m, q].
+    Value alloc = insertAllocForZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+
+    // Get the original shape: {s, m, n, p, q}.
+    Value shapeMemRef =
+        insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
+
+    // Get transposeKT attribute from ZHigh op.
+    ZHighSDPA3DOp sdpa3dOp = mlir::cast<ZHighSDPA3DOp>(op);
+    IntegerAttr transposeKTAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            sdpa3dOp.getTransposeKT());
+
+    // Emit zlow.sdpa3d.
+    ZLowSDPA3DOp::create(rewriter, loc, operandAdaptor.getQ(),
+        operandAdaptor.getKT(), operandAdaptor.getMask(), operandAdaptor.getV(),
+        shapeMemRef, transposeKTAttr, alloc);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -3791,6 +3838,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLeakyReluOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowSDPA3DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowFixGRUYOpLowering>(typeConverter, ctx);

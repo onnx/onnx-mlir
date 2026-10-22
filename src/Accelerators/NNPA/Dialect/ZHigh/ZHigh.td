@@ -637,6 +637,69 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
   }];
 }
 
+def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh standard scaled dot-product attention (SDPA)";
+  let description = [{
+    Fused standard attention: Output = Softmax(Q * KT + Mask) * V.
+
+    Dimension definitions:
+      s: batch size (typically batch_size * num_heads)
+      m: query sequence length
+      n: head dimension (embedding size per head)
+      p: key/value sequence length
+      q: value head dimension (output embedding size per head)
+
+    All operands use 3DS layout with a shared batch dimension s:
+      Q:    [s, m, n]  — queries
+      KT:   [s, n, p]  — keys (already transposed, when transposeKT=0)
+            [s, p, n]  — keys (not transposed, when transposeKT=1)
+      Mask: [s, m, p]  — additive attention mask
+      V:    [s, p, q]  — values
+      Out:  [s, m, q]  — attention output
+
+    When transposeKT=1, KT is actually K and the inner Q*K matmul uses
+    hardware transpose to produce KT.
+
+    The transposeKT attribute defaults to 0 (off).
+  }];
+  let arguments = (ins ZTensor_3DS:$Q,
+                       ZTensor_3DS:$KT,
+                       ZTensor_3DS:$Mask,
+                       ZTensor_3DS:$V,
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeKT);
+  let results = (outs ZTensor_3DS:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
+                   "::mlir::Value":$Mask, "::mlir::Value":$V,
+                   "::mlir::IntegerAttr":$transposeKT), [{
+      Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, Q, KT, Mask, V, transposeKT);
+    }]>,
+    OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
+                   "::mlir::Value":$Mask, "::mlir::Value":$V), [{
+      Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, Q, KT, Mask, V,
+            $_builder.getIntegerAttr(
+                $_builder.getIntegerType(64, /*isSigned=*/true), 0));
+    }]>
+  ];
+  let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighSDPA3DOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh =
+          new ZHighSDPA3DOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ZHighSqrtOp:ZHigh_Op<"Sqrt", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Sqrt operation";
