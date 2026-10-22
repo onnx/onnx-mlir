@@ -103,14 +103,15 @@ def get_pr_data(url, token):
     """Get pull request data dict from GitHub API.
 
     Returns a dict with at least 'mergeable_state', 'head_repo_full_name',
-    and 'base_repo_full_name' keys; falls back to safe defaults on error.
+    and 'base_repo_full_name' keys.
+
+    'head_repo_full_name' and 'base_repo_full_name' are the string
+    'owner/repo' values from the GitHub API, or None when the API call
+    fails, the PR head repo is null (deleted fork), or the field is absent.
+    Callers that need both names present must treat None as a hard abort,
+    not a pass-through.
     """
 
-    defaults = {
-        "mergeable_state": "unknown",
-        "head_repo_full_name": None,
-        "base_repo_full_name": None,
-    }
     try:
         resp = requests.get(
             url=url,
@@ -118,18 +119,37 @@ def get_pr_data(url, token):
         )
         resp.raise_for_status()
         data = resp.json()
+
+        # GitHub returns "head": {"repo": null} for PRs from deleted forks.
+        # Use `or {}` to guard the outer key, but then check that `.get("repo")`
+        # is actually a dict before chaining — a null repo must surface as None,
+        # not be silently swallowed by a default {}.
+        head = data.get("head") or {}
+        head_repo = head.get("repo")
+        head_repo_full_name = (
+            head_repo.get("full_name") if isinstance(head_repo, dict) else None
+        )
+
+        base = data.get("base") or {}
+        base_repo = base.get("repo")
+        base_repo_full_name = (
+            base_repo.get("full_name") if isinstance(base_repo, dict) else None
+        )
+
         return {
             "mergeable_state": data.get("mergeable_state", "unknown"),
-            "head_repo_full_name": (data.get("head") or {})
-            .get("repo", {})
-            .get("full_name"),
-            "base_repo_full_name": (data.get("base") or {})
-            .get("repo", {})
-            .get("full_name"),
+            "head_repo_full_name": head_repo_full_name,
+            "base_repo_full_name": base_repo_full_name,
         }
     except Exception as e:
         logging.exception(e)
-        return defaults
+        # Return None for both repo names so callers that require them present
+        # will abort rather than pass the check on error.
+        return {
+            "mergeable_state": "unknown",
+            "head_repo_full_name": None,
+            "base_repo_full_name": None,
+        }
 
 
 def image_publishable(
@@ -170,24 +190,29 @@ def image_publishable(
             state,
             pr_mergeable_state[state]["desc"],
         )
-        # f009 fix: for the 'publish this please' phrase, reject if the PR
-        # head comes from a fork repo.  Same-repo PRs are allowed to proceed
-        # (the sender has already passed the admin gate).
+        # f009 fix: for the 'publish this please' phrase, require that the PR
+        # head comes from the same repo as the base (not a fork).
+        # Same-repo PRs are allowed to proceed; the sender has already passed
+        # the admin gate (f002).
         #
-        # We intentionally do NOT require state == 'clean' here because when
-        # CI is still running the state is 'blocked' (required checks pending).
-        # That is the normal situation when a phrase-triggered publish fires —
-        # the catch-22 the original code was designed to handle.  We only
-        # reject states that indicate the branch itself is unfit to merge
-        # (behind, dirty, draft) regardless of phrase.
+        # Error-safe: if either name is None (API error, deleted-fork null repo,
+        # or missing field) we treat that as a reason to abort rather than allow
+        # the publish through — fail closed, not open.
+        #
+        # Note on mergeable_state: we do NOT require state == 'clean' here.
+        # When CI is still running the state is 'blocked' (required checks
+        # pending) — that is the normal situation when a phrase-triggered publish
+        # fires, and is the catch-22 the original code was designed to handle.
         if github_pr_phrase == "publish":
             head_repo = pr_data["head_repo_full_name"]
             base_repo = pr_data["base_repo_full_name"]
-            if head_repo != base_repo:
+            if not head_repo or not base_repo or head_repo != base_repo:
                 raise Exception(
-                    "publish aborted: PR head is from a fork repo "
-                    f"({head_repo} != {base_repo})"
+                    "publish aborted: PR head repo could not be verified as "
+                    f"same-repo (head={head_repo!r}, base={base_repo!r})"
                 )
+        # For all phrases, reject states that indicate the branch is unfit to
+        # merge (behind, dirty, draft).
         if not pr_mergeable_state[state]["mergeable"]:
             raise Exception("publish aborted due to unmergeable state")
     if not remote_labels:
