@@ -316,7 +316,7 @@ class TestHashKeyLiteralArgs(unittest.TestCase):
         )
 
     def test_same_graph_same_key(self):
-        """Sanity: same graph produces the same key across two calls."""
+        """Same graph produces the same key across two calls."""
         gm = self._make_reshape_model((2, 16))
         inputs = [torch.zeros(32)]
         opts = _compile_options()
@@ -368,7 +368,7 @@ class TestHashKeyParameterValues(unittest.TestCase):
         )
 
     def test_identical_params_produce_same_key(self):
-        """Sanity: identical weights produce the same key."""
+        """Identical weights produce the same key."""
         w = torch.rand(1, 5)
         gm1 = _make_gm_with_param(w.clone())
         gm2 = _make_gm_with_param(w.clone())
