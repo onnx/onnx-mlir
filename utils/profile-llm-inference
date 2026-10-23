@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+"""
+Benchmark: Pure zAIU (prefill + decode on zAIU)
+
+Usage: python benchmark_hybrid_vs_zaiu_batched.py --batch-sizes 8 --input-lengths 1 32 --output-lengths 32 --zaiu-model /path/to/model.so
+"""
+
+import argparse
+import os
+import sys
+import time
+import numpy as np
+
+sys.path.insert(0, '/home/senuser/hf-adapters/tests')
+
+from transformers import AutoTokenizer, AutoConfig
+from model_registry import CAUSAL_LM_MODELS
+
+import om_pyrt
+
+
+def create_prompt(tokenizer, base_prompt, target_length):
+    """Create a prompt of approximately target_length tokens."""
+    tokens = tokenizer.encode(base_prompt)
+    while len(tokens) < target_length:
+        tokens.extend(tokenizer.encode(" " + base_prompt)[1:])
+    tokens = tokens[:target_length]
+    return tokenizer.decode(tokens), len(tokens)
+
+
+def make_empty_kv_caches(batch_size, num_layers, num_kv_heads, head_dim, seq_len=0):
+    """Create zeroed FP32 KV caches of shape (batch, num_kv_heads, seq_len, head_dim)."""
+    return [(
+        np.zeros((batch_size, num_kv_heads, seq_len, head_dim), dtype=np.float32),
+        np.zeros((batch_size, num_kv_heads, seq_len, head_dim), dtype=np.float32),
+    ) for _ in range(num_layers)]
+
+
+def make_prefill_inputs(input_ids_np, past_kv):
+    """Build input_arrays for a prefill forward pass (all tokens at once).
+
+    Args:
+        input_ids_np: int64 array of shape (batch, seq_len)
+        past_kv: list of (key, value) tuples, each (batch, heads, past_len, dim)
+
+    Returns:
+        input_arrays: [input_ids, attention_mask, position_ids, k0, v0, k1, v1, ...]
+    """
+    batch_size, seq_len = input_ids_np.shape
+    past_len = past_kv[0][0].shape[2]
+    attention_mask = np.ones((batch_size, past_len + seq_len), dtype=np.int64)
+    position_ids = (
+        np.arange(past_len, past_len + seq_len, dtype=np.int64)[np.newaxis, :]
+        .repeat(batch_size, axis=0)
+    )
+    input_arrays = [input_ids_np, attention_mask, position_ids]
+    for key, value in past_kv:
+        input_arrays.extend([key, value])
+    return input_arrays
+
+
+def make_decode_inputs(token_ids, past_kv):
+    """Build input_arrays for a single decode step (one new token per sequence).
+
+    Args:
+        token_ids: list of int, length = batch_size
+        past_kv: list of (key, value) tuples, each (batch, heads, past_len, dim)
+
+    Returns:
+        input_arrays: [input_ids, attention_mask, position_ids, k0, v0, k1, v1, ...]
+    """
+    batch_size = len(token_ids)
+    past_seq_len = past_kv[0][0].shape[2]
+    input_ids = np.array([[tid] for tid in token_ids], dtype=np.int64)
+    attention_mask = np.ones((batch_size, past_seq_len + 1), dtype=np.int64)
+    position_ids = np.full((batch_size, 1), past_seq_len, dtype=np.int64)
+    input_arrays = [input_ids, attention_mask, position_ids]
+    for key, value in past_kv:
+        input_arrays.extend([key, value])
+    return input_arrays
+
+
+def print_input_shapes(input_arrays, label=""):
+    """Print the shape of each tensor in input_arrays."""
+    print(f"\n[{label}] input_arrays shapes:")
+    names = ["input_ids", "attention_mask", "position_ids"]
+    for i, arr in enumerate(input_arrays):
+        name = names[i] if i < 3 else f"kv[{(i-3)//2}].{'key' if (i-3)%2==0 else 'val'}"
+        print(f"  [{i:2d}] {name:<25} {arr.shape}")
+
+
+def run_zaiu_decode(sess, config, last_token_ids, kv_caches, num_decode_tokens, batch_size, warmup=False):
+    """Run zAIU autoregressive decode loop, optionally as warmup."""
+    num_layers = config.num_hidden_layers
+    past_kv = [(k.copy(), v.copy()) for k, v in kv_caches]
+    current_token_ids = list(last_token_ids)
+    decode_times = []
+
+    steps = 3 if warmup else num_decode_tokens
+    for step in range(steps):
+        input_arrays = make_decode_inputs(current_token_ids, past_kv)
+
+        t0 = time.time()
+        out = sess.run(input_arrays)
+        if not warmup:
+            decode_times.append(time.time() - t0)
+
+        logits = out[0]
+        current_token_ids = np.argmax(logits[:, -1, :], axis=-1).tolist()
+
+        new_kv = []
+        out_idx = 1
+        for _ in range(num_layers):
+            new_kv.append((out[out_idx], out[out_idx + 1]))
+            out_idx += 2
+        past_kv = new_kv
+
+    return decode_times
+
+
+def benchmark_pure_zaiu(tokenizer, prompts, num_decode_tokens, zaiu_model_path, config):
+    """Pure zAIU: prefill (all tokens at once) + decode on zAIU."""
+    batch_size = len(prompts)
+    inputs = tokenizer(prompts, return_tensors="pt", padding=True)
+    input_ids_np = inputs["input_ids"].numpy().astype(np.int64)
+    input_length = input_ids_np.shape[1]
+
+    num_layers = config.num_hidden_layers
+    num_kv_heads = config.num_key_value_heads
+    head_dim = config.hidden_size // config.num_attention_heads
+
+    sess = om_pyrt.InferenceSession(zaiu_model_path)
+
+    def run_prefill(is_actual=False):
+        """Run prefill: pass all input tokens in one forward pass.
+
+        NOTE: input_length=1 is a degenerate case — (batch,1) with empty KV
+        cache is identical in shape to a decode step, and crashes for batch>1
+        on zAIU. We skip prefill for input_length=1 and use an empty KV cache
+        directly, treating the single input token as the first decode token.
+        """
+        stage = "actual" if is_actual else "warmup"
+
+        if input_length == 1:
+            # No prefill needed — single token goes straight to decode
+            past_kv = make_empty_kv_caches(batch_size, num_layers, num_kv_heads, head_dim, seq_len=0)
+            print(f"\n[Pure zAIU prefill {stage}] input_length=1, skipping prefill (no past context)")
+            return None, past_kv
+
+        past_kv = make_empty_kv_caches(batch_size, num_layers, num_kv_heads, head_dim, seq_len=0)
+        input_arrays = make_prefill_inputs(input_ids_np, past_kv)
+
+        print_input_shapes(input_arrays, label=f"Pure zAIU prefill {stage}")
+
+        out = sess.run(input_arrays)
+
+        new_kv = []
+        out_idx = 1
+        for _ in range(num_layers):
+            new_kv.append((out[out_idx], out[out_idx + 1]))
+            out_idx += 2
+
+        return out, new_kv
+
+    # Warmup
+    run_prefill(is_actual=False)
+
+    # Measure prefill
+    t0 = time.time()
+    last_out, past_kv_after_prefill = run_prefill(is_actual=True)
+    prefill_time = time.time() - t0
+
+    # For input_length=1, use the single input token as the first decode token
+    if input_length == 1:
+        last_token_ids = input_ids_np[:, 0].tolist()
+    else:
+        last_token_ids = np.argmax(last_out[0][:, -1, :], axis=-1).tolist()
+
+    # Warmup decode
+    run_zaiu_decode(sess, config, last_token_ids, past_kv_after_prefill, num_decode_tokens, batch_size, warmup=True)
+
+    # Measure decode
+    decode_times = run_zaiu_decode(sess, config, last_token_ids, past_kv_after_prefill, num_decode_tokens, batch_size, warmup=False)
+
+    total_decode_time = sum(decode_times)
+    total_time = prefill_time + total_decode_time
+    return {
+        "prefill_time": prefill_time,
+        "decode_time": total_decode_time,
+        "total_time": total_time,
+        "decode_tps": (num_decode_tokens * batch_size) / total_decode_time if total_decode_time > 0 else 0,
+        "overall_tps": (batch_size * (input_length + num_decode_tokens)) / total_time if total_time > 0 else 0,
+    }
+
+
+def print_results(results):
+    """Print a combined summary table over all configurations."""
+    print("\n" + "="*105)
+    print("RESULTS SUMMARY")
+    print("="*105)
+    hdr = f"{'BS':<4} {'InLen':<7} {'OutLen':<7} {'Approach':<14} {'Prefill(s)':<12} {'Decode(s)':<12} {'Total(s)':<12} {'Decode TPS':<12} {'Overall TPS':<12}"
+    print(hdr)
+    print("-"*105)
+
+    for r in results:
+        bs = r["batch_size"]
+        il = r["input_length"]
+        ol = r["output_length"]
+        for label, d in r["data"].items():
+            if d is None:
+                print(f"{bs:<4} {il:<7} {ol:<7} {label:<14} {'N/A':<12} {'N/A':<12} {'N/A':<12} {'N/A':<12} {'N/A':<12}")
+            else:
+                print(f"{bs:<4} {il:<7} {ol:<7} {label:<14} "
+                      f"{d['prefill_time']:<12.3f} {d['decode_time']:<12.3f} {d['total_time']:<12.3f} "
+                      f"{d['decode_tps']:<12.1f} {d['overall_tps']:<12.1f}")
+        print()
+
+    print("="*105)
+    print("Notes:")
+    print("  Decode TPS   = (output_tokens × batch_size) / decode_time")
+    print("  Overall TPS  = (input_tokens + output_tokens) × batch_size / total_time")
+    print("="*105)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Benchmark: Pure zAIU")
+    parser.add_argument("--model-key", default="granite2b")
+    parser.add_argument("--base-prompt",
+                        default="The capital of France is Paris. The capital of Germany is Berlin. "
+                                "The capital of Italy is Rome. The capital of Spain is Madrid. "
+                                "The capital of Japan is Tokyo. The capital of China is Beijing.")
+    parser.add_argument("--input-lengths",  nargs="+", type=int, required=True, help="Input sequence lengths, e.g. --input-lengths 1 32 128")
+    parser.add_argument("--output-lengths", nargs="+", type=int, required=True, help="Output sequence lengths, e.g. --output-lengths 32")
+    parser.add_argument("--batch-sizes",    nargs="+", type=int, required=True, help="Batch sizes, e.g. --batch-sizes 1 8")
+    parser.add_argument("--zaiu-model",
+                        default="/home/hkim/granite3_2b_onnx_batched/granite_2b_with_past_batched_nnpa.so")
+
+    args = parser.parse_args()
+
+    print("\n" + "="*70)
+    print("BENCHMARK: PURE ZAIU")
+    print("="*70)
+    print(f"Model:          {args.model_key}")
+    print(f"Input lengths:  {args.input_lengths}")
+    print(f"Output lengths: {args.output_lengths}")
+    print(f"Batch sizes:    {args.batch_sizes}")
+
+    info = CAUSAL_LM_MODELS[args.model_key]
+    config = AutoConfig.from_pretrained(info["path"])
+    tokenizer = AutoTokenizer.from_pretrained(info["path"])
+
+    all_results = []
+
+    for batch_size in args.batch_sizes:
+        for input_length in args.input_lengths:
+            for output_length in args.output_lengths:
+                print(f"\n{'='*70}")
+                print(f"BS={batch_size}  InLen={input_length}  OutLen={output_length}")
+                print(f"{'='*70}")
+
+                prompt, actual_len = create_prompt(tokenizer, args.base_prompt, input_length)
+                prompts = [prompt] * batch_size
+                print(f"Actual prompt length: {actual_len} tokens")
+
+                print(f"\n[Pure zAIU]  BS={batch_size} InLen={actual_len} OutLen={output_length}")
+                data = benchmark_pure_zaiu(tokenizer, prompts, output_length, args.zaiu_model, config)
+                z = data
+                print(f"  prefill={z['prefill_time']:.3f}s  decode={z['decode_time']:.3f}s  "
+                      f"total={z['total_time']:.3f}s  decode_tps={z['decode_tps']:.1f}  overall_tps={z['overall_tps']:.1f}")
+
+                all_results.append({
+                    "batch_size": batch_size,
+                    "input_length": actual_len,
+                    "output_length": output_length,
+                    "data": {"Pure zAIU": data},
+                })
+
+    print_results(all_results)
+
+
+if __name__ == "__main__":
+    main()
