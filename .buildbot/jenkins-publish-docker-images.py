@@ -99,8 +99,18 @@ def put_image_manifest(
     return resp
 
 
-def get_pr_mergeable_state(url, token):
-    """Get pull request source mergeable state."""
+def get_pr_data(url, token):
+    """Get pull request data dict from GitHub API.
+
+    Returns a dict with at least 'mergeable_state', 'head_repo_full_name',
+    and 'base_repo_full_name' keys.
+
+    'head_repo_full_name' and 'base_repo_full_name' are the string
+    'owner/repo' values from the GitHub API, or None when the API call
+    fails, the PR head repo is null (deleted fork), or the field is absent.
+    Callers that need both names present must treat None as a hard abort,
+    not a pass-through.
+    """
 
     try:
         resp = requests.get(
@@ -108,10 +118,38 @@ def get_pr_mergeable_state(url, token):
             headers={"Accept": "application/json", "Authorization": "token " + token},
         )
         resp.raise_for_status()
-        return resp.json()["mergeable_state"]
+        data = resp.json()
+
+        # GitHub returns "head": {"repo": null} for PRs from deleted forks.
+        # Use `or {}` to guard the outer key, but then check that `.get("repo")`
+        # is actually a dict before chaining — a null repo must surface as None,
+        # not be silently swallowed by a default {}.
+        head = data.get("head") or {}
+        head_repo = head.get("repo")
+        head_repo_full_name = (
+            head_repo.get("full_name") if isinstance(head_repo, dict) else None
+        )
+
+        base = data.get("base") or {}
+        base_repo = base.get("repo")
+        base_repo_full_name = (
+            base_repo.get("full_name") if isinstance(base_repo, dict) else None
+        )
+
+        return {
+            "mergeable_state": data.get("mergeable_state", "unknown"),
+            "head_repo_full_name": head_repo_full_name,
+            "base_repo_full_name": base_repo_full_name,
+        }
     except Exception as e:
         logging.exception(e)
-        return "unknown"
+        # Return None for both repo names so callers that require them present
+        # will abort rather than pass the check on error.
+        return {
+            "mergeable_state": "unknown",
+            "head_repo_full_name": None,
+            "base_repo_full_name": None,
+        }
 
 
 def image_publishable(
@@ -142,27 +180,48 @@ def image_publishable(
     )
 
     # If url is 'none', it's a push event from merging so skip
-    # mergeable state check.
-    #
-    # Note that when our (and/or some other) build is marked as required,
-    # while the build(s) are ongoing, the mergeable state will be "blocked".
-    # So for publish triggered by "publish this please" phrase, we have a
-    # catch 22 problem. But if we can come to this point, we know that at
-    # least our build successfully built the docker images. So we allow
-    # the blocked mergeable state to publish our images.
+    # mergeable state and fork checks.
     if github_pr_request_url != "none":
-        state = get_pr_mergeable_state(github_pr_request_url, github_repo_access_token)
+        pr_data = get_pr_data(github_pr_request_url, github_repo_access_token)
+        state = pr_data["mergeable_state"]
         logging.info(
             "pull request url: %s, mergeable state: %s, %s",
             github_pr_request_url,
             state,
             pr_mergeable_state[state]["desc"],
         )
+        # f009 fix: for the 'publish this please' phrase, require that the PR
+        # head comes from the same repo as the base (not a fork).
+        # Same-repo PRs are allowed to proceed; the sender has already passed
+        # the admin gate (f002).
+        #
+        # Error-safe: if either name is None (API error, deleted-fork null repo,
+        # or missing field) we treat that as a reason to abort rather than allow
+        # the publish through — fail closed, not open.
+        #
+        # Note on mergeable_state: we do NOT require state == 'clean' here.
+        # When CI is still running the state is 'blocked' (required checks
+        # pending) — that is the normal situation when a phrase-triggered publish
+        # fires, and is the catch-22 the original code was designed to handle.
+        if github_pr_phrase == "publish":
+            head_repo = pr_data["head_repo_full_name"]
+            base_repo = pr_data["base_repo_full_name"]
+            if not head_repo or not base_repo or head_repo != base_repo:
+                raise Exception(
+                    "publish aborted: PR head repo could not be verified as "
+                    f"same-repo (head={head_repo!r}, base={base_repo!r})"
+                )
+        # For all phrases, reject states that indicate the branch is unfit to
+        # merge (behind, dirty, draft).
         if not pr_mergeable_state[state]["mergeable"]:
             raise Exception("publish aborted due to unmergeable state")
     if not remote_labels:
         logging.info("publish due to invalid remote labels")
         return True
+    # The 'publish' phrase force-publishes even when local and remote images
+    # have the same sha1 date — this is intentional (e.g. to recover from a
+    # registry corruption or repush a re-tagged image).  Fork PRs are already
+    # blocked above, so the force here only applies to same-repo admins.
     if github_pr_phrase == "publish":
         logging.info("publish forced by trigger phrase")
         return True

@@ -199,6 +199,9 @@ void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
 //
 int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
   uint64_t dataSize = OM_DATA_TYPE_SIZE[table->dataType];
+  // Bounds check: never write past the allocated buffer capacity.
+  if (table->numberOfSlices >= table->maxNumberOfSlices)
+    return 0;
   char *sliceDataPtr = (char *)table->sliceDataPtr;
   uint64_t sliceSizeInBytes = table->numberOfElementsInSlice * dataSize;
   // Searching for matching data in linear search
@@ -336,6 +339,8 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
 void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts, const OMTensor *inputTensor,
     int64_t sliceAxis, uint64_t sorted) {
+  if (!inputTensor)
+    return;
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "input rank should be 6 or less");
@@ -355,9 +360,26 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
   if (sliceAxis < 0) { // if slice attribute is not specified
     // manage the inputTensor as flatten one
     uint64_t elementNum = 1;
-    for (int64_t i = 0; i < inputRank; i++)
-      elementNum *= inputShape[i];
-    void *sliceDataPtr = (YPtr == NULL) ? alloca(dataSize * elementNum) : YPtr;
+    for (int64_t i = 0; i < inputRank; i++) {
+      if (__builtin_mul_overflow(
+              elementNum, (uint64_t)inputShape[i], &elementNum)) {
+        assert(0 && "Unique runtime: element count overflow");
+        *totalPtr = 0;
+        return;
+      }
+    }
+    uint64_t sliceDataBytes;
+    if (__builtin_mul_overflow(dataSize, elementNum, &sliceDataBytes)) {
+      assert(0 && "Unique runtime: sliceDataBytes overflow");
+      *totalPtr = 0;
+      return;
+    }
+    void *sliceDataPtr = (YPtr == NULL) ? malloc(sliceDataBytes) : YPtr;
+    if ((YPtr == NULL) && (sliceDataPtr == NULL) && (elementNum != 0)) {
+      assert(0 && "Unique runtime: allocation failure for sliceDataPtr");
+      *totalPtr = 0;
+      return;
+    }
     sliceTableInit(&sliceTable, dataType, sorted, 1, elementNum, sliceDataPtr,
         (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr,
         (uint64_t *)countsPtr);
@@ -367,32 +389,77 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         count++;
       }
     }
+    if (YPtr == NULL)
+      free(sliceDataPtr);
   } else { // if slice attribute is specified
     int64_t numOfSlices = inputShape[sliceAxis];
-    int64_t numOfElementsInSlice = 1;
-    for (int64_t i = 0; i < inputRank; i++)
-      numOfElementsInSlice *= (i == sliceAxis) ? 1 : inputShape[i];
-    void *sliceDataPtr =
-        (YPtr == NULL) ? alloca(numOfElementsInSlice * numOfSlices * dataSize)
-                       : YPtr;
+    uint64_t numOfElementsInSlice = 1;
+    for (int64_t i = 0; i < inputRank; i++) {
+      if (i == sliceAxis)
+        continue;
+      if (__builtin_mul_overflow(numOfElementsInSlice, (uint64_t)inputShape[i],
+              &numOfElementsInSlice)) {
+        assert(0 && "Unique runtime: numOfElementsInSlice overflow");
+        *totalPtr = 0;
+        return;
+      }
+    }
+    // Guard the three-way product: numOfElementsInSlice * numOfSlices *
+    // dataSize
+    uint64_t sliceDataBytes;
+    if (__builtin_mul_overflow(
+            numOfElementsInSlice, (uint64_t)numOfSlices, &sliceDataBytes) ||
+        __builtin_mul_overflow(sliceDataBytes, dataSize, &sliceDataBytes)) {
+      assert(0 && "Unique runtime: sliceDataBytes overflow");
+      *totalPtr = 0;
+      return;
+    }
+    void *sliceDataPtr = (YPtr == NULL) ? malloc(sliceDataBytes) : YPtr;
+    void *tmpIndicesPtr = NULL;
     if ((Y != NULL) && (indices == NULL)) {
       // temporal indices buffer is necessary to generate Y from indices
-      indicesPtr = alloca(numOfSlices * sizeof(int64_t));
+      tmpIndicesPtr = malloc((uint64_t)numOfSlices * sizeof(int64_t));
+      indicesPtr = tmpIndicesPtr;
+    }
+    uint64_t sliceElemBytes;
+    if (__builtin_mul_overflow(
+            numOfElementsInSlice, dataSize, &sliceElemBytes)) {
+      if (YPtr == NULL)
+        free(sliceDataPtr);
+      free(tmpIndicesPtr);
+      assert(0 && "Unique runtime: sliceElemBytes overflow");
+      *totalPtr = 0;
+      return;
+    }
+    void *sliceData = malloc(sliceElemBytes);
+    if (((YPtr == NULL) && (sliceDataPtr == NULL)) || (sliceData == NULL) ||
+        ((Y != NULL) && (indices == NULL) && (tmpIndicesPtr == NULL))) {
+      if (YPtr == NULL)
+        free(sliceDataPtr);
+      free(tmpIndicesPtr);
+      free(sliceData);
+      assert(0 && "Unique runtime: allocation failure");
+      *totalPtr = 0;
+      return;
     }
     sliceTableInit(&sliceTable, dataType, sorted, numOfElementsInSlice,
-        numOfSlices, sliceDataPtr, (uint64_t *)indicesPtr,
+        (uint64_t)numOfSlices, sliceDataPtr, (uint64_t *)indicesPtr,
         (uint64_t *)inverseIndicesPtr, (uint64_t *)countsPtr);
-    void *sliceData = alloca(numOfElementsInSlice * dataSize);
-    for (int idxInSliceAxis = 0; idxInSliceAxis < numOfSlices;
+    for (int64_t idxInSliceAxis = 0; idxInSliceAxis < numOfSlices;
          idxInSliceAxis++) {
       getSliceData(inputTensor, sliceAxis, idxInSliceAxis, sliceData);
-      if (sliceTableRegister(&sliceTable, sliceData, idxInSliceAxis) == 0) {
+      if (sliceTableRegister(
+              &sliceTable, sliceData, (uint64_t)idxInSliceAxis) == 0) {
         count++;
       }
     }
     if ((count > 0) && (Y != NULL)) {
       produceY(inputTensor, indices, sliceAxis, Y);
     }
+    if (YPtr == NULL)
+      free(sliceDataPtr);
+    free(tmpIndicesPtr);
+    free(sliceData);
   }
   *totalPtr = count;
 #if _DEBUG_OMTENSOR

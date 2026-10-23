@@ -59,15 +59,11 @@ def call() {
       DOCKER_REGISTRY_USER_NAME = 'onnxmlir'
       DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlir'
 
-      /* Credentials defined in Jenkins */
-      JENKINS_REST_API_TOKEN = credentials('Jenkins-REST-API-Token')
-      GITHUB_REPO_ACCESS_TOKEN = credentials('jenkins-buildbot-access-token')
-      /* Settings for docker.io */
-      /*
-      DOCKER_REGISTRY_LOGIN_TOKEN = credentials('DOCKERHUB-ONNXMLIR-TOKEN')
-      */
-      /* Settings for ghcr.io */
-      DOCKER_REGISTRY_LOGIN_TOKEN = credentials('GITHUB-ONNXMLIR-TOKEN')
+      /* Credentials are NOT bound at pipeline level to avoid exposing them
+       * to PR-head-supplied scripts running in every stage.  Each stage or
+       * post block that genuinely needs a secret wraps it in withCredentials.
+       * See f004 / f002 security fixes.
+       */
 
       /* Environment variables that depend on the arch */
       JENKINS_REST_API_URL = sh(returnStdout: true,
@@ -197,8 +193,13 @@ def call() {
            * commit sha with 'pending' by the frontend script. So the
            * 'aborted' status will not appear on the pull request page.
            */
-          sh "${JENKINS_STOP_PREVIOUS_BUILD}"
-          sh "${JENKINS_CLEANUP_BUILD_STATES}"
+          withCredentials([
+            string(credentialsId: 'Jenkins-REST-API-Token',
+                   variable: 'JENKINS_REST_API_TOKEN')
+          ]) {
+            sh "${JENKINS_STOP_PREVIOUS_BUILD}"
+            sh "${JENKINS_CLEANUP_BUILD_STATES}"
+          }
         }
       }
 
@@ -206,7 +207,15 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          sh "${JENKINS_BUILD_LLVM_PROJECT}"
+          withCredentials([
+            string(credentialsId: 'jenkins-buildbot-access-token',
+                   variable: 'GITHUB_REPO_ACCESS_TOKEN'),
+            /* Settings for ghcr.io */
+            string(credentialsId: 'GITHUB-ONNXMLIR-TOKEN',
+                   variable: 'DOCKER_REGISTRY_LOGIN_TOKEN')
+          ]) {
+            sh "${JENKINS_BUILD_LLVM_PROJECT}"
+          }
         }
       }
 
@@ -214,7 +223,12 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          sh "${JENKINS_BUILD_ONNX_MLIR}"
+          withCredentials([
+            string(credentialsId: 'GITHUB-ONNXMLIR-TOKEN',
+                   variable: 'DOCKER_REGISTRY_LOGIN_TOKEN')
+          ]) {
+            sh "${JENKINS_BUILD_ONNX_MLIR}"
+          }
         }
       }
 
@@ -222,6 +236,8 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
+          // jenkins-verify-user-image.py uses only 'docker run' via subprocess;
+          // it does not call docker_registry_login_token, so no withCredentials needed.
           sh "${JENKINS_VERIFY_USER_IMAGE}"
         }
       }
@@ -233,11 +249,27 @@ def call() {
                        value: 'publish' }
         }
 
-        /* Publish docker images and model zoo test report in parallel */
+        /* Publish docker images and model zoo test report in parallel.
+         * withCredentials is placed inside each sub-stage so that secrets
+         * are still scoped tightly (f004 fix) while staying within valid
+         * declarative parallel syntax.
+         */
         parallel {
           stage('Publish docker images') {
             steps {
-              sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
+              withCredentials([
+                string(credentialsId: 'jenkins-buildbot-access-token',
+                       variable: 'GITHUB_REPO_ACCESS_TOKEN'),
+                /* Settings for ghcr.io */
+                string(credentialsId: 'GITHUB-ONNXMLIR-TOKEN',
+                       variable: 'DOCKER_REGISTRY_LOGIN_TOKEN')
+                /* Settings for docker.io (uncomment and replace above):
+                string(credentialsId: 'DOCKERHUB-ONNXMLIR-TOKEN',
+                       variable: 'DOCKER_REGISTRY_LOGIN_TOKEN')
+                */
+              ]) {
+                sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
+              }
             }
           }
           stage('Publish model zoo test report') {
@@ -255,13 +287,22 @@ def call() {
         publish_modelzoo_report(modelZooBuildBadge)
       }
       success {
-        post_build_status("${GITHUB_EVENT}", 'success')
+        withCredentials([string(credentialsId: 'jenkins-buildbot-access-token',
+                                variable: 'GITHUB_REPO_ACCESS_TOKEN')]) {
+          post_build_status("${GITHUB_EVENT}", 'success')
+        }
       }
       failure {
-        post_build_status("${GITHUB_EVENT}", 'failure')
+        withCredentials([string(credentialsId: 'jenkins-buildbot-access-token',
+                                variable: 'GITHUB_REPO_ACCESS_TOKEN')]) {
+          post_build_status("${GITHUB_EVENT}", 'failure')
+        }
       }
       aborted {
-        post_build_status("${GITHUB_EVENT}", 'aborted')
+        withCredentials([string(credentialsId: 'jenkins-buildbot-access-token',
+                                variable: 'GITHUB_REPO_ACCESS_TOKEN')]) {
+          post_build_status("${GITHUB_EVENT}", 'aborted')
+        }
       }
       cleanup {
         script {
