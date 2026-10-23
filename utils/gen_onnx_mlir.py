@@ -401,6 +401,7 @@ OpsWithVerifier = [
     "ConstantOfShape",
     "Conv",
     "ConvTranspose",
+    "DeformConv",
     "DepthToSpace",
     "DequantizeLinear",
     "Det",
