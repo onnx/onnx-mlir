@@ -14,6 +14,7 @@
 #include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LLVM.h"
+#include "src/Conversion/ONNXToLinalg/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -25,29 +26,6 @@ using namespace onnx_mlir;
 namespace {
 // IndexExpr adapter for tensor-based lowerings. The Reshape shape helper uses
 // it to materialize runtime shape values without introducing Krnl operations.
-struct IndexExprBuilderForTensor : public IndexExprBuilder {
-  IndexExprBuilderForTensor(OpBuilder &builder, Location loc)
-      : IndexExprBuilder(builder, loc) {}
-
-protected:
-  ElementsAttr getConst(Value value) final {
-    if (auto constantOp = value.getDefiningOp<arith::ConstantOp>())
-      return dyn_cast<ElementsAttr>(constantOp.getValue());
-    return getElementAttributeFromONNXValue(value);
-  }
-
-  Value getVal(Value array, uint64_t index) final {
-    auto arrayType = cast<RankedTensorType>(array.getType());
-    SmallVector<Value> indices;
-    if (arrayType.getRank() != 0)
-      indices.push_back(arith::ConstantIndexOp::create(b(), loc(), index));
-    return tensor::ExtractOp::create(b(), loc(), array, indices);
-  }
-
-  Value getShapeVal(Value tensor, uint64_t index) final {
-    return tensor::DimOp::create(b(), loc(), tensor, index);
-  }
-};
 
 struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
   ONNXReshapeOpLoweringToLinalg(
