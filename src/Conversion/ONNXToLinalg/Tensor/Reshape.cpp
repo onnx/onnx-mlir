@@ -89,7 +89,7 @@ private:
 } // namespace
 
 namespace onnx_mlir {
-void populateLoweringONNXReshapeOpPattern(RewritePatternSet &patterns,
+void populateLoweringONNXReshapeOpToLinalgPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx,
     const std::string &linalgOps, bool useLinalgPath) {
   patterns.add<ONNXReshapeOpLoweringToLinalg>(ctx, linalgOps, useLinalgPath);

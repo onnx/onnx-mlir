@@ -55,9 +55,9 @@ struct ConvertONNXToLinalgPass
         patterns, typeConverter, context, linalgOps, useLinalgPath);
     populateLoweringONNXConvOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
-    populateLoweringONNXIdentityOpPattern(
+    populateLoweringONNXIdentityOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
-    populateLoweringONNXReshapeOpPattern(
+    populateLoweringONNXReshapeOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
 
     // Apply patterns greedily
