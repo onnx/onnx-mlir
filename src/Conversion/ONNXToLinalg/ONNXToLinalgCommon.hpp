@@ -1,6 +1,6 @@
 //===- ONNXToLinalgCommon.hpp - Common functions for ONNX to Linalg ------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -88,8 +88,13 @@ void populateLoweringONNXConvOpToLinalgPattern(
     mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
 
 // Tensor operations
-void populateLoweringONNXIdentityOpPattern(mlir::RewritePatternSet &patterns,
-    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
-    const std::string &linalgOps, bool useLinalgPath);
+void populateLoweringONNXIdentityOpToLinalgPattern(
+    mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
+    mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
+
+void populateLoweringONNXReshapeOpToLinalgPattern(
+    mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
+    mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath,
+    const DimAnalysis *dimAnalysis);
 
 } // namespace onnx_mlir
