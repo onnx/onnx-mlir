@@ -28,10 +28,11 @@ namespace {
 // it to materialize runtime shape values without introducing Krnl operations.
 
 struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
-  ONNXReshapeOpLoweringToLinalg(
-      MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath)
+  ONNXReshapeOpLoweringToLinalg(MLIRContext *ctx,
+      const std::string &linalgOps, bool useLinalgPath,
+      const DimAnalysis *dimAnalysis)
       : OpRewritePattern<ONNXReshapeOp>(ctx), linalgOps(linalgOps),
-        useLinalgPath(useLinalgPath) {}
+        useLinalgPath(useLinalgPath), dimAnalysis(dimAnalysis) {}
 
   LogicalResult matchAndRewrite(
       ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const final {
@@ -49,6 +50,11 @@ struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
     if (reshapeOp.getAllowzero() != 0)
       return rewriter.notifyMatchFailure(
           reshapeOp, "allowzero = 1 is not supported");
+
+    if (isIdentityReshape(reshapeOp, dimAnalysis)) {
+      rewriter.replaceOp(reshapeOp, reshapeOp.getData());
+      return success();
+    }
 
     auto shapeType = dyn_cast<RankedTensorType>(reshapeOp.getShape().getType());
     if (!shapeType || shapeType.getRank() != 1 || shapeType.isDynamicDim(0))
@@ -85,13 +91,16 @@ struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
 private:
   std::string linalgOps;
   bool useLinalgPath;
+  const DimAnalysis *dimAnalysis;
 };
 } // namespace
 
 namespace onnx_mlir {
 void populateLoweringONNXReshapeOpToLinalgPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx,
-    const std::string &linalgOps, bool useLinalgPath) {
-  patterns.add<ONNXReshapeOpLoweringToLinalg>(ctx, linalgOps, useLinalgPath);
+    const std::string &linalgOps, bool useLinalgPath,
+    const DimAnalysis *dimAnalysis) {
+  patterns.add<ONNXReshapeOpLoweringToLinalg>(
+      ctx, linalgOps, useLinalgPath, dimAnalysis);
 }
 } // namespace onnx_mlir

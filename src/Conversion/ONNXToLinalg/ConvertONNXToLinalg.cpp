@@ -1,6 +1,6 @@
 //===- ConvertONNXToLinalg.cpp - ONNX dialects to Linalg lowering --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,6 +19,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -49,6 +50,10 @@ struct ConvertONNXToLinalgPass
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
 
+    ModuleOp module = function->getParentOfType<ModuleOp>();
+    DimAnalysis dimAnalysis(module);
+    dimAnalysis.analyze();
+
     // Populate lowering patterns with pass options
     // TableGen-generated options can be used directly as their types
     populateLoweringONNXMatMulOpToLinalgPattern(
@@ -58,7 +63,8 @@ struct ConvertONNXToLinalgPass
     populateLoweringONNXIdentityOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
     populateLoweringONNXReshapeOpToLinalgPattern(
-        patterns, typeConverter, context, linalgOps, useLinalgPath);
+        patterns, typeConverter, context, linalgOps, useLinalgPath,
+        &dimAnalysis);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;

@@ -146,3 +146,29 @@ func.func @reshape_unranked_input_not_lowered(
   // ENABLED-SAME: -> tensor<2x?xf32>
   // ENABLED: return %[[RESULT]] : tensor<2x?xf32>
 }
+
+// -----
+
+// GROUND-THIS: -r=--O0 -t="--O0 --use-linalg-path" --shape-info=0:2x3x4
+func.func @reshape_identity_dynamic(
+    %arg0: tensor<?x?x?xf32> {onnx.name = "input"})
+    -> (tensor<?x?x?xf32> {onnx.name = "output"}) {
+  %minus_one = onnx.Constant dense<-1> : tensor<1xi64>
+  %dim1 = "onnx.Dim"(%arg0) {axis = 1 : si64}
+      : (tensor<?x?x?xf32>) -> tensor<1xi64>
+  %dim2 = "onnx.Dim"(%arg0) {axis = 2 : si64}
+      : (tensor<?x?x?xf32>) -> tensor<1xi64>
+  %shape = "onnx.Concat"(%minus_one, %dim1, %dim2) {axis = 0 : si64}
+      : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64}
+      : (tensor<?x?x?xf32>, tensor<3xi64>) -> tensor<?x?x?xf32>
+  return %0 : tensor<?x?x?xf32>
+
+  // ENABLED-LABEL: func.func @reshape_identity_dynamic(
+  // ENABLED-NOT: tensor.reshape
+  // ENABLED: return %arg0 : tensor<?x?x?xf32>
+
+  // DISABLED-LABEL: func.func @reshape_identity_dynamic(
+  // DISABLED: %[[RESULT:.*]] = "onnx.Reshape"
+  // DISABLED: return %[[RESULT]] : tensor<?x?x?xf32>
+}
