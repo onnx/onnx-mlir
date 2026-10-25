@@ -62,12 +62,15 @@ func.func @reshape_dynamic_input(
       : (tensor<?x3x4xf32>, tensor<2xi64>) -> tensor<?x12xf32>
   return %0 : tensor<?x12xf32>
 
-  // ENABLED-LABEL: func.func @reshape_dynamic_input(
-  // ENABLED: %[[DIM:.*]] = tensor.dim %arg0, %{{.*}} : tensor<?x3x4xf32>
-  // ENABLED: %[[SHAPE:.*]] = tensor.from_elements %{{.*}}, %{{.*}} : tensor<2xindex>
-  // ENABLED: %[[RESULT:.*]] = tensor.reshape %arg0(%[[SHAPE]]) : (tensor<?x3x4xf32>, tensor<2xindex>) -> tensor<?x12xf32>
-  // ENABLED: return %[[RESULT]] : tensor<?x12xf32>
-  // ENABLED-NOT: "onnx.Reshape"
+// ENABLED-LABEL:  func.func @reshape_dynamic_input
+// ENABLED-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x4xf32>) -> tensor<?x12xf32> {
+// ENABLED-DAG:       [[CST_12_:%.+]] = arith.constant 12 : index
+// ENABLED-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// ENABLED:           [[VAR_dim_:%.+]] = tensor.dim [[PARAM_0_]], [[CST_0_]] : tensor<?x3x4xf32>
+// ENABLED:           [[VAR_from_elements_:%.+]] = tensor.from_elements [[VAR_dim_]], [[CST_12_]] : tensor<2xindex>
+// ENABLED:           [[VAR_reshape_:%.+]] = tensor.reshape [[PARAM_0_]]([[VAR_from_elements_]]) : (tensor<?x3x4xf32>, tensor<2xindex>) -> tensor<?x12xf32>
+// ENABLED:           return [[VAR_reshape_]] : tensor<?x12xf32>
+// ENABLED:         }
 }
 
 // -----
@@ -78,13 +81,43 @@ func.func @reshape_runtime_shape(%arg0: tensor<2x3x4xf32>,
       : (tensor<2x3x4xf32>, tensor<2xi64>) -> tensor<?x?xf32>
   return %0 : tensor<?x?xf32>
 
-  // ENABLED-LABEL: func.func @reshape_runtime_shape(
-  // ENABLED-SAME: %[[DATA:.*]]: tensor<2x3x4xf32>, %[[INPUT_SHAPE:.*]]: tensor<2xi64>
-  // ENABLED: tensor.extract %[[INPUT_SHAPE]][%{{.*}}] : tensor<2xi64>
-  // ENABLED: %[[RESHAPE_SHAPE:.*]] = tensor.from_elements %{{.*}}, %{{.*}} : tensor<2xindex>
-  // ENABLED: %[[RESULT:.*]] = tensor.reshape %[[DATA]](%[[RESHAPE_SHAPE]]) : (tensor<2x3x4xf32>, tensor<2xindex>) -> tensor<?x?xf32>
-  // ENABLED: return %[[RESULT]] : tensor<?x?xf32>
-  // ENABLED-NOT: "onnx.Reshape"
+// ENABLED-LABEL:  func.func @reshape_runtime_shape
+// ENABLED-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<2xi64>) -> tensor<?x?xf32> {
+// ENABLED-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
+// ENABLED-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
+// ENABLED-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// ENABLED-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// ENABLED-DAG:       [[CST_24_:%.+]] = arith.constant 24 : index
+// ENABLED-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// ENABLED:           [[VAR_extracted_:%.+]] = tensor.extract [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : tensor<2xi64>
+// ENABLED:           [[VAR_0_:%.+]] = arith.index_cast [[VAR_extracted_]] : i64 to index
+// ENABLED:           [[VAR_1_:%.+]] = arith.cmpi eq, [[VAR_0_]], [[CST_0_]] : index
+// ENABLED:           [[VAR_2_:%.+]] = arith.select [[VAR_1_]], [[CST_2_]], [[VAR_0_]] : index
+// ENABLED:           [[VAR_3_:%.+]] = arith.cmpi eq, [[VAR_2_]], [[CST_minus_1_]] : index
+// ENABLED-DAG:       [[VAR_4_:%.+]] = arith.select [[VAR_3_]], [[CST_1_]], [[VAR_2_]] : index
+// ENABLED-DAG:       [[VAR_extracted_0_:%.+]] = tensor.extract [[PARAM_1_]]{{.}}[[CST_1_]]{{.}} : tensor<2xi64>
+// ENABLED:           [[VAR_5_:%.+]] = arith.index_cast [[VAR_extracted_0_]] : i64 to index
+// ENABLED:           [[VAR_6_:%.+]] = arith.cmpi eq, [[VAR_5_]], [[CST_0_]] : index
+// ENABLED:           [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[CST_3_]], [[VAR_5_]] : index
+// ENABLED:           [[VAR_8_:%.+]] = arith.cmpi eq, [[VAR_7_]], [[CST_minus_1_]] : index
+// ENABLED:           [[VAR_9_:%.+]] = arith.select [[VAR_8_]], [[CST_1_]], [[VAR_7_]] : index
+// ENABLED-DAG:       [[VAR_10_:%.+]] = arith.muli [[VAR_4_]], [[VAR_9_]] : index
+// ENABLED-DAG:       [[VAR_extracted_1_:%.+]] = tensor.extract [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : tensor<2xi64>
+// ENABLED-NOT: separator of consecutive DAGs
+// ENABLED-DAG:       [[VAR_11_:%.+]] = arith.index_cast [[VAR_extracted_1_]] : i64 to index
+// ENABLED-DAG:       [[VAR_12_:%.+]] = arith.floordivsi [[CST_24_]], [[VAR_10_]] : index
+// ENABLED:           [[VAR_13_:%.+]] = arith.cmpi eq, [[VAR_11_]], [[CST_minus_1_]] : index
+// ENABLED-DAG:       [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_12_]], [[VAR_2_]] : index
+// ENABLED-DAG:       [[VAR_extracted_2_:%.+]] = tensor.extract [[PARAM_1_]]{{.}}[[CST_1_]]{{.}} : tensor<2xi64>
+// ENABLED-NOT: separator of consecutive DAGs
+// ENABLED-DAG:       [[VAR_15_:%.+]] = arith.index_cast [[VAR_extracted_2_]] : i64 to index
+// ENABLED-DAG:       [[VAR_16_:%.+]] = arith.floordivsi [[CST_24_]], [[VAR_10_]] : index
+// ENABLED:           [[VAR_17_:%.+]] = arith.cmpi eq, [[VAR_15_]], [[CST_minus_1_]] : index
+// ENABLED:           [[VAR_18_:%.+]] = arith.select [[VAR_17_]], [[VAR_16_]], [[VAR_7_]] : index
+// ENABLED:           [[VAR_from_elements_:%.+]] = tensor.from_elements [[VAR_14_]], [[VAR_18_]] : tensor<2xindex>
+// ENABLED:           [[VAR_reshape_:%.+]] = tensor.reshape [[PARAM_0_]]([[VAR_from_elements_]]) : (tensor<2x3x4xf32>, tensor<2xindex>) -> tensor<?x?xf32>
+// ENABLED:           return [[VAR_reshape_]] : tensor<?x?xf32>
+// ENABLED:         }
 }
 
 // -----
