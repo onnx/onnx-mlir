@@ -182,6 +182,23 @@ func.func @reshape_to_scalar(%arg0: tensor<1xf32>) -> tensor<f32> {
 
 // -----
 
+func.func @reshape_allowzero_without_zeros(
+    %arg0: tensor<2x3x4xf32>) -> tensor<6x4xf32> {
+  %shape = onnx.Constant dense<[6, 4]> : tensor<2xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 1 : si64}
+      : (tensor<2x3x4xf32>, tensor<2xi64>) -> tensor<6x4xf32>
+  return %0 : tensor<6x4xf32>
+
+// ENABLED-LABEL:  func.func @reshape_allowzero_without_zeros
+// ENABLED-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>) -> tensor<6x4xf32> {
+// ENABLED:           [[VAR_cst_:%.+]] = arith.constant dense<[6, 4]> : tensor<2xindex>
+// ENABLED:           [[VAR_reshape_:%.+]] = tensor.reshape [[PARAM_0_]]([[VAR_cst_]]) : (tensor<2x3x4xf32>, tensor<2xindex>) -> tensor<6x4xf32>
+// ENABLED:           return [[VAR_reshape_]] : tensor<6x4xf32>
+// ENABLED:         }
+}
+
+// -----
+
 func.func @reshape_allowzero_not_lowered(
     %arg0: tensor<0x3xf32>) -> tensor<0x3xf32> {
   %shape = onnx.Constant dense<[0, 3]> : tensor<2xi64>
@@ -194,6 +211,21 @@ func.func @reshape_allowzero_not_lowered(
   // ENABLED-SAME: <{allowzero = 1 : si64}>
   // ENABLED-SAME: -> tensor<0x3xf32>
   // ENABLED: return %[[RESULT]] : tensor<0x3xf32>
+}
+
+// -----
+
+func.func @reshape_allowzero_runtime_shape_not_lowered(
+    %arg0: tensor<2x3x4xf32>, %shape: tensor<2xi64>) -> tensor<?x?xf32> {
+  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 1 : si64}
+      : (tensor<2x3x4xf32>, tensor<2xi64>) -> tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+
+  // ENABLED-LABEL: func.func @reshape_allowzero_runtime_shape_not_lowered(
+  // ENABLED: %[[RESULT:.*]] = "onnx.Reshape"
+  // ENABLED-SAME: <{allowzero = 1 : si64}>
+  // ENABLED-SAME: -> tensor<?x?xf32>
+  // ENABLED: return %[[RESULT]] : tensor<?x?xf32>
 }
 
 // -----

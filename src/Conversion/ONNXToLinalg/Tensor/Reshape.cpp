@@ -46,10 +46,17 @@ struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
       return rewriter.notifyMatchFailure(
           reshapeOp, "expected ranked input tensor");
 
-    // ONNXReshapeOpShapeHelper currently does not account for allowzero.
-    if (reshapeOp.getAllowzero() != 0)
-      return rewriter.notifyMatchFailure(
-          reshapeOp, "allowzero = 1 is not supported");
+    // ONNXReshapeOpShapeHelper always treats zero as copying the corresponding
+    // input dimension. For allowzero = 1, use it only when a constant shape
+    // proves that this semantic difference is irrelevant.
+    if (reshapeOp.getAllowzero() != 0) {
+      SmallVector<int64_t, 4> shapeValues;
+      if (!getI64ValuesFromONNXConstantOp(
+              reshapeOp.getShape(), shapeValues) ||
+          llvm::any_of(shapeValues, [](int64_t dim) { return dim == 0; }))
+        return rewriter.notifyMatchFailure(reshapeOp,
+            "allowzero = 1 requires a constant shape without zeros");
+    }
 
     if (isIdentityReshape(reshapeOp, dimAnalysis)) {
       rewriter.replaceOp(reshapeOp, reshapeOp.getData());
