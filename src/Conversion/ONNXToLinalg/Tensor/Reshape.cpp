@@ -8,7 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
@@ -28,9 +27,8 @@ namespace {
 // it to materialize runtime shape values without introducing Krnl operations.
 
 struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
-  ONNXReshapeOpLoweringToLinalg(MLIRContext *ctx,
-      const std::string &linalgOps, bool useLinalgPath,
-      const DimAnalysis *dimAnalysis)
+  ONNXReshapeOpLoweringToLinalg(MLIRContext *ctx, const std::string &linalgOps,
+      bool useLinalgPath, const DimAnalysis *dimAnalysis)
       : OpRewritePattern<ONNXReshapeOp>(ctx), linalgOps(linalgOps),
         useLinalgPath(useLinalgPath), dimAnalysis(dimAnalysis) {}
 
@@ -51,11 +49,10 @@ struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
     // proves that this semantic difference is irrelevant.
     if (reshapeOp.getAllowzero() != 0) {
       SmallVector<int64_t, 4> shapeValues;
-      if (!getI64ValuesFromONNXConstantOp(
-              reshapeOp.getShape(), shapeValues) ||
+      if (!getI64ValuesFromONNXConstantOp(reshapeOp.getShape(), shapeValues) ||
           llvm::any_of(shapeValues, [](int64_t dim) { return dim == 0; }))
-        return rewriter.notifyMatchFailure(reshapeOp,
-            "allowzero = 1 requires a constant shape without zeros");
+        return rewriter.notifyMatchFailure(
+            reshapeOp, "allowzero = 1 requires a constant shape without zeros");
     }
 
     if (isIdentityReshape(reshapeOp, dimAnalysis)) {

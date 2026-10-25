@@ -15,9 +15,9 @@
 #ifndef ONNX_MLIR_DIALECT_BUILDER_LINALG_H
 #define ONNX_MLIR_DIALECT_BUILDER_LINALG_H
 
-#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
@@ -37,4 +37,3 @@ protected:
 } // namespace onnx_mlir
 
 #endif // ONNX_MLIR_DIALECT_BUILDER_LINALG_H
-
