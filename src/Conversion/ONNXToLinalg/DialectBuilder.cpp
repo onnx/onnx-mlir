@@ -36,6 +36,15 @@ ElementsAttr IndexExprBuilderForTensor::getConst(Value value) {
 }
 
 Value IndexExprBuilderForTensor::getVal(Value array, uint64_t index) {
+  // If the shape comes from an onnx.Concat of mixed constant/runtime values,
+  // then we can potentially get a constant value at index.
+  if (areDimsFromConcat(array)) {
+    SmallVector<Value, 4> dims;
+    getDims(array, dims);
+    if (isDenseONNXConstant(dims[index]))
+      return dims[index];
+  }
+
   auto arrayType = cast<RankedTensorType>(array.getType());
   SmallVector<Value> indices;
   if (arrayType.getRank() != 0)
