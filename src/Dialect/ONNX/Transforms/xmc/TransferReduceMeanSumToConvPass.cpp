@@ -46,13 +46,13 @@ int64_t normalizeAxis(int64_t axis, int64_t rank) {
   return axis < 0 ? axis + rank : axis;
 }
 
-/// Check if reduction is on channel dimension.
-/// NCHW: channel at axis 1. NHWC: channel at axis rank-1.
+/// The Conv built by convertReductionToConv uses NCHW, with channel at axis 1.
+/// Other axes require the spatial pattern to transpose the input first.
 bool isChannelWiseReduction(llvm::ArrayRef<int64_t> axes, int64_t rank) {
   if (axes.size() != 1)
     return false;
   int64_t axis = normalizeAxis(axes[0], rank);
-  return axis == 1 || (rank > 2 && axis == rank - 1);
+  return axis == 1;
 }
 
 /// Check if element type is valid for onnx.Conv (float or quantized).
