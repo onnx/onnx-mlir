@@ -34,21 +34,21 @@ func.func @test_gather_nd_1(%arg0 : tensor<2x2xf32>, %arg1 : tensor<2x2xi64>) ->
 // CHECK-DAG:         [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[CST_0_2_]]{{.}} : memref<1x2x2xi64>
 // CHECK-DAG:         [[VAR_3_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_]] : i64 to index
-// CHECK-DAG:         [[CST_2_9_:%.+]] = arith.constant 2 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_4_:%.+]] = arith.addi [[VAR_3_]], [[CST_2_9_]] : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_3_]] : index
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[VAR_4_]], [[VAR_3_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_3_]] : index
+// CHECK-DAG:         [[CST_2_9_:%.+]] = arith.constant 2 : index
+// CHECK:             [[VAR_5_:%.+]] = arith.addi [[VAR_3_]], [[CST_2_9_]] : index
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[VAR_3_]] : index
 // CHECK-DAG:         [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_1_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[CST_1_4_]]{{.}} : memref<1x2x2xi64>
 // CHECK-DAG:         [[VAR_8_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_1_]] : i64 to index
-// CHECK-DAG:         [[CST_2_10_:%.+]] = arith.constant 2 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.addi [[VAR_8_]], [[CST_2_10_]] : index
 // CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_10_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[CST_0_4_]] : index
-// CHECK:             [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_9_]], [[VAR_8_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[CST_0_4_]] : index
+// CHECK-DAG:         [[CST_2_10_:%.+]] = arith.constant 2 : index
+// CHECK:             [[VAR_10_:%.+]] = arith.addi [[VAR_8_]], [[CST_2_10_]] : index
+// CHECK:             [[VAR_11_:%.+]] = arith.select [[VAR_9_]], [[VAR_10_]], [[VAR_8_]] : index
 // CHECK-DAG:         [[LOAD_VAR_reinterpret_cast_11_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_11_]]{{.}}[[VAR_1_]]#0, [[VAR_6_]], [[VAR_11_]]{{.}} : memref<1x2x2xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:             krnl.store [[LOAD_VAR_reinterpret_cast_11_MEM_]], [[RES_]]{{.}}[[LOAD_RES_1_MEM_]]{{.}} : memref<2xf32>
@@ -103,21 +103,21 @@ func.func @test_gather_nd_2(%arg0 : tensor<2x2x2xf32>, %arg1 : tensor<2x1x2xi64>
 // CHECK-DAG:         [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[CST_0_2_]]{{.}} : memref<1x2x2xi64>
 // CHECK-DAG:         [[VAR_3_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_]] : i64 to index
-// CHECK-DAG:         [[CST_2_11_:%.+]] = arith.constant 2 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_4_:%.+]] = arith.addi [[VAR_3_]], [[CST_2_11_]] : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_3_]] : index
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[VAR_4_]], [[VAR_3_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_3_]] : index
+// CHECK-DAG:         [[CST_2_11_:%.+]] = arith.constant 2 : index
+// CHECK:             [[VAR_5_:%.+]] = arith.addi [[VAR_3_]], [[CST_2_11_]] : index
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[VAR_3_]] : index
 // CHECK-DAG:         [[CST_1_6_:%.+]] = arith.constant 1 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_1_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[CST_1_6_]]{{.}} : memref<1x2x2xi64>
 // CHECK-DAG:         [[VAR_8_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_1_]] : i64 to index
-// CHECK-DAG:         [[CST_2_12_:%.+]] = arith.constant 2 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.addi [[VAR_8_]], [[CST_2_12_]] : index
 // CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_10_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[CST_0_4_]] : index
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_9_]], [[VAR_8_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[CST_0_4_]] : index
+// CHECK-DAG:         [[CST_2_12_:%.+]] = arith.constant 2 : index
+// CHECK:             [[VAR_10_:%.+]] = arith.addi [[VAR_8_]], [[CST_2_12_]] : index
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_9_]], [[VAR_10_]], [[VAR_8_]] : index
 // CHECK-DAG:         [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:         [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = [[CST_0_5_]] to [[CST_2_7_]]){
@@ -175,12 +175,12 @@ func.func @test_gather_nd_4d_2d(%arg0: tensor<1x196x512xf32>, %arg1: tensor<1x1x
 // CHECK-DAG:         [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[CST_0_2_]]{{.}} : memref<1x1x1xi64>
 // CHECK-DAG:         [[VAR_3_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_]] : i64 to index
-// CHECK-DAG:         [[CST_1_11_:%.+]] = arith.constant 1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_4_:%.+]] = arith.addi [[VAR_3_]], [[CST_1_11_]] : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_3_]] : index
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[VAR_4_]], [[VAR_3_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_3_]] : index
+// CHECK-DAG:         [[CST_1_11_:%.+]] = arith.constant 1 : index
+// CHECK:             [[VAR_5_:%.+]] = arith.addi [[VAR_3_]], [[CST_1_11_]] : index
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[VAR_3_]] : index
 // CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:         [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
@@ -242,21 +242,21 @@ func.func @test_gather_nd_with_dynamic_shape_int(%arg0 : tensor<2x2xi32>, %arg1 
 // CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[CST_0_4_]]{{.}} : memref<1x?x2xi64>
 // CHECK-DAG:         [[VAR_4_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_]] : i64 to index
-// CHECK-DAG:         [[CST_2_7_:%.+]] = arith.constant 2 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.addi [[VAR_4_]], [[CST_2_7_]] : index
 // CHECK-DAG:         [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_6_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[CST_0_5_]] : index
-// CHECK-DAG:         [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[VAR_5_]], [[VAR_4_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[CST_0_5_]] : index
+// CHECK-DAG:         [[CST_2_7_:%.+]] = arith.constant 2 : index
+// CHECK:             [[VAR_6_:%.+]] = arith.addi [[VAR_4_]], [[CST_2_7_]] : index
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
 // CHECK-DAG:         [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK:             [[LOAD_VAR_reinterpret_cast_MEM_1_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[CST_1_4_]]{{.}} : memref<1x?x2xi64>
 // CHECK-DAG:         [[VAR_9_:%.+]] = arith.index_cast [[LOAD_VAR_reinterpret_cast_MEM_1_]] : i64 to index
-// CHECK-DAG:         [[CST_2_8_:%.+]] = arith.constant 2 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_10_:%.+]] = arith.addi [[VAR_9_]], [[CST_2_8_]] : index
 // CHECK-DAG:         [[CST_0_6_:%.+]] = arith.constant 0 : index
-// CHECK:             [[VAR_11_:%.+]] = arith.cmpi slt, [[VAR_9_]], [[CST_0_6_]] : index
-// CHECK:             [[VAR_12_:%.+]] = arith.select [[VAR_11_]], [[VAR_10_]], [[VAR_9_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpi slt, [[VAR_9_]], [[CST_0_6_]] : index
+// CHECK-DAG:         [[CST_2_8_:%.+]] = arith.constant 2 : index
+// CHECK:             [[VAR_11_:%.+]] = arith.addi [[VAR_9_]], [[CST_2_8_]] : index
+// CHECK:             [[VAR_12_:%.+]] = arith.select [[VAR_10_]], [[VAR_11_]], [[VAR_9_]] : index
 // CHECK-DAG:         [[LOAD_VAR_reinterpret_cast_10_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_10_]]{{.}}[[VAR_2_]]#0, [[VAR_7_]], [[VAR_12_]]{{.}} : memref<1x2x2xi32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:             krnl.store [[LOAD_VAR_reinterpret_cast_10_MEM_]], [[RES_]]{{.}}[[LOAD_RES_1_MEM_]]{{.}} : memref<?xi32>
