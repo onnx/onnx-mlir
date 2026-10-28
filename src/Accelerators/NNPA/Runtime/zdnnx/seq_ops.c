@@ -24,7 +24,9 @@
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
 #include "zdnnx_private.h"
-
+#if defined(__MVS__)
+#include <builtins.h>
+#endif
 // -----------------------------------------------------------------------------
 // Element-wise operations
 // -----------------------------------------------------------------------------
