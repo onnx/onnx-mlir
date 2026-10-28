@@ -680,14 +680,19 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   for (uint32_t b = 0; b < BH; ++b) {
     zdnnx_tile tq, tkt, tmask, tv, tout;
     zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
+    zdnnx_copy_data_to_tile(&tq);
     zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
+    zdnnx_copy_data_to_tile(&tkt);
     zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, 0);
+    zdnnx_copy_data_to_tile(&tmask);
     zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
+    zdnnx_copy_data_to_tile(&tv);
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
 
     zdnn_status status = zdnnx_seq_sdpa_3d(
         &tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt, &tout.data);
     assert(status == ZDNN_OK);
+    zdnnx_copy_data_to_full(&tout);
   }
 
   return ZDNN_OK;
