@@ -572,6 +572,50 @@ func.func @test_split_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) -
 
 // -----
 
+func.func @test_split_verifier_both_split_and_num_outputs(
+    %arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) ->
+    (tensor<*xi64>, tensor<*xi64>) {
+  // expected-error @+1 {{'onnx.Split' op does not allow both 'split' and 'num_outputs' to be specified}}
+  %0:2 = "onnx.Split"(%arg0, %arg1) {num_outputs = 2 : si64} :
+      (tensor<2x2xi64>, tensor<2xi64>) ->
+      (tensor<*xi64>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*xi64>, tensor<*xi64>
+}
+
+// -----
+
+func.func @test_split_verifier_nonpositive_num_outputs(
+    %arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Split' op requires 'num_outputs' to be positive}}
+  %0 = "onnx.Split"(%arg0, %none) {num_outputs = 0 : si64} :
+      (tensor<2x2xi64>, none) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}
+
+// -----
+
+func.func @test_split_verifier_num_outputs_result_mismatch(
+    %arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Split' op requires 'num_outputs' to equal the number of variadic results}}
+  %0 = "onnx.Split"(%arg0, %none) {num_outputs = 2 : si64} :
+      (tensor<2x2xi64>, none) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}
+
+// -----
+
+func.func @test_split_verifier_no_outputs(%arg0: tensor<2x2xi64>) {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Split' op requires at least one output}}
+  "onnx.Split"(%arg0, %none) {axis = 0 : si64} :
+      (tensor<2x2xi64>, none) -> ()
+  return
+}
+
+// -----
+
 func.func @test_splitToSequence_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>> {
   // expected-error @+1 {{onnx.SplitToSequence: 'axis' value is -3, accepted range is [-2, 1]}}
   %1 = "onnx.SplitToSequence"(%arg0, %arg1) {axis = -3 : si64} : (tensor<2x2xi64>, tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>>
