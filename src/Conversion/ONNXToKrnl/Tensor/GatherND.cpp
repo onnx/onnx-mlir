@@ -73,6 +73,8 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     auto indicesType = mlir::cast<ShapedType>(indices.getType());
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
     int64_t indicesLastDim = indicesShape[indicesRank - 1];
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
     // ToFix: Handle case in which indicesLastDim is kDynamic.
     // Currently, such case is detected by ONNXPreKrnlVerifyPass.
     assert((indicesLastDim >= 1 && indicesLastDim <= dataRank - b) &&
@@ -178,6 +180,11 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             }
 
             IndexExpr index = NonAffineIndexExpr(indexVal);
+            // Index values are allowed to be negative, counting dimensions
+            // from the back; normalize by adding the data dim in that case.
+            if (indicesMayBeNegative)
+              index = index.selectOrSelf(
+                  index < LitIE(0), index + SymIE(dataDims[b + i]));
             reshapedDataAccessFct.emplace_back(index);
           }
 
