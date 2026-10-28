@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['runtime_20api_20documentation_0',['ONNX-MLIR Runtime API documentation',['../index.html',1,'']]]
+  ['freeing_20tensor_20memory_0',['Freeing Tensor Memory',['../index.html#freeing-tensor-memory',1,'']]]
 ];

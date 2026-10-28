@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['mlir_20runtime_20api_20documentation_0',['ONNX-MLIR Runtime API documentation',['../index.html',1,'']]]
+  ['data_20structures_0',['Data Structures',['../index.html#data-structures',1,'']]],
+  ['documentation_1',['ONNX-MLIR Runtime API documentation',['../index.html',1,'']]]
 ];
