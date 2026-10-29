@@ -552,6 +552,12 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(onnx_mlir::createProcessKrnlParallelClausePass());
     pm.addPass(onnx_mlir::createBufferOMPLoopHoistingPass());
+    // Must run after the hoisting pass, which adds the deallocs after the
+    // wsloops, and be the last pass that touches omp.parallel bodies: an op
+    // added later between a nowait wsloop and the end of its region would
+    // run without the barrier.
+    if (!disableOMPNowait)
+      pm.addPass(onnx_mlir::createOMPWsloopNowaitPass());
   }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,

@@ -91,6 +91,7 @@ int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool disableCollapse;                                  // onnx-mlir only
+bool disableOMPNowait;                                 // onnx-mlir only
 int64_t collapseMinParTripCountFloor;                  // common for both
 int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
@@ -745,6 +746,15 @@ static llvm::cl::opt<bool, true> disableCollapseOpt("disable-collapse",
         "option has no effect."),
     llvm::cl::location(disableCollapse), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableOMPNowaitOpt("disable-omp-nowait",
+    llvm::cl::desc(
+        "Keep the implicit barrier at the end of the last OpenMP worksharing\n"
+        "loop of a parallel region (default=false, i.e. the barrier is\n"
+        "removed when the join of the region makes it redundant). Only has\n"
+        "an effect together with --parallel."),
+    llvm::cl::location(disableOMPNowait), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden);
 
 // Overrides for the target-derived parallel cost model constants; see
 // src/Dialect/Mlir/ParallelMachineSupport.hpp for what each one means. A
