@@ -58,7 +58,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 24. Limitatio
 | **Cosh** |9 - * | | |
 | **CumSum** |11 - * | | |
 | **DFT** |17 - * | | |
-| **DeformConv** |none | | | |
+| **DeformConv** |22 - * |1-D to 3-D spatial data only. | |
 | **DepthToSpace** |13 - * | | |
 | **DequantizeLinear** |10 - * |Only support for per-tensor or layer dequantization. No support for per-axis dequantization. Does not support int4 and uint4. | |
 | **Det** |22 - * |Does not support bfloat16. | |

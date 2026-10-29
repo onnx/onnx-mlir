@@ -357,6 +357,20 @@ LogicalResult ONNXQLinearConvOpShapeHelper::computeShape() {
       /*ceil mode*/ false);
 }
 
+template <>
+LogicalResult ONNXDeformConvOpShapeHelper::computeShape() {
+  ONNXDeformConvOp deformConvOp = mlir::dyn_cast<ONNXDeformConvOp>(op);
+  ONNXDeformConvOpAdaptor operandAdaptor = ONNXDeformConvOpAdaptor(operands);
+  // DeformConv has no auto_pad attribute: pads are either explicit or zero,
+  // which is exactly the NOTSET policy. Apart from the sampling locations
+  // being shifted by `offset`, the output shape is that of a plain Conv.
+  return customComputeShape(operandAdaptor.getX(), operandAdaptor.getW(),
+      deformConvOp.getKernelShape(), "NOTSET", deformConvOp.getPads(),
+      deformConvOp.getStrides(), deformConvOp.getDilations(),
+      /*hasFilter*/ true,
+      /*ceil mode*/ false);
+}
+
 LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
   ONNXConvTransposeOp convTransposeOp = mlir::dyn_cast<ONNXConvTransposeOp>(op);
   ONNXConvTransposeOpAdaptor operandAdaptor(operands);
@@ -845,6 +859,187 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// DeformConv
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDeformConvOp::verify() {
+  ONNXDeformConvOpAdaptor operandAdaptor = ONNXDeformConvOpAdaptor(*this);
+  Value X = operandAdaptor.getX();
+  Value W = operandAdaptor.getW();
+  Value offset = operandAdaptor.getOffset();
+  Value B = operandAdaptor.getB();
+  Value mask = operandAdaptor.getMask();
+
+  int64_t g = getGroup();
+  if (g < 1)
+    return emitOpError("group must be strictly positive");
+  int64_t og = getOffsetGroup();
+  if (og < 1)
+    return emitOpError("offset_group must be strictly positive");
+
+  if (!hasShapeAndRank(W)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  ArrayRef<int64_t> wShape = mlir::cast<ShapedType>(W.getType()).getShape();
+  int64_t spatialRank = wShape.size() - 2;
+  if (spatialRank < 1)
+    return emitOpError("Spatial rank must be strictly positive");
+  int64_t oC = wShape[0];
+  if (oC != ShapedType::kDynamic && oC % g != 0)
+    return emitOpError(
+        "Channel Out (oC) must be a multiple of the number of groups");
+
+  // Verify the spatial parameters first: the kernel shape is needed below to
+  // check the channel count of `offset` and `mask`.
+  if (failed(verifyKernelShape<ONNXDeformConvOp>(
+          this, W, getKernelShape(), spatialRank)))
+    return failure();
+  if (failed(verifyStrides<ONNXDeformConvOp>(this, spatialRank)))
+    return failure();
+  if (failed(verifyDilations<ONNXDeformConvOp>(this, spatialRank)))
+    return failure();
+  // DeformConv has no auto_pad attribute, so pads are verified here rather
+  // than through verifyPadding.
+  if (std::optional<ArrayAttr> pads = getPads()) {
+    if ((int64_t)ArrayAttrSize(pads) != 2 * spatialRank)
+      return emitOpError("pads length incompatible with spatial dimensions");
+    for (int64_t i = 0; i < 2 * spatialRank; ++i)
+      if (ArrayAttrIntVal(pads, i) < 0)
+        return emitOpError("Bad pad value: must be nonnegative");
+  }
+
+  // Number of kernel elements, taken from the attribute when given and from
+  // the weights otherwise. It is kDynamic when any of the sizes is unknown.
+  int64_t kernelElems = 1;
+  std::optional<ArrayAttr> kernelShapeOpt = getKernelShape();
+  for (int64_t i = 0; i < spatialRank; ++i) {
+    int64_t k = kernelShapeOpt.has_value() ? ArrayAttrIntVal(kernelShapeOpt, i)
+                                           : wShape[2 + i];
+    if (k == ShapedType::kDynamic) {
+      kernelElems = ShapedType::kDynamic;
+      break;
+    }
+    kernelElems *= k;
+  }
+
+  if (hasShapeAndRank(X)) {
+    ArrayRef<int64_t> xShape = mlir::cast<ShapedType>(X.getType()).getShape();
+    if ((int64_t)xShape.size() - 2 != spatialRank)
+      return emitOpError("Input and filter rank mismatch");
+    int64_t C = xShape[1];
+    if (C != ShapedType::kDynamic) {
+      if (C % g != 0)
+        return emitOpError(
+            "Channel In (C) must be a multiple of the number of groups");
+      if (C % og != 0)
+        return emitOpError("Channel In (C) must be a multiple of offset_group");
+      if (wShape[1] != ShapedType::kDynamic && C != wShape[1] * g)
+        return emitOpError("Channel In (C) of input must be equal 2nd dim "
+                           "of weights times group");
+    }
+  }
+
+  // `offset` and `mask` carry one entry per output element, so their batch and
+  // spatial dimensions must match the output exactly. The lowering indexes them
+  // with the output coordinates; a mismatch would read out of bounds. Compare
+  // against the result type rather than recomputing the output shape here, so
+  // that this cannot drift from ONNXDeformConvOpShapeHelper. Before shape
+  // inference has run the result is unranked and only the batch is checked.
+  //
+  // Note that this protection, like the `C % offset_group` check above, is
+  // static only: it fires on the dimensions that are known at compile time.
+  // A model whose dynamic dimensions violate it at runtime makes the lowering
+  // index `offset`/`mask` out of bounds, either through the output
+  // coordinates or through `og = ci / (C / offset_group)` running past the
+  // offset groups. That takes a malformed model, and the other Conv lowerings
+  // do not check at runtime either, so the gap is deliberate for now;
+  // `--enable-bound-check` catches it when a model is suspect.
+  ArrayRef<int64_t> yShape;
+  if (hasShapeAndRank(getY())) {
+    ArrayRef<int64_t> shape =
+        mlir::cast<ShapedType>(getY().getType()).getShape();
+    if ((int64_t)shape.size() == spatialRank + 2)
+      yShape = shape;
+  }
+  int64_t batchSize = ShapedType::kDynamic;
+  if (hasShapeAndRank(X))
+    batchSize = mlir::cast<ShapedType>(X.getType()).getShape()[0];
+  auto verifySamplingDims = [&](ArrayRef<int64_t> shape,
+                                StringRef name) -> LogicalResult {
+    if (shape[0] != ShapedType::kDynamic && batchSize != ShapedType::kDynamic &&
+        shape[0] != batchSize)
+      return emitOpError() << name << " batch size must match the input";
+    for (int64_t i = 0; i < (int64_t)yShape.size() - 2; ++i)
+      if (shape[2 + i] != ShapedType::kDynamic &&
+          yShape[2 + i] != ShapedType::kDynamic &&
+          shape[2 + i] != yShape[2 + i])
+        return emitOpError()
+               << name << " spatial dimensions must match the output";
+    return success();
+  };
+
+  if (hasShapeAndRank(offset)) {
+    ArrayRef<int64_t> offShape =
+        mlir::cast<ShapedType>(offset.getType()).getShape();
+    if ((int64_t)offShape.size() - 2 != spatialRank)
+      return emitOpError("offset and filter rank mismatch");
+    if (offShape[1] != ShapedType::kDynamic &&
+        kernelElems != ShapedType::kDynamic &&
+        offShape[1] != og * kernelElems * spatialRank)
+      return emitOpError("offset must have offset_group * "
+                         "prod(kernel_shape) * spatial_rank channels");
+    if (failed(verifySamplingDims(offShape, "offset")))
+      return failure();
+  }
+
+  if (!isNoneValue(mask) && hasShapeAndRank(mask)) {
+    ArrayRef<int64_t> maskShape =
+        mlir::cast<ShapedType>(mask.getType()).getShape();
+    if ((int64_t)maskShape.size() - 2 != spatialRank)
+      return emitOpError("mask and filter rank mismatch");
+    if (maskShape[1] != ShapedType::kDynamic &&
+        kernelElems != ShapedType::kDynamic && maskShape[1] != og * kernelElems)
+      return emitOpError(
+          "mask must have offset_group * prod(kernel_shape) channels");
+    if (failed(verifySamplingDims(maskShape, "mask")))
+      return failure();
+  }
+
+  if (!isNoneValue(B) && hasShapeAndRank(B)) {
+    ArrayRef<int64_t> bShape = mlir::cast<ShapedType>(B.getType()).getShape();
+    if (bShape.size() != 1)
+      return emitOpError("Bias should have a rank of one");
+    if (bShape[0] != ShapedType::kDynamic && oC != ShapedType::kDynamic &&
+        oC != bShape[0])
+      return emitOpError(
+          "Bias should have same dimension as first dimension of weights");
+  }
+  return success();
+}
+
+LogicalResult ONNXDeformConvOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (oC x C/group x k1 x k2 x ... x kn)
+  // offset: (N x offset_group * prod(k) * n x o1 x ... x on)
+  // B: (oC) Optional, mask: (N x offset_group * prod(k) x o1 x ... x on) Opt.
+  // Y: (N x oC x o1 x ... x on)
+  // The output shape follows from X, W and the attributes alone, since
+  // customComputeShape() never looks at `offset` or `mask`. Waiting for those
+  // to be ranked would delay, or with an unranked offset block, the inference
+  // of Y for no reason, so require only what ONNXConvOp::inferShapes does.
+  bool hasBias = !isNoneValue(getB());
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
+      (hasBias && !hasShapeAndRank(getB())))
+    return success();
+
+  Type elementType = getElementType(getX().getType());
+  ONNXDeformConvOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
 // Template instantiation; keep at the end of the file.
 //===----------------------------------------------------------------------===//
 
@@ -852,6 +1047,7 @@ namespace onnx_mlir {
 
 template struct ONNXGenericPoolOpShapeHelper<ONNXConvOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXConvIntegerOp>;
+template struct ONNXGenericPoolOpShapeHelper<ONNXDeformConvOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXQLinearConvOp>;
 
 } // namespace onnx_mlir
