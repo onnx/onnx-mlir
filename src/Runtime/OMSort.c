@@ -25,6 +25,7 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 #include "src/Support/SmallFPConversion.h"
 

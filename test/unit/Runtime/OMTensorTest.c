@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- OMTensorTest.h - OMTensor Unit Test
-//-----------------===//
+//===----------------- OMTensorTest.h - OMTensor Unit Test ----------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,6 +16,7 @@
 #include <stdio.h>
 
 #include "OnnxMlirRuntime.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 void testOMTensorCtor() {
   float data[4] = {1.f, 1.f};
@@ -29,6 +29,9 @@ void testOMTensorCtor() {
   assert(shape_ptr[0] == 2);
   assert(shape_ptr[1] == 2);
 
+  /* Verify strides via the internal getter. Strides are an implementation
+   * detail derived from shape; omTensorGetStrides is not part of the public
+   * API but is available through the internal header. */
   const int64_t *strides_ptr = omTensorGetStrides(tensor);
   assert(strides_ptr);
   assert(strides_ptr[0] == 2);
