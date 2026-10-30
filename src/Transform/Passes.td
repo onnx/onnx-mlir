@@ -69,6 +69,33 @@ def BufferOMPLoopHoistingPass : Pass<"buffer-omploop-hoisting", "func::FuncOp"> 
   }];
 }
 
+def OMPWsloopNowaitPass : Pass<"omp-wsloop-nowait", "func::FuncOp"> {
+  let summary = "Remove the redundant barrier of the last omp.wsloop of a parallel region";
+  let description = [{
+    This pass sets the nowait clause on an omp.wsloop that is directly in an
+    omp.parallel region when only per-thread code separates the wsloop from
+    the end of the region. The implicit barrier at the end of such a loop is
+    redundant with the join at the end of the parallel region.
+    Example:
+
+    omp.parallel {
+      %t = memref.alloc();
+      omp.wsloop {
+        omp.loop_nest { ... }
+      }
+      memref.dealloc(%t);
+      omp.terminator
+    }
+
+    gets "omp.wsloop nowait". Per-thread code is an op with no memory
+    effects, or a memref.dealloc of a buffer allocated in the same parallel
+    region. Any other op after the wsloop, or a wsloop with reduction,
+    private, or linear variables, keeps the barrier.
+    It is assumed that this pass runs after buffer-omploop-hoisting, and that
+    no later pass adds code between the wsloop and the end of the region.
+  }];
+}
+
 def WriteOpStatsToModuleAttributePass : Pass<"write-op-stats-to-module-attribute"> {
   let summary = "Write statistics of operations to an attribute in ModuleOp";
 }
