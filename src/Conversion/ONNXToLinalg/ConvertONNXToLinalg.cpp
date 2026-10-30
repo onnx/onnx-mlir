@@ -1,6 +1,6 @@
 //===- ConvertONNXToLinalg.cpp - ONNX dialects to Linalg lowering --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,6 +19,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -43,7 +44,11 @@ struct ConvertONNXToLinalgPass
   using ConvertONNXToLinalgBase::ConvertONNXToLinalgBase;
 
   void runOnOperation() override {
-    auto function = getOperation();
+    ModuleOp module = getOperation();
+    // Perform dim analysis (useful for SIMD but also to avoid broadcast
+    // expressions in index access patterns).
+    DimAnalysis *dimAnalysis = new DimAnalysis(module);
+    dimAnalysis->analyze();
     MLIRContext *context = &getContext();
 
     RewritePatternSet patterns(context);
@@ -55,14 +60,16 @@ struct ConvertONNXToLinalgPass
         patterns, typeConverter, context, linalgOps, useLinalgPath);
     populateLoweringONNXConvOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
-    populateLoweringONNXIdentityOpPattern(
+    populateLoweringONNXIdentityOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
+    populateLoweringONNXReshapeOpToLinalgPattern(patterns, typeConverter,
+        context, linalgOps, useLinalgPath, dimAnalysis);
     populateLoweringONNXShapeOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
-    if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
+    if (failed(applyPatternsGreedily(module, std::move(patterns), config))) {
       signalPassFailure();
     }
   }
