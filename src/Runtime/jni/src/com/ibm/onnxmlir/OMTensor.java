@@ -239,7 +239,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_BOOL)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -250,12 +250,7 @@ public class OMTensor {
         return b;
     }
 
-    /**
-     * Bool data setter
-     *
-     * @param data bool array to be set
-     */
-    public void setBoolData(byte[] data) {
+    private void setBoolData(byte[] data) {
         /* slice() creates a new view so the position of the
          * original data will stay at 0 for getByteData() after put(data).
          */
@@ -276,7 +271,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_INT8 && _dataType != ONNX_TYPE_UINT8)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -287,12 +282,7 @@ public class OMTensor {
         return b;
     }
 
-    /**
-     * Byte data setter
-     *
-     * @param data byte array to be set
-     */
-    public void setByteData(byte[] data) {
+    private void setByteData(byte[] data) {
         /* slice() creates a new view so the position of the
          * original data will stay at 0 for getByteData() after put(data).
          */
@@ -313,7 +303,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_INT16 && _dataType != ONNX_TYPE_UINT16)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getShortData()
@@ -325,12 +315,7 @@ public class OMTensor {
         return s;
     }
 
-    /**
-     * Short data setter
-     *
-     * @param data short array to be set
-     */
-    public void setShortData(short[] data) {
+    private void setShortData(short[] data) {
         _data = allocNative(data.length, 2);
         _data.asShortBuffer().put(data);
         _dataType = ONNX_TYPE_INT16;
@@ -348,7 +333,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_INT32 && _dataType != ONNX_TYPE_UINT32)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getIntData()
@@ -360,12 +345,7 @@ public class OMTensor {
         return i;
     }
 
-    /**
-     * Int data setter
-     *
-     * @param data int array to be set
-     */
-    public void setIntData(int[] data) {
+    private void setIntData(int[] data) {
         _data = allocNative(data.length, 4);
         _data.asIntBuffer().put(data);
         _dataType = ONNX_TYPE_INT32;
@@ -383,7 +363,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_INT64 && _dataType != ONNX_TYPE_UINT64)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getLongData()
@@ -395,12 +375,7 @@ public class OMTensor {
         return l;
     }
 
-    /**
-     * Long data setter
-     *
-     * @param data long array to be set
-     */
-    public void setLongData(long[] data) {
+    private void setLongData(long[] data) {
         _data = allocNative(data.length, 8);
         _data.asLongBuffer().put(data);
         _dataType = ONNX_TYPE_INT64;
@@ -418,7 +393,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_FLOAT)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getFloatData()
@@ -430,12 +405,7 @@ public class OMTensor {
         return f;
     }
 
-    /**
-     * Float data setter
-     *
-     * @param data float array to be set
-     */
-    public void setFloatData(float[] data) {
+    private void setFloatData(float[] data) {
         _data = allocNative(data.length, 4);
         _data.asFloatBuffer().put(data);
         _dataType = ONNX_TYPE_FLOAT;
@@ -453,7 +423,7 @@ public class OMTensor {
         if (_dataType != ONNX_TYPE_DOUBLE)
             throw new NumberFormatException("Data type is " +
                                             ONNX_TYPE_NAME[_dataType]);
-        assert _data != null;
+        assert _data != null : "The data object cannot be null.";
 
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getDoubleData()
@@ -465,12 +435,7 @@ public class OMTensor {
         return d;
     }
 
-    /**
-     * Double data setter
-     *
-     * @param data double array to be set
-     */
-    public void setDoubleData(double[] data) {
+    private void setDoubleData(double[] data) {
         _data = allocNative(data.length, 8);
         _data.asDoubleBuffer().put(data);
         _dataType = ONNX_TYPE_DOUBLE;
@@ -498,13 +463,7 @@ public class OMTensor {
         return _dataType;
     }
 
-    /**
-     * Data type setter
-     *
-     * @param dataType data type to be set
-     * @throws IllegalArgumentException if data type is unknown
-     */
-    public void setDataType(int dataType) {
+    private void setDataType(int dataType) {
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
@@ -698,14 +657,5 @@ public class OMTensor {
      */
     protected ByteBuffer getData() {
         return _data;
-    }
-
-    /**
-     * Raw data setter (For JNI wrapper only. Not intended for end user)
-     *
-     * @param data raw data to be set
-     */
-    protected void setData(ByteBuffer data) {
-        _data = data.order(nativeEndian);
     }
 }

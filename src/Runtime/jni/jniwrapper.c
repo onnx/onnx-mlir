@@ -150,10 +150,8 @@ typedef struct {
 
   jmethodID jomt_constructor;   /* OMTensor constructor           */
   jmethodID jomt_getData;       /* OMTensor getData method        */
-  jmethodID jomt_setData;       /* OMTensor setData method        */
   jmethodID jomt_getShape;      /* OMTensor getShape method       */
   jmethodID jomt_getDataType;   /* OMTensor getDataType method    */
-  jmethodID jomt_setDataType;   /* OMTensor setDataType method    */
   jmethodID jomt_getBufferSize; /* OMTensor getBufferSize method  */
   jmethodID jomt_getRank;       /* OMTensor getRank method        */
   jmethodID jomt_getNumElems;   /* OMTensor getNumElems method    */
@@ -178,24 +176,20 @@ const char *jnistr[] = {
     "(Ljava/nio/ByteBuffer;[J[JI)V",   /* 6  CTOR_OMTENSOR                    */
     "([Lcom/ibm/onnxmlir/OMTensor;)V", /* 7  CTOR_OMTENSORLIST */
     "()Ljava/nio/ByteBuffer;",         /* 8  SIG_GET_DATA                     */
-    "(Ljava/nio/ByteBuffer;)V",        /* 9  SIG_SET_DATA                     */
-    "()[Lcom/ibm/onnxmlir/OMTensor;",  /* 10 SIG_GET_OMT_ARRAY                */
-    "()[J",                            /* 11 SIG_GET_SHAPE                    */
-    "()I",                             /* 12 SIG_GET_DATA_TYPE                */
-    "(I)V",                            /* 13 SIG_SET_DATA_TYPE                */
-    "()J",                             /* 14 SIG_GET_BUFFER_SIZE, SIG_GET_RANK,
+    "()[Lcom/ibm/onnxmlir/OMTensor;",  /* 9  SIG_GET_OMT_ARRAY                */
+    "()[J",                            /* 10 SIG_GET_SHAPE                    */
+    "()I",                             /* 11 SIG_GET_DATA_TYPE                */
+    "()J",                             /* 12 SIG_GET_BUFFER_SIZE, SIG_GET_RANK,
                                              SIG_GET_NUM_ELEMS                */
-    "getData",                         /* 15 FUNC_GET_DATA                    */
-    "setData",                         /* 16 FUNC_SET_DATA                    */
-    "getShape",                        /* 17 FUNC_GET_SHAPE                   */
-    "getDataType",                     /* 18 FUNC_GET_DATA_TYPE               */
-    "setDataType",                     /* 19 FUNC_SET_DATA_TYPE               */
-    "getBufferSize",                   /* 20 FUNC_GET_BUFFER_SIZE             */
-    "getRank",                         /* 21 FUNC_GET_RANK                    */
-    "getNumElems",                     /* 22 FUNC_GET_NUM_ELEMS               */
-    "getOmtArray",                     /* 23 FUNC_GET_OMT_ARRAY               */
-    "JNI call error",                  /* 24 MSG_JNI_CALL_ERROR               */
-    "native code error",               /* 25 MSG_NATIVE_CODE_ERROR            */
+    "getData",                         /* 13 FUNC_GET_DATA                    */
+    "getShape",                        /* 14 FUNC_GET_SHAPE                   */
+    "getDataType",                     /* 15 FUNC_GET_DATA_TYPE               */
+    "getBufferSize",                   /* 16 FUNC_GET_BUFFER_SIZE             */
+    "getRank",                         /* 17 FUNC_GET_RANK                    */
+    "getNumElems",                     /* 18 FUNC_GET_NUM_ELEMS               */
+    "getOmtArray",                     /* 19 FUNC_GET_OMT_ARRAY               */
+    "JNI call error",                  /* 20 MSG_JNI_CALL_ERROR               */
+    "native code error",               /* 21 MSG_NATIVE_CODE_ERROR            */
 };
 #ifdef __MVS__
 #pragma convert(pop)
@@ -212,25 +206,21 @@ enum {
   CTOR_OMTENSOR                     = 6,  /* (Ljava/nio/ByteBuffer;[J[JI)V   */
   CTOR_OMTENSORLIST                 = 7,  /* ([Lcom/ibm/onnxmlir/OMTensor;)V */
   SIG_GET_DATA                      = 8,  /* ()Ljava/nio/ByteBuffer;         */
-  SIG_SET_DATA                      = 9,  /* (Ljava/nio/ByteBuffer;)V        */
-  SIG_GET_OMT_ARRAY                 = 10, /* ()[Lcom/ibm/onnxmlir/OMTensor;  */
-  SIG_GET_SHAPE                     = 11, /* ()[J                            */
-  SIG_GET_DATA_TYPE                 = 12, /* ()I                             */
-  SIG_SET_DATA_TYPE                 = 13, /* (I)V                            */
-  SIG_GET_BUFFER_SIZE               = 14, /* ()J                             */
-  SIG_GET_RANK                      = 14, /* ()J                             */
-  SIG_GET_NUM_ELEMS                 = 14, /* ()J                             */
-  FUNC_GET_DATA                     = 15, /* getData                         */
-  FUNC_SET_DATA                     = 16, /* setData                         */
-  FUNC_GET_SHAPE                    = 17, /* getShape                        */
-  FUNC_GET_DATA_TYPE                = 18, /* getDataType                     */
-  FUNC_SET_DATA_TYPE                = 19, /* setDataType                     */
-  FUNC_GET_BUFFER_SIZE              = 20, /* getBufferSize                   */
-  FUNC_GET_RANK                     = 21, /* getRank                         */
-  FUNC_GET_NUM_ELEMS                = 22, /* getNumElems                     */
-  FUNC_GET_OMT_ARRAY                = 23, /* getOmtArray                     */
-  MSG_JNI_CALL_ERROR                = 24, /* JNI call error                  */
-  MSG_NATIVE_CODE_ERROR             = 25, /* native code error               */
+  SIG_GET_OMT_ARRAY                 = 9,  /* ()[Lcom/ibm/onnxmlir/OMTensor;  */
+  SIG_GET_SHAPE                     = 10, /* ()[J                            */
+  SIG_GET_DATA_TYPE                 = 11, /* ()I                             */
+  SIG_GET_BUFFER_SIZE               = 12, /* ()J                             */
+  SIG_GET_RANK                      = 12, /* ()J                             */
+  SIG_GET_NUM_ELEMS                 = 12, /* ()J                             */
+  FUNC_GET_DATA                     = 13, /* getData                         */
+  FUNC_GET_SHAPE                    = 14, /* getShape                        */
+  FUNC_GET_DATA_TYPE                = 15, /* getDataType                     */
+  FUNC_GET_BUFFER_SIZE              = 16, /* getBufferSize                   */
+  FUNC_GET_RANK                     = 17, /* getRank                         */
+  FUNC_GET_NUM_ELEMS                = 18, /* getNumElems                     */
+  FUNC_GET_OMT_ARRAY                = 19, /* getOmtArray                     */
+  MSG_JNI_CALL_ERROR                = 20, /* JNI call error                  */
+  MSG_NATIVE_CODE_ERROR             = 21, /* native code error               */
 };
 /* clang-format on */
 
@@ -270,11 +260,6 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
           env, japi->jomt_cls, jnistr[FUNC_GET_DATA], jnistr[SIG_GET_DATA]),
       japi->jomt_getData != NULL, japi->jecpt_cls,
       "Method OMTensor.getData not found");
-  JNI_VAR_CALL(env, japi->jomt_setData,
-      (*env)->GetMethodID(
-          env, japi->jomt_cls, jnistr[FUNC_SET_DATA], jnistr[SIG_SET_DATA]),
-      japi->jomt_setData != NULL, japi->jecpt_cls,
-      "Method OMTensor.setData not found");
   JNI_VAR_CALL(env, japi->jomt_getShape,
       (*env)->GetMethodID(
           env, japi->jomt_cls, jnistr[FUNC_GET_SHAPE], jnistr[SIG_GET_SHAPE]),
@@ -285,11 +270,6 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
           jnistr[SIG_GET_DATA_TYPE]),
       japi->jomt_getDataType != NULL, japi->jecpt_cls,
       "Method OMTensor.getDataType not found");
-  JNI_VAR_CALL(env, japi->jomt_setDataType,
-      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_SET_DATA_TYPE],
-          jnistr[SIG_SET_DATA_TYPE]),
-      japi->jomt_setDataType != NULL, japi->jecpt_cls,
-      "Method OMTensor.setDataType not found");
   JNI_VAR_CALL(env, japi->jomt_getBufferSize,
       (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_GET_BUFFER_SIZE],
           jnistr[SIG_GET_BUFFER_SIZE]),
