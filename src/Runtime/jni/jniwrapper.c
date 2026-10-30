@@ -29,6 +29,7 @@
 #include "OnnxMlirRuntime.h"
 #include "com_ibm_onnxmlir_OMModel.h"
 #include "jnilog.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 extern OMTensorList *run_main_graph(OMTensorList *);
 

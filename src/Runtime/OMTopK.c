@@ -14,7 +14,6 @@
 
 // Include the header to get definitions for OMTensor,
 // and the prototypes for getCompareFunction() and omTensorSort().
-#include "OMSort.h" // Provides OMTensor, OnnxDataType, and function typedefs
 
 #include <assert.h>
 
@@ -23,6 +22,9 @@
 #endif
 #include <stdint.h> // For uint64_t, int64_t
 #include <stdlib.h> // For qsort_r
+
+#include "OMSort.h" // Provides OMTensor, OnnxDataType, and function typedefs
+#include "src/Runtime/OMTensorInternal.h"
 
 /* =========================================================================
  *
