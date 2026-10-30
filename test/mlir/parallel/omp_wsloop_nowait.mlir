@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --omp-wsloop-nowait %s -split-input-file | FileCheck %s
 
+// -----
+
 // Wsloop directly followed by the terminator: the barrier is redundant.
 func.func @nowait_terminator(%arg0 : memref<512xf32>) {
   %c0 = arith.constant 0 : index
@@ -137,12 +139,10 @@ func.func @barrier_shared_access(%arg0 : memref<512xf32>) {
   return
 }
 // CHECK-LABEL:  func.func @barrier_shared_access
-// CHECK-NOT:       nowait
-// CHECK:           omp.wsloop {
-// CHECK-NOT:       nowait
-// CHECK:           memref.load
-// CHECK-NOT:       nowait
-// CHECK:           return
+// CHECK:           omp.parallel {
+// CHECK-NEXT:        omp.wsloop {
+// CHECK:             memref.load
+// CHECK:             omp.terminator
 
 // -----
 
@@ -167,12 +167,10 @@ func.func @barrier_shared_dealloc() {
   return
 }
 // CHECK-LABEL:  func.func @barrier_shared_dealloc
-// CHECK-NOT:       nowait
-// CHECK:           omp.wsloop {
-// CHECK-NOT:       nowait
-// CHECK:           memref.dealloc
-// CHECK-NOT:       nowait
-// CHECK:           return
+// CHECK:           omp.parallel {
+// CHECK-NEXT:        omp.wsloop {
+// CHECK:             memref.dealloc
+// CHECK:             omp.terminator
 
 // -----
 
@@ -210,10 +208,9 @@ func.func @barrier_reduction(%arg0 : memref<512xf32>, %arg1 : memref<f32>) {
   return
 }
 // CHECK-LABEL:  func.func @barrier_reduction
-// CHECK-NOT:       nowait
-// CHECK:           omp.wsloop reduction(
-// CHECK-NOT:       nowait
-// CHECK:           return
+// CHECK:           omp.parallel {
+// CHECK-NEXT:        omp.wsloop reduction({{.*}}) {
+// CHECK:             omp.terminator
 
 // -----
 
@@ -283,13 +280,9 @@ func.func @barrier_explicit_or_call(%arg0 : memref<512xf32>) {
   return
 }
 // CHECK-LABEL:  func.func @barrier_explicit_or_call
-// CHECK-NOT:       nowait
-// CHECK:           omp.wsloop {
-// CHECK-NOT:       nowait
-// CHECK:           omp.barrier
-// CHECK-NOT:       nowait
-// CHECK:           omp.wsloop {
-// CHECK-NOT:       nowait
-// CHECK:           func.call @some_func
-// CHECK-NOT:       nowait
-// CHECK:           return
+// CHECK:           omp.parallel {
+// CHECK-NEXT:        omp.wsloop {
+// CHECK:             omp.barrier
+// CHECK:           omp.parallel {
+// CHECK-NEXT:        omp.wsloop {
+// CHECK:             func.call @some_func
