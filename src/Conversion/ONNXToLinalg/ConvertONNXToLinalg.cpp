@@ -44,15 +44,15 @@ struct ConvertONNXToLinalgPass
   using ConvertONNXToLinalgBase::ConvertONNXToLinalgBase;
 
   void runOnOperation() override {
-    auto function = getOperation();
+    ModuleOp module = getOperation();
+    // Perform dim analysis (useful for SIMD but also to avoid broadcast
+    // expressions in index access patterns).
+    DimAnalysis *dimAnalysis = new DimAnalysis(module);
+    dimAnalysis->analyze();
     MLIRContext *context = &getContext();
 
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
-
-    ModuleOp module = function->getParentOfType<ModuleOp>();
-    DimAnalysis dimAnalysis(module);
-    dimAnalysis.analyze();
 
     // Populate lowering patterns with pass options
     // TableGen-generated options can be used directly as their types
@@ -63,11 +63,11 @@ struct ConvertONNXToLinalgPass
     populateLoweringONNXIdentityOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
     populateLoweringONNXReshapeOpToLinalgPattern(patterns, typeConverter,
-        context, linalgOps, useLinalgPath, &dimAnalysis);
+        context, linalgOps, useLinalgPath, dimAnalysis);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
-    if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
+    if (failed(applyPatternsGreedily(module, std::move(patterns), config))) {
       signalPassFailure();
     }
   }
