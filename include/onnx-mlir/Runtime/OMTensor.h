@@ -4,7 +4,7 @@
 
 //===-------------- OMTensor.h - OMTensor Declaration header --------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -186,85 +186,14 @@ OM_EXTERNAL_VISIBILITY void *omTensorGetAllocatedPtr(const OMTensor *tensor);
  * \brief OMTensor data shape getter.
  *
  * The numerical data shape is returned as a pointer pointing to an array of
- * n 64-bit integers where n is the rank of the tensor.
- *
- * The shape array is returned without copying, so caller should
- * not free the returned pointer.
+ * n 64-bit integers where n is the rank of the tensor. The returned pointer
+ * points to the tensor's internal shape array; callers should not modify or
+ * free it.
  *
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
 OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetShape(const OMTensor *tensor);
-
-/**
- * \brief OMTensor data shape setter.
- *
- * n int64 elements are copied from the shape array to indicate the shape of the
- * tensor, where n is the rank of the tensor.
- *
- * The shape array is copied without being freed, so caller is expected to
- * manage the shape array oneself.
- *
- * @param tensor pointer to the OMTensor
- * @param shape data shape array to be set
- *
- * Set the data shape array of the OMTensor to the values in the input array.
- */
-OM_EXTERNAL_VISIBILITY void omTensorSetShape(
-    OMTensor *tensor, const int64_t *shape);
-
-/**
- * \brief OMTensor data strides getter
- *
- * The data strides are returned as a pointer pointing to an array of
- * n 64-bit integers where n is the rank of the tensor.
- *
- * The strides array is returned without copying, so caller should
- * not free the returned pointer.
- *
- * @param tensor pointer to the OMTensor
- * @return pointer to the data strides array.
- */
-OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetStrides(
-    const OMTensor *tensor);
-
-/**
- * \brief OMTensor data strides setter
- *
- * n int64 elements are copied from the strides array to indicate the
- * per-dimension stride of the tensor, where n is the rank of the tensor.
- *
- * The strides array is copied without being freed, so caller is expected to
- * manage the strides array oneself.
- *
- * @param tensor pointer to the OMTensor
- * @param strides tensor strides array to be set.
- *
- * Set the data strides array of the OMTensor to the values in the input array.
- */
-OM_EXTERNAL_VISIBILITY void omTensorSetStrides(
-    OMTensor *tensor, const int64_t *stride);
-
-/**
- * \brief OMTensor data strides setter with stride values from PyArray strides
- *
- * Note that PyArray stride values are in bytes, while OMTensor stride values in
- * elements. Thus, PyArray stride values will be divided by datatype size before
- * passing to OMTensor stride values.
- *
- * n int64 elements are copied from the strides array to indicate the
- * per-dimension stride of the tensor, where n is the rank of the tensor.
- *
- * The strides array is copied without being freed, so caller is expected to
- * manage the strides array oneself.
- *
- * @param tensor pointer to the OMTensor
- * @param strides tensor strides array to be set.
- *
- * Set the data strides array of the OMTensor to the values in the input array.
- */
-OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
-    OMTensor *tensor, const int64_t *stridesInBytes);
 
 /**
  * \brief OMTensor data type getter
@@ -277,21 +206,6 @@ OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
  * @return ONNX data type of the data buffer elements.
  */
 OM_EXTERNAL_VISIBILITY OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
-
-/**
- * \brief OMTensor data type setter
- *
- * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
- * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
- * a 1-bit boolean number is represented by the ONNX_TYPE_BOOL enum value.
- *
- * @param tensor pointer to the OMTensor
- * @param dataType ONNX data type to be set
- *
- * Set the ONNX data type of the data buffer elements.
- */
-OM_EXTERNAL_VISIBILITY void omTensorSetDataType(
-    OMTensor *tensor, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
 

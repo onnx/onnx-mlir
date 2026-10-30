@@ -42,6 +42,7 @@
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
@@ -185,10 +186,18 @@ OMTensor *omTensorCreate(
   // Using signed indices helps detect when index falls below 0.
   for (int64_t i = rank - 1; i >= 0; i--) {
     tensor->_shape[i] = shape[i];
-    if (i == rank - 1)
+    if (i == rank - 1) {
       tensor->_strides[i] = 1;
-    else
-      tensor->_strides[i] = tensor->_strides[i + 1] * tensor->_shape[i + 1];
+    } else {
+      if (__builtin_mul_overflow(
+              tensor->_strides[i + 1], tensor->_shape[i + 1],
+              &tensor->_strides[i])) {
+        free(tensor->_shape);
+        free(tensor->_strides);
+        free(tensor);
+        return NULL;
+      }
+    }
   }
   return tensor;
 }
@@ -218,6 +227,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, const int64_t *shape,
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
+#ifndef OM_EXECUTION_SESSION_ONLY
 OMTensor *omTensorCreateUntyped(int64_t rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   if (!omt)
@@ -238,6 +248,7 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
 
   return omt;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 OMTensor *omTensorCreateEmpty(
     const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
@@ -291,6 +302,7 @@ void *omTensorGetDataPtr(const OMTensor *tensor) {
  * allocatedPtr.
  *
  */
+#ifndef OM_EXECUTION_SESSION_ONLY
 void omTensorSetDataPtr(
     OMTensor *tensor, int64_t owning, void *allocatedPtr, void *alignedPtr) {
   if (!tensor)
@@ -306,6 +318,7 @@ void omTensorSetDataPtr(
   else
     tensor->_alignedPtr = allocatedPtr;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data shape getter */
 const int64_t *omTensorGetShape(const OMTensor *tensor) {
@@ -314,6 +327,7 @@ const int64_t *omTensorGetShape(const OMTensor *tensor) {
   return tensor->_shape;
 }
 
+#ifndef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data shape setter */
 void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
   if (!tensor || !shape)
@@ -336,6 +350,7 @@ void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = strides[i];
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data strides setter with PyArray stride values */
 void omTensorSetStridesWithPyArrayStrides(
@@ -359,12 +374,14 @@ OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor) {
   return tensor->_dataType;
 }
 
+#ifndef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
   if (!tensor)
     return;
   tensor->_dataType = dataType;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data buffer size getter */
 int64_t omTensorGetBufferSize(const OMTensor *tensor) {
@@ -460,7 +477,9 @@ static void printSignature(FILE *fout, const OMTensor *tensor) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(tensor);
   const int64_t rank = omTensorGetRank(tensor);
   const int64_t *shape = omTensorGetShape(tensor);
-  const int64_t *strides = omTensorGetStrides(tensor);
+  /* Access _strides directly: omTensorGetStrides is a compiler-internal
+   * function excluded from the OM_EXECUTION_SESSION_ONLY build. */
+  const int64_t *strides = tensor ? tensor->_strides : NULL;
 
   fprintf(fout, "\trank = %lld\n", (long long)rank);
   fprintf(fout, "\tdataType = %s\n", getDataTypeName(dataType));
@@ -728,6 +747,31 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
 /* For C++ methods, which are not used in the time critical runtime,
  * asserts are present to ensure that we do not perform a null ptr access.
  */
+
+#ifdef OM_EXECUTION_SESSION_ONLY
+/* When compiling for the Execution Session, omTensorCreateUntyped is not
+ * exported (it is compiler-internal), but the omTensorCreateWithShape<T>
+ * template needs it. Provide a static (file-scope) version here. */
+static OMTensor *omTensorCreateUntyped(int64_t rank) {
+  OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
+  if (!omt)
+    return NULL;
+  if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+      (omt->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    omt->_allocatedPtr = NULL;
+    omt->_alignedPtr = NULL;
+    omt->_offset = 0;
+    omt->_dataType = ONNX_TYPE_UNDEFINED;
+    omt->_rank = rank;
+    omt->_owning = false;
+  } else {
+    free(omt->_shape);
+    free(omt);
+    return NULL;
+  }
+  return omt;
+}
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* Helper function to compute cartesian product */
 static inline std::vector<std::vector<int64_t>> CartProduct(
