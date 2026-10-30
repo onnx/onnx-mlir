@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# If 'ONNX_MLIR_BUILD_TESTS' is *not* ON, set 'EXCLUDE_FROM_ALL' for this directory. This will allow test targets to be
+# defined, but 'all' will not depend on them by default.
+if (NOT ONNX_MLIR_BUILD_TESTS)
+  set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
+endif()
+
 # Valid optimization levels are 0, 1, 2, and 3
 # Default to 3 if ONNX_MLIR_TEST_OPTLEVEL not set or cached
 set(OPTLEVELS 0 1 2 3)
