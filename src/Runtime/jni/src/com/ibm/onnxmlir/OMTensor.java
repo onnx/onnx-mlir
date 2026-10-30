@@ -476,62 +476,15 @@ public class OMTensor {
         _dataType = ONNX_TYPE_DOUBLE;
     }
 
-    /* ---------- Data shape getter and setter ---------- */
+    /* ---------- Data shape getter ---------- */
 
     /**
      * Data shape getter
      *
-     * @return data shape array
+     * @return copy of data shape array
      */
     public long[] getShape() {
-        return _shape;
-    }
-
-    /**
-     * Data shape setter
-     *
-     * @param shape data shape array to be set
-     * @throws IllegalArgumentException if shape has a negative dimension,
-     *         length does not match rank, or is inconsistent with the existing
-     *         data buffer size
-     */
-    public void setShape(long[] shape) {
-        validateShape(shape);
-        if (shape.length != _rank)
-            throw new IllegalArgumentException(
-                    "array length " + shape.length + " != rank " + _rank);
-        _shape = shape;
-        validateBufferSize();
-    }
-
-    /* ---------- Data strides getter and setter ---------- */
-
-    /**
-     * Data strides getter
-     *
-     * @return data strides array
-     */
-    public long[] getStrides() {
-        return _strides;
-    }
-
-    /**
-     * Data strides setter
-     *
-     * @param strides data strides array to be set
-     * @throws IllegalArgumentException if strides has a negative stride or
-     *         length does not match rank
-     */
-    public void setStrides(long[] strides) {
-        if (strides.length != _rank)
-            throw new IllegalArgumentException(
-                    "array length " + strides.length + " != rank " + _rank);
-        for (int i = 0; i < strides.length; i++) {
-            if (strides[i] < 0)
-                throw new IllegalArgumentException(
-                        "stride at index " + i + " cannot be negative, got " + strides[i]);
-        }
-        _strides = strides;
+        return _shape == null ? null : _shape.clone();
     }
 
     /* ---------- Data type getter and setter ---------- */
