@@ -11,6 +11,7 @@ add_onnx_mlir_library(OMONNXToLinalg
   NN/Conv.cpp
   Tensor/Identity.cpp
   Tensor/Reshape.cpp
+  Tensor/Shape.cpp
   ONNXBufferizableOpInterface.cpp
 
   DEPENDS
