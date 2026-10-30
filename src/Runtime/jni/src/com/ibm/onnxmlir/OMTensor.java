@@ -23,50 +23,50 @@ public class OMTensor {
      * Values are standard ONNX data types defined in
      * https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L484
      */
-    public final static int ONNX_TYPE_UNDEFINED  = 0;
-    public final static int ONNX_TYPE_FLOAT      = 1;
-    public final static int ONNX_TYPE_UINT8      = 2;
-    public final static int ONNX_TYPE_INT8       = 3;
-    public final static int ONNX_TYPE_UINT16     = 4;
-    public final static int ONNX_TYPE_INT16      = 5;
-    public final static int ONNX_TYPE_INT32      = 6;
-    public final static int ONNX_TYPE_INT64      = 7;
-    public final static int ONNX_TYPE_STRING     = 8;
-    public final static int ONNX_TYPE_BOOL       = 9;
-    public final static int ONNX_TYPE_FLOAT16    = 10;
-    public final static int ONNX_TYPE_DOUBLE     = 11;
-    public final static int ONNX_TYPE_UINT32     = 12;
-    public final static int ONNX_TYPE_UINT64     = 13;
-    public final static int ONNX_TYPE_COMPLEX64  = 14;
-    public final static int ONNX_TYPE_COMPLEX128 = 15;
-    public final static int ONNX_TYPE_BFLOAT16   = 16;
-    public final static int ONNX_TYPE_FLOAT8E4M3FN = 17;
+    public final static int ONNX_TYPE_UNDEFINED      = 0;
+    public final static int ONNX_TYPE_FLOAT          = 1;
+    public final static int ONNX_TYPE_UINT8          = 2;
+    public final static int ONNX_TYPE_INT8           = 3;
+    public final static int ONNX_TYPE_UINT16         = 4;
+    public final static int ONNX_TYPE_INT16          = 5;
+    public final static int ONNX_TYPE_INT32          = 6;
+    public final static int ONNX_TYPE_INT64          = 7;
+    public final static int ONNX_TYPE_STRING         = 8;
+    public final static int ONNX_TYPE_BOOL           = 9;
+    public final static int ONNX_TYPE_FLOAT16        = 10;
+    public final static int ONNX_TYPE_DOUBLE         = 11;
+    public final static int ONNX_TYPE_UINT32         = 12;
+    public final static int ONNX_TYPE_UINT64         = 13;
+    public final static int ONNX_TYPE_COMPLEX64      = 14;
+    public final static int ONNX_TYPE_COMPLEX128     = 15;
+    public final static int ONNX_TYPE_BFLOAT16       = 16;
+    public final static int ONNX_TYPE_FLOAT8E4M3FN   = 17;
     public final static int ONNX_TYPE_FLOAT8E4M3FNUZ = 18;
-    public final static int ONNX_TYPE_FLOAT8E5M2 = 19;
+    public final static int ONNX_TYPE_FLOAT8E5M2     = 19;
     public final static int ONNX_TYPE_FLOAT8E5M2FNUZ = 20;
-    public final static int LAST_ONNX_TYPE = 20; // Alias for last ONNX_TYPE.
+    public final static int LAST_ONNX_TYPE           = 20; // Alias for last ONNX_TYPE.
 
     public final static int[] ONNX_TYPE_SIZE = new int[] {
-            0,  /* UNDEFINED  */
-            4,  /* FLOAT      */
-            1,  /* UINT8      */
-            1,  /* INT8       */
-            2,  /* UINT16     */
-            2,  /* INT16      */
-            4,  /* INT32      */
-            8,  /* INT64      */
-            0,  /* STRING     */
-            1,  /* BOOL       */
-            2,  /* FLOAT16    */
-            8,  /* DOUBLE     */
-            4,  /* UINT32     */
-            8,  /* UINT64     */
-            8,  /* COMPLEX64  */
-            16, /* COMPLEX128 */
-            2,  /* BFLOAT16   */
-            1,  /* FLOAT8E4M3FN */
+            0,  /* UNDEFINED      */
+            4,  /* FLOAT          */
+            1,  /* UINT8          */
+            1,  /* INT8           */
+            2,  /* UINT16         */
+            2,  /* INT16          */
+            4,  /* INT32          */
+            8,  /* INT64          */
+            0,  /* STRING         */
+            1,  /* BOOL           */
+            2,  /* FLOAT16        */
+            8,  /* DOUBLE         */
+            4,  /* UINT32         */
+            8,  /* UINT64         */
+            8,  /* COMPLEX64      */
+            16, /* COMPLEX128     */
+            2,  /* BFLOAT16       */
+            1,  /* FLOAT8E4M3FN   */
             1,  /* FLOAT8E4M3FNUZ */
-            1,  /* FLOAT8E5M2 */
+            1,  /* FLOAT8E5M2     */
             1,  /* FLOAT8E5M2FNUZ */
     };
 
@@ -113,15 +113,16 @@ public class OMTensor {
      * @param flag true for boolean tensor, false for byte tensor
      *
      * @return OMTensor with boolean or byte data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(byte[] data, long[] shape, boolean flag) {
-	if (flag)
-	    setBoolData(data);
-	else
-	    setByteData(data);
-	putShape(shape);
+        if (flag)
+            setBoolData(data);
+        else
+            setByteData(data);
+        putShape(shape);
     }
 
     /**
@@ -131,11 +132,12 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with byte data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(byte[] data, long[] shape) {
-	this(data, shape, false);
+        this(data, shape, false);
     }
 
     /**
@@ -145,8 +147,9 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with short data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(short[] data, long[] shape) {
         setShortData(data);
@@ -160,8 +163,9 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with int data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(int[] data, long[] shape) {
         setIntData(data);
@@ -175,8 +179,9 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with long data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(long[] data, long[] shape) {
         setLongData(data);
@@ -190,8 +195,9 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with float data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(float[] data, long[] shape) {
         setFloatData(data);
@@ -205,14 +211,19 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with double data
-     * @throws IllegalArgumentException if shape is null, has a negative
-     *         dimension, or does not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension or
+     *         does not match the size of data, or if shape/stride calculation
+     *         overflows
      */
     public OMTensor(double[] data, long[] shape) {
         setDoubleData(data);
         putShape(shape);
     }
 
+    /* Helper to allocate a direct byte buffer sized for length elements of elemSize bytes each. */
+    private ByteBuffer allocNative(int length, int elemSize) {
+        return ByteBuffer.allocateDirect(length * elemSize).order(nativeEndian);
+    }
 
     /* ---------- Bool data getter and setter ---------- */
     /* On the native side bool is backed by byte so bool */
@@ -222,12 +233,13 @@ public class OMTensor {
      * Bool data getter
      *
      * @return bool data array
+     * @throws NumberFormatException if data type is not ONNX_TYPE_BOOL
      */
     public byte[] getBoolData() {
-	if (_dataType != ONNX_TYPE_BOOL)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-	if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_BOOL)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -238,12 +250,7 @@ public class OMTensor {
         return b;
     }
 
-    /**
-     * Bool data setter
-     *
-     * @param data bool array to be set
-     */
-    public void setBoolData(byte[] data) {
+    private void setBoolData(byte[] data) {
         /* slice() creates a new view so the position of the
          * original data will stay at 0 for getByteData() after put(data).
          */
@@ -258,12 +265,13 @@ public class OMTensor {
      * Byte data getter
      *
      * @return byte data array
+     * @throws NumberFormatException if data type is neither ONNX_TYPE_INT8 nor ONNX_TYPE_UINT8
      */
     public byte[] getByteData() {
-	if (_dataType != ONNX_TYPE_INT8 && _dataType != ONNX_TYPE_UINT8)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-	if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_INT8 && _dataType != ONNX_TYPE_UINT8)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -274,12 +282,7 @@ public class OMTensor {
         return b;
     }
 
-    /**
-     * Byte data setter
-     *
-     * @param data byte array to be set
-     */
-    public void setByteData(byte[] data) {
+    private void setByteData(byte[] data) {
         /* slice() creates a new view so the position of the
          * original data will stay at 0 for getByteData() after put(data).
          */
@@ -294,12 +297,13 @@ public class OMTensor {
      * Short data getter
      *
      * @return short data array
+     * @throws NumberFormatException if data type is neither ONNX_TYPE_INT16 nor ONNX_TYPE_UINT16
      */
     public short[] getShortData() {
-	if (_dataType != ONNX_TYPE_INT16 && _dataType != ONNX_TYPE_UINT16)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-        if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_INT16 && _dataType != ONNX_TYPE_UINT16)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getShortData()
@@ -311,16 +315,8 @@ public class OMTensor {
         return s;
     }
 
-    /**
-     * Short data setter
-     *
-     * @param data short array to be set
-     */
-    public void setShortData(short[] data) {
-        /* asShortBuffer() creates a new view so the position of the
-         * original data will stay at 0 for getShortData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length*2).order(nativeEndian);
+    private void setShortData(short[] data) {
+        _data = allocNative(data.length, 2);
         _data.asShortBuffer().put(data);
         _dataType = ONNX_TYPE_INT16;
     }
@@ -331,12 +327,13 @@ public class OMTensor {
      * Int data getter
      *
      * @return int data array
+     * @throws NumberFormatException if data type is neither ONNX_TYPE_INT32 nor ONNX_TYPE_UINT32
      */
     public int[] getIntData() {
-	if (_dataType != ONNX_TYPE_INT32 && _dataType != ONNX_TYPE_UINT32)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-        if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_INT32 && _dataType != ONNX_TYPE_UINT32)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getIntData()
@@ -348,16 +345,8 @@ public class OMTensor {
         return i;
     }
 
-    /**
-     * Int data setter
-     *
-     * @param data int array to be set
-     */
-    public void setIntData(int[] data) {
-        /* asIntBuffer() creates a new view so the position of the
-         * original data will stay at 0 for getIntData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
+    private void setIntData(int[] data) {
+        _data = allocNative(data.length, 4);
         _data.asIntBuffer().put(data);
         _dataType = ONNX_TYPE_INT32;
     }
@@ -368,12 +357,13 @@ public class OMTensor {
      * Long data getter
      *
      * @return long data array
+     * @throws NumberFormatException if data type is neither ONNX_TYPE_INT64 nor ONNX_TYPE_UINT64
      */
     public long[] getLongData() {
-	if (_dataType != ONNX_TYPE_INT64 && _dataType != ONNX_TYPE_UINT64)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-        if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_INT64 && _dataType != ONNX_TYPE_UINT64)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getLongData()
@@ -385,16 +375,8 @@ public class OMTensor {
         return l;
     }
 
-    /**
-     * Long data setter
-     *
-     * @param data long array to be set
-     */
-    public void setLongData(long[] data) {
-        /* asLongBuffer() creates a new view so the position of the
-         * original data will stay at 0 for getLongData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
+    private void setLongData(long[] data) {
+        _data = allocNative(data.length, 8);
         _data.asLongBuffer().put(data);
         _dataType = ONNX_TYPE_INT64;
     }
@@ -405,12 +387,13 @@ public class OMTensor {
      * Float data getter
      *
      * @return float data array
+     * @throws NumberFormatException if data type is not ONNX_TYPE_FLOAT
      */
     public float[] getFloatData() {
-	if (_dataType != ONNX_TYPE_FLOAT)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-        if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_FLOAT)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getFloatData()
@@ -422,16 +405,8 @@ public class OMTensor {
         return f;
     }
 
-    /**
-     * Float data setter
-     *
-     * @param data float array to be set
-     */
-    public void setFloatData(float[] data) {
-        /* asFloatBuffer() creates a new view so the position of the
-         * original data will stay at 0 for getFloatData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
+    private void setFloatData(float[] data) {
+        _data = allocNative(data.length, 4);
         _data.asFloatBuffer().put(data);
         _dataType = ONNX_TYPE_FLOAT;
     }
@@ -442,12 +417,13 @@ public class OMTensor {
      * Double data getter
      *
      * @return double data array
+     * @throws NumberFormatException if data type is not ONNX_TYPE_DOUBLE
      */
     public double[] getDoubleData() {
-	if (_dataType != ONNX_TYPE_DOUBLE)
-	    throw new NumberFormatException("Data type is " +
-					    ONNX_TYPE_NAME[_dataType]);
-        if (_data == null) return null;
+        if (_dataType != ONNX_TYPE_DOUBLE)
+            throw new NumberFormatException("Data type is " +
+                                            ONNX_TYPE_NAME[_dataType]);
+        assert _data != null : "The data object cannot be null.";
 
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getDoubleData()
@@ -459,64 +435,21 @@ public class OMTensor {
         return d;
     }
 
-    /**
-     * Double data setter
-     *
-     * @param data double array to be set
-     */
-    public void setDoubleData(double[] data) {
-        /* asDoubleBuffer() creates a new view so the position of the
-         * original data will stay at 0 for getDoubleData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
+    private void setDoubleData(double[] data) {
+        _data = allocNative(data.length, 8);
         _data.asDoubleBuffer().put(data);
         _dataType = ONNX_TYPE_DOUBLE;
     }
 
-    /* ---------- Data shape getter and setter ---------- */
+    /* ---------- Data shape getter ---------- */
 
     /**
      * Data shape getter
      *
-     * @return data shape array
+     * @return copy of data shape array
      */
     public long[] getShape() {
-        return _shape;
-    }
-
-    /**
-     * Data shape setter
-     *
-     * @param shape data shape array to be set
-     */
-    public void setShape(long[] shape) {
-        if (shape.length != _rank)
-            throw new IllegalArgumentException(
-                    "array length " + shape.length + " != rank " + _rank);
-        _shape = shape;
-    }
-
-    /* ---------- Data strides getter and setter ---------- */
-
-    /**
-     * Data strides getter
-     *
-     * @return data strides array
-     */
-    public long[] getStrides() {
-        return _strides;
-    }
-
-    /**
-     * Data strides setter
-     *
-     * @param strides data strides array to be set
-     */
-    public void setStrides(long[] strides) {
-        if (strides.length != _rank)
-            throw new IllegalArgumentException(
-                    "array length " + strides.length + " != rank " + _rank);
-        _strides = strides;
+        return _shape == null ? null : _shape.clone();
     }
 
     /* ---------- Data type getter and setter ---------- */
@@ -530,12 +463,7 @@ public class OMTensor {
         return _dataType;
     }
 
-    /**
-     * Data type setter
-     *
-     * @param dataType data type to be set
-     */
-    public void setDataType(int dataType) {
+    private void setDataType(int dataType) {
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
@@ -573,21 +501,41 @@ public class OMTensor {
      */
     public long getNumElems() {
         if (_shape == null || _shape.length == 0) return 1;
+        for (int i = 0; i < _shape.length; i++) {
+            if (_shape[i] == 0) return 0;
+        }
         long n = 1;
-        for (int i = 0; i < _shape.length; i++) n *= _shape[i];
+        for (int i = 0; i < _shape.length; i++) {
+            try {
+                n = Math.multiplyExact(n, _shape[i]);
+            } catch (ArithmeticException e) {
+                return -1;
+            }
+        }
         return n;
     }
 
     /* ---------- End of public methods ---------- */
 
-
-    /* Called by public constructors to initialize rank, shape, and stride */
+    /* Validates shape dimensions are non-negative and product does not overflow. */
     private void validateShape(long[] shape) {
-        if (shape == null)
-            throw new IllegalArgumentException("shape cannot be null");
+        boolean hasZero = false;
         for (int i = 0; i < shape.length; i++) {
             if (shape[i] < 0)
                 throw new IllegalArgumentException("shape dimension at index " + i + " cannot be negative, got " + shape[i]);
+            if (shape[i] == 0)
+                hasZero = true;
+        }
+        if (!hasZero && shape.length > 0) {
+            try {
+                long n = 1;
+                for (int i = 0; i < shape.length; i++) {
+                    n = Math.multiplyExact(n, shape[i]);
+                }
+            } catch (ArithmeticException e) {
+                throw new IllegalArgumentException(
+                        "Shape dimension product overflowed long: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -597,7 +545,16 @@ public class OMTensor {
         long elemSize = ONNX_TYPE_SIZE[_dataType];
         if (elemSize == 0) return;
         long numElems = getNumElems();
-        long expectedBytes = numElems * elemSize;
+        if (numElems < 0) {
+            throw new IllegalArgumentException("Tensor element count overflowed");
+        }
+        long expectedBytes;
+        try {
+            expectedBytes = Math.multiplyExact(numElems, elemSize);
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(
+                    "Tensor size calculation overflowed: " + e.getMessage(), e);
+        }
         if (expectedBytes != _data.limit()) {
             throw new IllegalArgumentException(
                     "Tensor buffer size mismatch: expected " + expectedBytes + " bytes (" + numElems + " elems * " + elemSize + " bytes), but buffer has " + _data.limit() + " bytes");
@@ -611,13 +568,31 @@ public class OMTensor {
         _shape = new long[_rank];
         _strides = new long[_rank];
 
+        boolean hasZero = false;
+        for (int i = 0; i < _rank; i++) {
+            _shape[i] = shape[i];
+            if (shape[i] == 0)
+                hasZero = true;
+        }
+
         /* Using signed indices helps detect when index falls below 0. */
         for (int i = _rank - 1; i >= 0; i--) {
-          _shape[i] = shape[i];
-          if (i == _rank - 1)
-            _strides[i] = 1;
-          else
-            _strides[i] = _strides[i+1] * _shape[i+1];
+            if (i == _rank - 1) {
+                _strides[i] = 1;
+            } else if (hasZero) {
+                try {
+                    _strides[i] = Math.multiplyExact(_strides[i + 1], _shape[i + 1]);
+                } catch (ArithmeticException e) {
+                    _strides[i] = 0;
+                }
+            } else {
+                try {
+                    _strides[i] = Math.multiplyExact(_strides[i + 1], _shape[i + 1]);
+                } catch (ArithmeticException e) {
+                    throw new IllegalArgumentException(
+                            "Stride calculation overflowed: " + e.getMessage(), e);
+                }
+            }
         }
         validateBufferSize();
     }
@@ -629,20 +604,20 @@ public class OMTensor {
      * @param shape data shape
      * @param dataType data type
      * @param endian data endian
-     * @throws IllegalArgumentException if dataType is unknown, endian is
-     *         null, shape is null or has a negative dimension, or shape and
-     *         dataType do not match the size of data
+     * @throws IllegalArgumentException if dataType is unknown, endian is null,
+     *         shape has a negative dimension, or shape and dataType do not
+     *         match the size of data, or calculation overflows
      */
     protected OMTensor(ByteBuffer data, long[] shape, ByteOrder endian, int dataType) {
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
-	if (endian == null)
-	    throw new IllegalArgumentException("endian unknown");
+        if (endian == null)
+            throw new IllegalArgumentException("endian unknown");
 
         _data = data.order(endian);
         _dataType = dataType;
-	putShape(shape);
+        putShape(shape);
     }
 
     /**
@@ -652,9 +627,9 @@ public class OMTensor {
      * @param shape data shape
      * @param strides data stride
      * @param dataType data type
-     * @throws IllegalArgumentException if shape is null or has a negative
-     *         dimension, shape and strides lengths differ, dataType is
-     *         unknown, or shape and dataType do not match the size of data
+     * @throws IllegalArgumentException if shape has a negative dimension,
+     *         shape and strides lengths differ, dataType is unknown, or shape
+     *         and dataType do not match the size of data, or calculation overflows
      */
     protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
         validateShape(shape);
@@ -682,14 +657,5 @@ public class OMTensor {
      */
     protected ByteBuffer getData() {
         return _data;
-    }
-
-    /**
-     * Raw data setter (For JNI wrapper only. Not intended for end user)
-     *
-     * @param data raw data to be set
-     */
-    protected void setData(ByteBuffer data) {
-        _data = data.order(nativeEndian);
     }
 }

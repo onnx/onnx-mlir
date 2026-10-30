@@ -43,6 +43,19 @@ if (ONNX_MLIR_ENABLE_JNI)
             $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH}/javaruntime.jar
     )
 
+  # Build the OMTensor unit test jar and register it as a CTest test.
+  # The test is a plain main()-style class (no JUnit dependency) and uses
+  # Java assertions (-ea), so the JVM must be launched with that flag.
+  add_jar(OMTensorTest
+    src/com/ibm/onnxmlir/OMTensor.java
+    src/com/ibm/onnxmlir/OMTensorTest.java
+    )
+  add_test(NAME OMTensorTest
+    COMMAND ${Java_JAVA_EXECUTABLE} -ea
+            -cp $<TARGET_PROPERTY:OMTensorTest,JAR_FILE>
+            com.ibm.onnxmlir.OMTensorTest
+    )
+
   # Build jniruntime lib
   add_onnx_mlir_library(jniruntime STATIC
     jniwrapper.c
