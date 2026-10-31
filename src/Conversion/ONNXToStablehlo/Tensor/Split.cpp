@@ -60,6 +60,9 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
     } else if (mlir::isa<NoneType>(split.getType())) {
       assert(!ShapedType::isDynamic(inputDimSize) &&
              "input dim size can't be dynamic");
+      // TODO: Honor Split-18 num_outputs semantics when the input dimension is
+      // not evenly divisible: all chunks except the last use the ceiling of
+      // the division, and the last chunk contains the remaining elements.
       int64_t sliceSize = inputDimSize / outputNum;
       for (unsigned i = 0; i < outputNum; ++i)
         splitSizes.push_back(sliceSize);
