@@ -834,6 +834,16 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
 
 // -----
 
+func.func @test_transpose_repeated_axis(
+    %arg0: tensor<2x3x4xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.Transpose' op perm attribute contains repeated axis 0}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 0, 1]} :
+      (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_random_uniform_wrong_dtype() -> tensor<*xf16> {
   // expected-error @+1 {{'onnx.RandomUniform' op result element type f16 does not match the dtype f32}}
   %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf16>
