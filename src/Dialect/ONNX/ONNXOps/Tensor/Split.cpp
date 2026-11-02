@@ -55,9 +55,27 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   if (!indexExprArray.empty()) {
     if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
+    IndexExpr splitInputDim = createIE->getShapeAsDim(input, axisIndex);
+    int64_t numOfNonLiterals = 0, sumOfLiterals = 0, nonLiteralIndex = -1;
     for (unsigned int i = 0; i < numOfResults; ++i) {
-      LiteralIndexExpr dim(indexExprArray[i]);
-      splitDims.emplace_back(dim);
+      if (indexExprArray[i].isLiteral()) {
+        sumOfLiterals += indexExprArray[i].getLiteral();
+      } else {
+        numOfNonLiterals++;
+        nonLiteralIndex = i;
+      }
+      splitDims.emplace_back(indexExprArray[i]);
+    }
+    // When the size of the split dimension is known, check that the sum of the
+    // split sizes is equal to the size of the split dimension.
+    if (splitInputDim.isLiteral()) {
+      int64_t axisDim = splitInputDim.getLiteral();
+      if (numOfNonLiterals == 0 && sumOfLiterals != axisDim)
+        return op->emitError("Split sizes must sum up to the dimension at "
+                             "the split axis");
+      // A single unknown split value is the remainder of the axis dimension.
+      if (numOfNonLiterals == 1 && sumOfLiterals <= axisDim)
+        splitDims[nonLiteralIndex] = LitIE(axisDim - sumOfLiterals);
     }
   } else {
     // If split parameter is not specified, the dimension is split to
@@ -110,9 +128,9 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
   if (isNoneValue(split)) {
     // None is fine, indexExprArray will be empty.
   } else {
+    // Split values may be runtime values; they are then question marks
+    // during analysis and symbols during code generation.
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
-    assert(IndexExpr::isLiteral(indexExprArray) &&
-           "dynamic split not yet supported");
   }
   return customComputeShape(indexExprArray);
 }
@@ -127,9 +145,9 @@ LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
   if (isNoneValue(split)) {
     // None is fine, indexExprArray will be empty.
   } else {
+    // Split values may be runtime values; they are then question marks
+    // during analysis and symbols during code generation.
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
-    assert(IndexExpr::isLiteral(indexExprArray) &&
-           "dynamic split not yet supported");
   }
   return customComputeShape(indexExprArray);
 }

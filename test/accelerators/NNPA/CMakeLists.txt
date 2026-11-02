@@ -4,3 +4,4 @@ add_custom_target(check-onnx-backend-numerical-nnpa)
 
 add_subdirectory(backend)
 add_subdirectory(numerical)
+add_subdirectory(unit)

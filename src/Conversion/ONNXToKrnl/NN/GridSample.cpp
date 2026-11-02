@@ -409,18 +409,19 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
         SmallVector<IndexExpr, 3> applyUbs = {
             SymIE(outputDims[1]), SymIE(H_out), SymIE(W_out)};
 
-        // Parallelize channel loop if enabled.
+        // Plan holds the whole nest, not just the channel loop: the window
+        // stops at 1, so the same ref is chosen either way.
+        auto plan = KrnlParallelPlan::noCollapse(
+            applyLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
         if (enableParallel) {
-          SmallVector<Value, 1> channelLoop = {applyLoopDef[0]};
-          tryCreateKrnlParallel(create.krnl, op, "gridsample 2d bilinear opt",
-              channelLoop, applyLbs, applyUbs, 0, 1, {},
-              /*min iter for going parallel*/ 4);
+          plan.tryCreateParallel(create.krnl, op, "gridsample 2d bilinear opt",
+              applyLbs, applyUbs);
         }
 
         Value zero = create.math.constant(elementType, 0.0);
 
-        create.krnl.iterateIE(applyLoopDef, applyLoopDef, applyLbs, applyUbs,
-            [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+        create.krnl.iterateIE(applyLoopDef, plan.optimizedLoopDef(), applyLbs,
+            applyUbs, [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
               MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
               IndexExprScope outputSpacialScope(createKrnl);
 
@@ -539,17 +540,18 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   // Parallelize outer loops (N, C) for better performance.
   // The two outer loops (batch and channel) are independent and can be
   // parallelized.
+  // Plan holds the whole nest, not the 2-element slice: same ref either way.
+  auto plan = KrnlParallelPlan::noCollapse(
+      loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {4});
   if (enableParallel) {
-    SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
-    tryCreateKrnlParallel(create.krnl, op, "gridsample 2d", outerLoops, lbs,
-        ubs, 0, 2, {}, /*min iter for going parallel*/ 4);
+    plan.tryCreateParallel(create.krnl, op, "gridsample 2d", lbs, ubs);
   }
 
   // Constants.
   Value zero = create.math.constant(elementType, 0.0);
   Value one = create.math.constant(elementType, 1.0);
 
-  create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+  create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
       [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
 
@@ -718,17 +720,18 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
   // Parallelize outer loops (N, C) for better performance.
   // The two outer loops (batch and channel) are independent and can be
   // parallelized.
+  // Plan holds the whole nest, not the 2-element slice: same ref either way.
+  auto plan = KrnlParallelPlan::noCollapse(
+      loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {4});
   if (enableParallel) {
-    SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
-    tryCreateKrnlParallel(create.krnl, op, "gridsample 3d", outerLoops, lbs,
-        ubs, 0, 2, {}, /*min iter for going parallel*/ 4);
+    plan.tryCreateParallel(create.krnl, op, "gridsample 3d", lbs, ubs);
   }
 
   // Constants.
   Value zero = create.math.constant(elementType, 0.0);
   Value one = create.math.constant(elementType, 1.0);
 
-  create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+  create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
       [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
 

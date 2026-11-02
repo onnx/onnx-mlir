@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
+//===----------- Canonicalize.cpp - ONNX High Level Optimizer -------------===//
 //
 // Copyright 2019-2026 The IBM Research Authors.
 //
@@ -81,6 +81,12 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
 Type getReturnTypeForMaxPool2D(Value input) {
   auto inputType = mlir::cast<RankedTensorType>(input.getType());
   return UnrankedTensorType::get(inputType.getElementType());
+}
+
+// Get a type with the shape of `shapeVal` and the element type of `elemVal`.
+Type getShapeOfFirstWithElementTypeOfSecond(Value shapeVal, Value elemVal) {
+  return mlir::cast<ShapedType>(shapeVal.getType())
+      .clone(getElementType(elemVal.getType()));
 }
 
 bool isNotConvProducer(mlir::Value val) {
@@ -302,11 +308,12 @@ bool areAllDimSizes(ValueRange vals) {
   });
 }
 
-// Match v = shape_transform(X*A + B).
+// Match v = shape_transform(X*A + B), or v = shape_transform(X*A) (e.g. the
+// bias-free projections of Llama-style attention layers).
 // shape_transform is a sequence of operations like Reshape, Transpose,
 // Squeeze, Unsqueeze, etc. that do not change the numerical values by data
 // shape.
-// A and B are constants.
+// A and B are constants. Without a bias, biasB is null and addOp is nullptr.
 bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
     Operation *&matmulOrGemmOp, Operation *&addOp, bool &isGemm) {
   if (mlir::isa<BlockArgument>(v))
@@ -342,7 +349,19 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
     return true;
   }
 
-  // Not Gemm, match Add.
+  // Not Gemm, match a MatMul without a bias.
+  if (auto onnxMatMulOp = origV.getDefiningOp<ONNXMatMulOp>()) {
+    if (!isDenseONNXConstant(onnxMatMulOp.getB()))
+      return false;
+    matmulOrGemmOp = onnxMatMulOp.getOperation();
+    addOp = nullptr;
+    matA = onnxMatMulOp.getB();
+    biasB = nullptr;
+    isGemm = false;
+    return true;
+  }
+
+  // Match Add.
   auto onnxAddOp = origV.getDefiningOp<ONNXAddOp>();
   if (!onnxAddOp)
     return false;
@@ -446,6 +465,55 @@ public:
       Attribute removedBroadcastAttr = op->removeAttr("broadcast");
       assert(removedBroadcastAttr && "broadcast should be removed");
     });
+    return success();
+  }
+};
+
+// Rewrites a comparison op whose two operands have mismatched element
+// types because one of them is an integer literal equal to 0 being compared
+// against a float-typed operand (see getFloatVsIntegerZeroLiteralOperand for
+// why 0 specifically is safe to retype), by re-emitting that literal as a
+// constant of the other operand's float element type. This mismatched-type
+// shape is explicitly tolerated by the op's verifier (see
+// verifySameElementTypeForCompareOps in ElementwiseBroadcast.cpp) precisely
+// so that this pattern gets a chance to fix it up here.
+template <typename OP_TYPE>
+class CompareOpFloatVsIntegerZeroCastPattern
+    : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE compareOp, PatternRewriter &rewriter) const override {
+    Operation *op = compareOp.getOperation();
+    std::optional<unsigned> literalIdx =
+        getFloatVsIntegerZeroLiteralOperand(op);
+    if (!literalIdx.has_value())
+      return failure();
+
+    Value literalOperand = op->getOperand(*literalIdx);
+    Value floatOperand = op->getOperand(1 - *literalIdx);
+    Type floatElemType =
+        mlir::cast<ShapedType>(floatOperand.getType()).getElementType();
+    ShapedType literalType = mlir::cast<ShapedType>(literalOperand.getType());
+    ShapedType newLiteralType =
+        mlir::cast<ShapedType>(literalType.clone(floatElemType));
+
+    OnnxBuilder createONNX(rewriter, op->getLoc());
+    Value newLiteral = createONNX.constant(DenseElementsAttr::get(
+        newLiteralType, rewriter.getFloatAttr(floatElemType, 0.0)));
+
+    SmallVector<Value, 2> newOperands(op->getOperands());
+    newOperands[*literalIdx] = newLiteral;
+    // Preserve the original (possibly dynamically-shaped) result type
+    // explicitly: OP_TYPE's (ValueRange, ArrayRef<NamedAttribute>) builder
+    // recomputes the result type by broadcasting the operand shapes and
+    // falls back to a fully unranked tensor whenever that broadcast isn't
+    // statically shaped, which would silently discard shape information
+    // the op already had (e.g. tensor<1x1x?x1xi1> would widen to
+    // tensor<*xi1>).
+    rewriter.replaceOpWithNewOp<OP_TYPE>(
+        op, op->getResultTypes(), newOperands, op->getAttrs());
     return success();
   }
 };
@@ -587,6 +655,47 @@ public:
 // Transpose, etc.
 //
 // This pattern supports both division and multiplication by k.
+
+// Scale (Mul or Div by the scalar constant K) the constant operands A and B of
+// a `shape_transform(X*A + B)` matched by matchShapeAddMatMul, updating the
+// Gemm, or the MatMul and Add (if any), in place. The caller then bypasses the
+// original Mul/Div.
+template <typename ONNXOp>
+static void scaleConstantsOfShapeAddMatMul(PatternRewriter &rewriter, Value K,
+    Value A, Value B, Operation *matmulOrGemmOp, Operation *addOp,
+    bool isGemm) {
+  // Move K up before MatMul/Gemm to make sure it is in the dominant region.
+  K.getDefiningOp()->moveBefore(matmulOrGemmOp);
+  if (isGemm) {
+    auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
+    // Update in place B and C of Gemm.
+    rewriter.modifyOpInPlace(onnxGemmOp, [&] {
+      rewriter.setInsertionPoint(onnxGemmOp);
+      onnxGemmOp.getBMutable().assign(ONNXOp::create(
+          rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
+      if (!isNoneValue(onnxGemmOp.getC()))
+        onnxGemmOp.getCMutable().assign(ONNXOp::create(
+            rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
+    });
+  } else {
+    auto onnxSubMatOp = mlir::cast<ONNXMatMulOp>(matmulOrGemmOp);
+    // Update in place MatMul and Add.
+    rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
+      rewriter.setInsertionPoint(onnxSubMatOp);
+      onnxSubMatOp.getBMutable().assign(ONNXOp::create(rewriter,
+          onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
+    });
+    if (!addOp)
+      return;
+    auto onnxAddOp = mlir::cast<ONNXAddOp>(addOp);
+    rewriter.modifyOpInPlace(onnxAddOp, [&] {
+      rewriter.setInsertionPoint(onnxAddOp);
+      onnxAddOp.getBMutable().assign(ONNXOp::create(
+          rewriter, onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
+    });
+  }
+}
+
 template <typename ONNXOp>
 struct PropagateConstantScalingInAttentionLayerPattern
     : public OpRewritePattern<ONNXOp> {
@@ -604,6 +713,11 @@ struct PropagateConstantScalingInAttentionLayerPattern
     if (!onnxMatMulOp)
       return rewriter.notifyMatchFailure(genericOp,
           "The first operand of Div/Mul is not produced by MatMulOp");
+    // Scaling the constants scales every use of the MatMul result, so the
+    // Div/Mul must be its only user.
+    if (!lhsOMOp.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The MatMul result has more than one use");
     Value lhs = onnxMatMulOp.getA();
     Value rhs = onnxMatMulOp.getB();
     // The second operand of Div/Mul is a scalar constant.
@@ -629,38 +743,199 @@ struct PropagateConstantScalingInAttentionLayerPattern
           "of Div/Mul");
 
     // Rewrite.
-    // Move K up before MatMul/Gemm to make sure it is in the dominant region.
-    K.getDefiningOp()->moveBefore(matmulOrGemmOp);
-    if (isGemm) {
-      auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
-      // Update in place B and C of Gemm.
-      rewriter.modifyOpInPlace(onnxGemmOp, [&] {
-        rewriter.setInsertionPoint(onnxGemmOp);
-        onnxGemmOp.getBMutable().assign(ONNXOp::create(
-            rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
-        if (!isNoneValue(onnxGemmOp.getC()))
-          onnxGemmOp.getCMutable().assign(ONNXOp::create(rewriter,
-              onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
-      });
-    } else {
-      auto onnxSubMatOp = mlir::cast<ONNXMatMulOp>(matmulOrGemmOp);
-      auto onnxAddOp = mlir::cast<ONNXAddOp>(addOp);
-      // Update in place MatMul and Add.
-      rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
-        rewriter.setInsertionPoint(onnxSubMatOp);
-        onnxSubMatOp.getBMutable().assign(ONNXOp::create(rewriter,
-            onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
-      });
-      rewriter.modifyOpInPlace(onnxAddOp, [&] {
-        OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
-        rewriter.setInsertionPoint(onnxAddOp);
-        onnxAddOp.getBMutable().assign(ONNXOp::create(
-            rewriter, onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
-      });
-    }
+    scaleConstantsOfShapeAddMatMul<ONNXOp>(
+        rewriter, K, A, B, matmulOrGemmOp, addOp, isGemm);
 
     // Bypass Div/Mul.
     rewriter.replaceOp(genericOp, onnxMatMulOp.getY());
+    return success();
+  }
+};
+
+// This rewriting is to fold a scalar Div/Mul applied to one of the matrix
+// multiplication operands of a self-attention layer into the constants of
+// the layer that produces that operand, e.g. with Q and K scaled separately:
+// ```
+// (shape_transform(X1 * A1 + B1) * k) * (shape_transform(X2 * A2 + B2) * k)
+// ```
+// Each scaled operand is rewritten, independently, from
+// ```
+// shape_transform(X * A + B) * k
+// ```
+// into
+// ```
+// shape_transform(X * A*k + B*k)
+// ```
+// if A, B and k are constants, with the same definitions as for
+// PropagateConstantScalingInAttentionLayerPattern above (which handles a scale
+// applied to the MatMul result instead). A is required to have a single use,
+// so that the scaled copy of A does not duplicate a (large) weight tensor that
+// is shared with other ops.
+template <typename ONNXOp>
+struct PropagateConstantScalingIntoAttentionOperandPattern
+    : public OpRewritePattern<ONNXOp> {
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp omOp, PatternRewriter &rewriter) const final {
+    Operation *genericOp = omOp.getOperation();
+    Value V = omOp.getA();
+    Value K = omOp.getB();
+    // Mul is commutative: also accept the scalar constant as first operand.
+    if (std::is_same<ONNXOp, ONNXMulOp>::value && isScalarConstantTensor(V))
+      std::swap(V, K);
+
+    // The second operand of Div/Mul is a scalar constant.
+    if (!isScalarConstantTensor(K))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The second operand of Div/Mul is not a scalar constant");
+    // The scaling does not broadcast V to a larger shape.
+    if (V.getType() != omOp.getResult().getType())
+      return rewriter.notifyMatchFailure(
+          genericOp, "Div/Mul changes the type of the scaled value");
+    // A MatMul result is handled by
+    // PropagateConstantScalingInAttentionLayerPattern.
+    if (V.getDefiningOp<ONNXMatMulOp>())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The scaled value is produced by MatMulOp");
+
+    // Match V = shape_transform(X*A + B).
+    Value A, B;
+    Operation *matmulOrGemmOp, *addOp;
+    bool isGemm;
+    if (!matchShapeAddMatMul(V, A, B, matmulOrGemmOp, addOp, isGemm))
+      return rewriter.notifyMatchFailure(genericOp,
+          "The scaled value is not a shape transform of a MatMul/Gemm with "
+          "constant weights");
+    if (!A.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The constant weights have more than one use");
+
+    // Rewrite.
+    scaleConstantsOfShapeAddMatMul<ONNXOp>(
+        rewriter, K, A, B, matmulOrGemmOp, addOp, isGemm);
+
+    // Bypass Div/Mul.
+    rewriter.replaceOp(genericOp, V);
+    return success();
+  }
+};
+
+// This rewriting moves a scalar Div/Mul applied to the result of a MatMul of
+// two non-constant tensors onto the first MatMul operand:
+// ```
+// (X1 * X2) * k  =>  (X1 * k) * X2
+// (X1 * X2) / k  =>  (X1 * 1/k) * X2
+// ```
+// where * on the left of each side is a matrix multiplication and k is a
+// scalar constant. This is the self-attention scaling `softmax(Q*K^T*k)` when
+// Q and K cannot be traced back to constant weights (e.g. because of a rotary
+// embedding), in which case PropagateConstantScalingInAttentionLayerPattern
+// does not apply; this pattern defers to it when it does. Moving the scale
+// shrinks the scaled tensor from S*S to S*D, and places it right after the
+// producer of Q, where it can be fused with it (e.g. NNPA's
+// zhigh.mul-add-stick). The operand is always scaled by a Mul, so that a Div
+// is turned into the Mul form these fusions recognize.
+//
+// Only the first operand is scaled: the second one, K^T, may be read from a
+// KV cache, which would then be scaled again at each decoding step, and its
+// producer is left free to fuse unchanged (e.g. NNPA's unstick-split-heads in
+// stick-3DS mode).
+//
+// For a MatMul of shapes [..., M, D] x [..., D, N], the first operand is
+// cheaper to scale than the result when M*D <= M*N, i.e. when N >= D, for
+// any M (e.g. 1 when decoding). D must be static; a dynamic N is assumed to
+// be large enough (e.g. a sequence length).
+//
+// Note that this changes the rounding of the result (the scale is applied
+// before the reduction instead of after it).
+template <typename ONNXOp>
+struct PropagateConstantScalingIntoMatMulOperandsPattern
+    : public OpRewritePattern<ONNXOp> {
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp omOp, PatternRewriter &rewriter) const final {
+    Operation *genericOp = omOp.getOperation();
+    Value V = omOp.getA();
+    Value K = omOp.getB();
+    // Mul is commutative: also accept the scalar constant as first operand.
+    if (std::is_same<ONNXOp, ONNXMulOp>::value && isScalarConstantTensor(V))
+      std::swap(V, K);
+
+    // Match (lhs * rhs) * K.
+    auto matmulOp = V.getDefiningOp<ONNXMatMulOp>();
+    if (!matmulOp)
+      return rewriter.notifyMatchFailure(
+          genericOp, "The scaled value is not produced by MatMulOp");
+    if (!V.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The MatMul result has more than one use");
+    if (!isScalarConstantTensor(K))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The scale is not a scalar constant");
+    if (V.getType() != omOp.getResult().getType())
+      return rewriter.notifyMatchFailure(
+          genericOp, "Div/Mul changes the type of the scaled value");
+    Value lhs = matmulOp.getA();
+    Value rhs = matmulOp.getB();
+    // A constant operand is handled by FuseScalarMulMatMulPattern.
+    if (isDenseONNXConstant(lhs) || isDenseONNXConstant(rhs))
+      return rewriter.notifyMatchFailure(
+          genericOp, "An operand of the MatMul is a constant");
+    // Folding the scale into constant weights is handled by
+    // PropagateConstantScalingInAttentionLayerPattern.
+    Value matA, biasB;
+    Operation *matmulOrGemmOp, *addOp;
+    bool isGemm;
+    if (matchShapeAddMatMul(lhs, matA, biasB, matmulOrGemmOp, addOp, isGemm) ||
+        matchShapeAddMatMul(rhs, matA, biasB, matmulOrGemmOp, addOp, isGemm))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The scale can be folded into constant weights");
+
+    // Cost: scaling the first operand must not cost more than scaling the
+    // result.
+    auto lhsType = mlir::dyn_cast<RankedTensorType>(lhs.getType());
+    auto rhsType = mlir::dyn_cast<RankedTensorType>(rhs.getType());
+    if (!lhsType || !rhsType || lhsType.getRank() < 2 || rhsType.getRank() < 2)
+      return rewriter.notifyMatchFailure(
+          genericOp, "The MatMul operands are not ranked matrices");
+    int64_t D = lhsType.getShape().back();
+    if (ShapedType::isDynamic(D))
+      D = rhsType.getShape()[rhsType.getRank() - 2];
+    int64_t N = rhsType.getShape().back();
+    if (ShapedType::isDynamic(D))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The MatMul reduction dimension is dynamic");
+    if (!ShapedType::isDynamic(N) && N < D)
+      return rewriter.notifyMatchFailure(genericOp,
+          "Scaling the MatMul operand costs more than scaling its result");
+
+    // Compute the scale of the operand, k or 1/k.
+    auto kType = mlir::cast<ShapedType>(K.getType());
+    Type elementType = kType.getElementType();
+    if (!mlir::isa<FloatType>(elementType))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The scale is not a floating-point value");
+    double operandScale =
+        getScalarValue<double>(K.getDefiningOp<ONNXConstantOp>());
+    if (std::is_same<ONNXOp, ONNXDivOp>::value) {
+      if (operandScale == 0)
+        return rewriter.notifyMatchFailure(genericOp, "Division by zero");
+      operandScale = 1.0 / operandScale;
+    }
+
+    // Rewrite.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, genericOp->getLoc());
+    rewriter.setInsertionPoint(matmulOp);
+    Value newK = create.onnx.constant(DenseElementsAttr::get(
+        kType, rewriter.getFloatAttr(elementType, operandScale)));
+    Value newLhs = create.onnx.mul(lhsType, lhs, newK);
+    rewriter.modifyOpInPlace(
+        matmulOp, [&] { matmulOp.getAMutable().assign(newLhs); });
+
+    // Bypass Div/Mul.
+    rewriter.replaceOp(genericOp, matmulOp.getY());
     return success();
   }
 };
@@ -1177,6 +1452,58 @@ public:
       break;
     }
     return updated ? success() : failure();
+  }
+};
+
+// =============================================================================
+// Rewrite pattern for GlobalLpPool
+// =============================================================================
+
+class GlobalLpPoolPattern : public OpRewritePattern<ONNXGlobalLpPoolOp> {
+public:
+  using OpRewritePattern<ONNXGlobalLpPoolOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGlobalLpPoolOp poolOp, PatternRewriter &rewriter) const override {
+    Location loc = poolOp.getLoc();
+    Value X = poolOp.getX();
+    ShapedType xType = mlir::dyn_cast<ShapedType>(X.getType());
+    if (!xType || !xType.hasRank())
+      return failure();
+    int64_t rank = xType.getRank();
+    int64_t p = poolOp.getP();
+    Type elementType = xType.getElementType();
+    Type outputType = poolOp.getY().getType();
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    SmallVector<int64_t, 4> axesVals;
+    for (int64_t i = 2; i < rank; ++i)
+      axesVals.emplace_back(i);
+    Value axes = create.onnx.constantInt64(axesVals);
+    Value absX = create.onnx.abs(X);
+
+    if (p == 1) {
+      Value result =
+          create.onnx.reduceSum(outputType, absX, axes, /*keepDims=*/true);
+      rewriter.replaceOp(poolOp, result);
+      return success();
+    }
+
+    Value pConst = create.onnx.constant(
+        DenseElementsAttr::get(RankedTensorType::get({}, elementType),
+            rewriter.getFloatAttr(elementType, static_cast<double>(p))));
+    Value powX = create.onnx.pow(absX, pConst);
+
+    Value sum =
+        create.onnx.reduceSum(outputType, powX, axes, /*keepDims=*/true);
+
+    Value invPConst = create.onnx.constant(
+        DenseElementsAttr::get(RankedTensorType::get({}, elementType),
+            rewriter.getFloatAttr(elementType, 1.0 / static_cast<double>(p))));
+    Value result = create.onnx.pow(sum, invPConst);
+
+    rewriter.replaceOp(poolOp, result);
+    return success();
   }
 };
 
@@ -1893,12 +2220,22 @@ struct RemoveDimZeroInputInConcatPattern
     if (indices.empty())
       return rewriter.notifyMatchFailure(
           concatOp, "No operand whose dim at axis is zero");
+    // Keep one operand when all of them have a zero dim at axis.
+    if (indices.size() == inputs.size())
+      indices.erase(indices.begin());
+    if (indices.empty())
+      return rewriter.notifyMatchFailure(
+          concatOp, "Only operand has a zero dim at axis");
 
-    // Rewrite: remove operands whose dim at axis is zero.
+    // Rewrite: remove operands whose dim at axis is zero. Erase from the back
+    // so that the remaining indices stay valid.
     rewriter.modifyOpInPlace(concatOp, [&]() {
-      for (int64_t idx : indices)
+      for (int64_t idx : llvm::reverse(indices))
         concatOp.getOperation()->eraseOperand(idx);
     });
+    if (concatOp.getOperands().size() == 1 &&
+        concatOp.getResult().getType() == concatOp.getOperands()[0].getType())
+      rewriter.replaceOp(concatOp, concatOp.getOperands()[0]);
     return success();
   }
 };
@@ -1927,9 +2264,10 @@ struct RemoveEmptyInputInConcatPattern : public OpRewritePattern<ONNXConcatOp> {
       return rewriter.notifyMatchFailure(
           concatOp, "No operand whose shape is <0xdtype>");
 
-    // Rewrite: remove operands whose shape is <0xdtype>.
+    // Rewrite: remove operands whose shape is <0xdtype>. Erase from the back
+    // so that the remaining indices stay valid.
     rewriter.modifyOpInPlace(concatOp, [&]() {
-      for (int64_t idx : indices)
+      for (int64_t idx : llvm::reverse(indices))
         concatOp.getOperation()->eraseOperand(idx);
     });
     if (concatOp.getOperands().size() == 1)
@@ -2552,6 +2890,46 @@ public:
   }
 };
 
+// Removes a split op whose outputs are all empty along the split axis but
+// one, which is then the same as the split input. The empty outputs must be
+// unused, e.g. after having been removed from the inputs of concat ops.
+struct RemoveNoOpSplitPattern : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+    Value input = splitOp.getInput();
+    if (!hasShapeAndRank(input))
+      return rewriter.notifyMatchFailure(splitOp, "Input has no rank");
+    int64_t rank = getRank(input.getType());
+    int64_t axis = splitOp.getAxis();
+    if (axis < 0)
+      axis += rank;
+
+    Value fullOutput = nullptr;
+    for (Value output : splitOp.getOutputs()) {
+      if (!hasShapeAndRank(output))
+        return rewriter.notifyMatchFailure(splitOp, "Output has no rank");
+      if (getShape(output.getType())[axis] == 0) {
+        if (!output.use_empty())
+          return rewriter.notifyMatchFailure(splitOp, "Empty output is used");
+        continue;
+      }
+      if (fullOutput)
+        return rewriter.notifyMatchFailure(
+            splitOp, "More than one non-empty output");
+      fullOutput = output;
+    }
+    if (!fullOutput || fullOutput.getType() != input.getType())
+      return rewriter.notifyMatchFailure(
+          splitOp, "No non-empty output with the input type");
+
+    rewriter.replaceAllUsesWith(fullOutput, input);
+    rewriter.eraseOp(splitOp);
+    return success();
+  }
+};
+
 // Pulls the specified op up through a split op.
 template <typename OpToPull>
 struct PullOpThroughSplitPattern : public OpRewritePattern<ONNXSplitOp> {
@@ -2699,6 +3077,10 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
   result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
       context);
+  result.insert<PropagateConstantScalingIntoAttentionOperandPattern<ONNXDivOp>>(
+      context);
+  result.insert<PropagateConstantScalingIntoMatMulOperandsPattern<ONNXDivOp>>(
+      context);
   result.insert<FuseScalarDivMatMulPattern>(context);
 }
 
@@ -2720,12 +3102,19 @@ void ONNXDimOp::getCanonicalizationPatterns(
 void ONNXEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXEqualOp>>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<GlobalAveragePoolPattern>(context);
+}
+
+/// on the ONNXGlobalLpPoolOp.
+void ONNXGlobalLpPoolOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<GlobalLpPoolPattern>(context);
 }
 
 /// on the ONNXGlobalMaxPoolOp.
@@ -2738,6 +3127,14 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
 void ONNXGreaterOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOp>>(context);
+}
+
+/// on the ONNXGreaterOrEqualOp.
+void ONNXGreaterOrEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOrEqualOp>>(
+      context);
 }
 
 /// on the ONNXGroupNormalizationOp and derivatives.
@@ -2782,6 +3179,14 @@ void ONNXLessOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LessOpSameCastPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
+  results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOp>>(context);
+}
+
+/// on the ONNXLessOrEqualOp.
+void ONNXLessOrEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOrEqualOp>>(
+      context);
 }
 
 /// on the ONNXLoopOp.
@@ -2822,6 +3227,11 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
   results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
+      context);
+  results
+      .insert<PropagateConstantScalingIntoAttentionOperandPattern<ONNXMulOp>>(
+          context);
+  results.insert<PropagateConstantScalingIntoMatMulOperandsPattern<ONNXMulOp>>(
       context);
 }
 
@@ -2908,7 +3318,7 @@ void ONNXSplitOp::getCanonicalizationPatterns(
   // ops. Having a trait for them would make this easier.
   results.insert<PullOpThroughSplitPattern<ONNXReluOp>>(context);
   results.insert<PullOpThroughSplitPattern<ONNXLeakyReluOp>>(context);
-  ;
+  results.insert<RemoveNoOpSplitPattern>(context);
 }
 
 /// on the ONNXSqueezeOp.

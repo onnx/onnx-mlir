@@ -7,16 +7,16 @@ func.func @omp_threads_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -
   %c0 = arith.constant 0 : index
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_0[%c0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_0 : memref<1xindex>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_1[%c0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_1 : memref<1xindex>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_3[%c0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_3 : memref<1xindex>
@@ -50,16 +50,16 @@ func.func @omp_threads(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref
   %c0 = arith.constant 0 : index
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_0[%c0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_0 : memref<1xindex>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_1[%c0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_1 : memref<1xindex>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_3[%c0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_3 : memref<1xindex>
@@ -93,16 +93,16 @@ func.func @omp_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memre
   %c0 = arith.constant 0 : index
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_0[%c0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_0 : memref<1xindex>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_1[%c0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_1 : memref<1xindex>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_3[%c0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_3 : memref<1xindex>
@@ -135,16 +135,16 @@ func.func @omp_normal(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<
   %c0 = arith.constant 0 : index
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_0[%c0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_0 : memref<1xindex>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_1[%c0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_1 : memref<1xindex>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_3[%c0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   memref.dealloc %alloc_3 : memref<1xindex>

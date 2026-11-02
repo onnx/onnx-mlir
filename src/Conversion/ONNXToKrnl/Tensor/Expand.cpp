@@ -4,7 +4,7 @@
 
 //===----------------Expand.cpp - Lowering Expand Op----------------------=== //
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -21,13 +21,16 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
-  ONNXExpandOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXExpandOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXExpandOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
   }
 
   LogicalResult matchAndRewrite(ONNXExpandOp expandOp,
@@ -63,15 +66,24 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
+    // The nest is order-independent all the way down -- every output element is
+    // written once and reads only from the input -- so the collapse claim may
+    // safely be the whole search window.
+    // bodyCost 1: one innermost iteration is a load and a store, or just a
+    // store when the input is a scalar hoisted out of the nest.
+    KrnlParallelPlan plan(outputLoopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+        /*collapseLastExclusiveDim=*/2,
+        {.minTripCountForParallel = 4, .bodyCost = 1});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "expand", outputLoopDef, lbs, ubs);
+      plan.tryCreateParallel(create.krnl, op, "expand", lbs, ubs);
 
     // If input is a scalar, load its value outside the loop.
     Value val = nullptr;
     if (isScalarTensor(input))
       val = create.krnl.load(input);
 
-    create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs, ubs,
+    create.krnl.iterateIE(outputLoopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           if (!val) {
             IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
@@ -92,11 +104,14 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
 
 private:
   bool enableParallel = false;
+  bool enableCollapse = false;
 };
 
 void populateLoweringONNXExpandOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXExpandOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXExpandOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

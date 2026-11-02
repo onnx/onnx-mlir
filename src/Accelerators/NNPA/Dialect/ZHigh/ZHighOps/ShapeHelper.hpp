@@ -82,6 +82,20 @@ struct ZHighMatMulOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
+// Shape helper for SDPA3DOp.
+//===----------------------------------------------------------------------===//
+
+struct ZHighSDPA3DOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighSDPA3DOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighSDPA3DOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  DimsExpr allOriginalDims; // {s, m, n, p, q}
+};
+
+//===----------------------------------------------------------------------===//
 // Shape helper for QuantizedMatMulOp.
 //===----------------------------------------------------------------------===//
 

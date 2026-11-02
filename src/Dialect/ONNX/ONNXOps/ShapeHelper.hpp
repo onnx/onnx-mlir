@@ -412,6 +412,7 @@ using ONNXSoftsignOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXSqrtOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXTensorScatterOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 // clang-format on
@@ -469,6 +470,7 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXAveragePoolOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXAveragePoolOp>;
 using ONNXConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvOp>;
 using ONNXConvIntegerOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvIntegerOp>;
+using ONNXDeformConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXDeformConvOp>;
 using ONNXQLinearConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXQLinearConvOp>;
 using ONNXMaxPoolSingleOutOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 // clang-format on
@@ -613,7 +615,13 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope), pads() {}
   virtual ~ONNXPadOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
-  // Additional data for PadOp.
+  // Get the axes padded by the `pads` operand, in `pads` order, as given by
+  // the `axes` operand (all the axes of `data` when absent). An axis is a
+  // literal when its value is known, possibly negative, and a non-literal
+  // otherwise. Fails when the number of axes is not static.
+  mlir::LogicalResult getPadAxes(llvm::SmallVectorImpl<IndexExpr> &axes);
+  // Additional data for PadOp: begin pads then end pads, one per axis of
+  // `data`.
   llvm::SmallVector<IndexExpr, 4> pads;
 };
 
@@ -646,6 +654,18 @@ struct ONNXRoiAlignOpShapeHelper : public ONNXOpShapeHelper {
   // Additional data for RoiAlignOp.
   llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
+};
+
+//===----------------------------------------------------------------------===//
+// Det Op
+//===----------------------------------------------------------------------===//
+
+struct ONNXDetOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXDetOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXDetOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
 };
 
 //===----------------------------------------------------------------------===//
@@ -897,6 +917,7 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 // clang-format off
 using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
 using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
+using ONNXCol2ImOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCol2ImOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;

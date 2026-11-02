@@ -216,6 +216,11 @@ bool hasShapeAndRank(Operation *op) {
   return true;
 }
 
+bool areInSameBlock(ArrayRef<Operation *> ops) {
+  return llvm::all_of(ops,
+      [&](Operation *op) { return op->getBlock() == ops.front()->getBlock(); });
+}
+
 /// Test if a value has only one use except ONNXDimOp.
 bool hasOneUseExceptDimOp(Value val) {
   int64_t numOfUsersExceptDim = 0;
@@ -629,6 +634,28 @@ bool isConstOf(Value constValue, double n) {
   assert(!elemType.isInteger(1) && "booleans are not supported");
   WideNum w = asWideNum(n, elemType);
   return ElementsAttrBuilder::allEqual(constElements, w);
+}
+
+std::optional<unsigned> getFloatVsIntegerZeroLiteralOperand(Operation *op) {
+  assert(op->getNumOperands() == 2 && "expected a binary op");
+  auto elementTypeOf = [](Value v) -> Type {
+    auto shapedType = mlir::dyn_cast<ShapedType>(v.getType());
+    return shapedType ? shapedType.getElementType() : v.getType();
+  };
+  auto isNonBoolInteger = [](Type t) {
+    return mlir::isa<IntegerType>(t) && !t.isInteger(1);
+  };
+  for (unsigned literalIdx = 0; literalIdx < 2; ++literalIdx) {
+    unsigned floatIdx = 1 - literalIdx;
+    Value literalOperand = op->getOperand(literalIdx);
+    Value floatOperand = op->getOperand(floatIdx);
+    Type literalElemType = elementTypeOf(literalOperand);
+    Type floatElemType = elementTypeOf(floatOperand);
+    if (isNonBoolInteger(literalElemType) &&
+        mlir::isa<FloatType>(floatElemType) && isConstOf(literalOperand, 0.0))
+      return literalIdx;
+  }
+  return std::nullopt;
 }
 
 // Convert type to MLIR type.

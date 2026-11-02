@@ -1,4 +1,4 @@
-// RUN: ccfd=$(dirname %s)/ccfd.onnx && curl -L https://github.com/IBM/ai-on-z-fraud-detection/raw/main/onnx%20models/ccf_lstm_static_tf2onnx_OS_new.onnx -o ${ccfd} && onnx-mlir --march=z17 --maccel=NNPA --disable-compiler-stick-unstick --disable-fused-op --nnpa-disable-saturation --EmitMLIR --printIR -tag="test" ${ccfd} | FileCheck %s && rm -rf ${ccfd}
+// RUN: curl -L https://github.com/IBM/ai-on-z-fraud-detection/raw/main/onnx%20models/ccf_lstm_static_tf2onnx_OS_new.onnx -o %S/ccfd.onnx && onnx-mlir --march=z17 --maccel=NNPA --disable-compiler-stick-unstick --disable-fused-op --nnpa-disable-saturation --EmitMLIR --printIR -tag="test" %S/ccfd.onnx | FileCheck %s && rm -rf %S/ccfd.onnx
 
 // -----
 
@@ -15,7 +15,6 @@
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
-// CHECK-DAG: krnl.global
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: krnl.global
@@ -26,7 +25,6 @@
 // CHECK-NOT: zlow.stick
 // CHECK-NOT: zlow.unstick
 // 
-// CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global

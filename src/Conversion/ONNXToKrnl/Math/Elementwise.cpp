@@ -1461,6 +1461,40 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Runtime dispatch across the elementwise op-type list above, for callers
+// (e.g. fused-op lowerings) that only have an `Operation *` of unknown type
+// at hand rather than a template parameter. When opNode is null there is no
+// op at all, which is treated as a copy: emitScalarOpForElementwiseOp
+// returns its single scalar/vector operand verbatim, and
+// getGenOpMixForElementwiseOp reports it as cheaply as the simplest real op
+// (single register pressure) so downstream unroll decisions still treat it
+// as a highly-unrollable kernel.
+//===----------------------------------------------------------------------===//
+
+Value emitScalarOpForElementwiseOp(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *opNode, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  if (!opNode)
+    return scalarOperands[0];
+#define ELEMENTWISE_ALL(_OP_TYPE)                                              \
+  if (isa<_OP_TYPE>(opNode))                                                   \
+    return emitScalarOpFor<_OP_TYPE>(                                          \
+        rewriter, loc, opNode, elementType, scalarOperands);
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+  llvm_unreachable("op type not in the elementwise op-type list");
+}
+
+GenOpMix getGenOpMixForElementwiseOp(Type elementType, Operation *opNode) {
+  if (!opNode)
+    return {{GenericOps::ArithmeticGop, 1}};
+#define ELEMENTWISE_ALL(_OP_TYPE)                                              \
+  if (isa<_OP_TYPE>(opNode))                                                   \
+    return getGenOpMix<_OP_TYPE>(elementType, opNode);
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+  llvm_unreachable("op type not in the elementwise op-type list");
+}
+
+//===----------------------------------------------------------------------===//
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
@@ -1541,22 +1575,25 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   DimsExpr ubs = flattenedOutputDims;
   IndexExpr simdUb = ubs.pop_back_val(); // Remove flattened ub.
   bool useParallelInSimdLoop = false;
+  auto plan =
+      KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
   if (enableParallel) {
     if (outerLoopRank > 1) {
       // Outer loop parallelism.
-      tryCreateKrnlParallel(create.krnl, op,
-          "outer-loop of elementwise simd partially flattened", loopDef, lbs,
-          ubs);
+      plan.tryCreateParallel(create.krnl, op,
+          "outer-loop of elementwise simd partially flattened", lbs, ubs);
     } else {
-      // SIMD loop parallelism.
-      if (tryCreateKrnlParallel(create.krnl, op,
-              "inner-loop of elementwise simd partially flattened", loopDef,
-              {zero}, {simdUb}, 0, 1, {}, VL * 32,
-              /*createKrnlParallel=*/false) != -1)
+      // SIMD loop parallelism. These bounds are the flattened SIMD loop's,
+      // which forLoopIE defines internally -- no loop ref of ours describes it.
+      auto simdPlan = KrnlParallelPlan::noLoopRefs(
+          /*first*/ 0, /*last excl*/ 1, /*cost*/ {VL * 32});
+      if (simdPlan.findParallelDim(op,
+              "inner-loop of elementwise simd partially flattened", {zero},
+              {simdUb}) != NO_PAR_FOUND)
         useParallelInSimdLoop = true;
     }
   }
-  create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+  create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
       [&](const KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder> create(ck);
         // LoopInd has the current indices for all but the innermost dim.
@@ -2158,10 +2195,12 @@ struct ONNXElementwiseUnaryOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
+      auto plan =
+          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
       if (enableParallel)
-        tryCreateKrnlParallel(create.krnl, op, "elementwise unary not simdized",
-            loopDef, lbs, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        plan.tryCreateParallel(
+            create.krnl, op, "elementwise unary not simdized", lbs, ubs);
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value> args;
             Value loadedVal = createKrnl.load(X, loopInd);
@@ -2338,10 +2377,12 @@ struct ONNXElementwiseBinaryOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       // TODO adjust in the future
+      auto plan =
+          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
       if (enableParallel)
-        tryCreateKrnlParallel(create.krnl, op,
-            "elementwise binary not simdized", loopDef, lbs, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        plan.tryCreateParallel(
+            create.krnl, op, "elementwise binary not simdized", lbs, ubs);
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
@@ -2508,11 +2549,13 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
+      auto plan =
+          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
       if (enableParallel)
-        tryCreateKrnlParallel(create.krnl, op,
-            "elementwise variable not simdized", loopDef, lbs, ubs);
+        plan.tryCreateParallel(
+            create.krnl, op, "elementwise variable not simdized", lbs, ubs);
 
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
@@ -2623,10 +2666,12 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
+      auto plan =
+          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
       if (enableParallel)
-        tryCreateKrnlParallel(
-            create.krnl, op, "where op not simdized", loopDef, lbs, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        plan.tryCreateParallel(
+            create.krnl, op, "where op not simdized", lbs, ubs);
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(&rewriter, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;

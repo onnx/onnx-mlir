@@ -280,6 +280,7 @@ CONSTANT_INPUT = "constant"
 CONSTANT_INPUT_STRING = "constant_string"
 CONSTANTS_TO_FILE = "constants_to_file"
 FLOAT16 = "float16"
+NO_JNI = "no_jni"
 
 ### immutable variables ###
 

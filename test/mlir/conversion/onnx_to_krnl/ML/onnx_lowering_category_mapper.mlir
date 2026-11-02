@@ -9,7 +9,7 @@ func.func private @test_category_mapper_string_to_int64(%arg0 : tensor<2x2x!onnx
 
   // CHECK-LABEL: test_category_mapper_string_to_int64
   // CHECK-DAG: [[LEN:%.+]] = arith.constant 3 : i32
-  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x2xi64>
+  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() alignment = 16 : memref<2x2xi64>
   // CHECK-DAG: [[G:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 0, -3]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[V:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 2, 0]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[CAT_INT64s:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 2, 3]> : tensor<3xi64>}> : () -> memref<3xi64>
@@ -43,7 +43,7 @@ func.func private @test_category_mapper_int64_to_string(%arg0 : tensor<2x2xi64>)
 
   // CHECK-LABEL: test_category_mapper_int64_to_string
   // CHECK-DAG: [[LEN:%.+]] = arith.constant 3 : i32
-  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x2x!krnl.string>
+  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() alignment = 16 : memref<2x2x!krnl.string>
   // CHECK-DAG: [[G:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[-1, 1, 0]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[V:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[2, 1, 0]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[CAT_INT64s:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 2, 3]> : tensor<3xi64>}> : () -> memref<3xi64>
@@ -75,7 +75,7 @@ func.func private @test_rank3_category_mapper_string_to_int64(%arg0 : tensor<2x2
 
   // CHECK-LABEL: test_rank3_category_mapper_string_to_int64
   // CHECK-DAG: [[LEN:%.+]] = arith.constant 3 : i32
-  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x2x2xi64>
+  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() alignment = 16 : memref<2x2x2xi64>
   // CHECK-DAG: [[G:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 0, -3]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[V:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 2, 0]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[CAT_INT64s:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 2, 3]> : tensor<3xi64>}> : () -> memref<3xi64>
@@ -109,7 +109,7 @@ func.func private @test_rank3_category_mapper_int64_to_string(%arg0 : tensor<2x2
 
   // CHECK-LABEL: test_rank3_category_mapper_int64_to_string
   // CHECK-DAG: [[LEN:%.+]] = arith.constant 3 : i32
-  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x2x2x!krnl.string>
+  // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() alignment = 16 : memref<2x2x2x!krnl.string>
   // CHECK-DAG: [[G:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[-1, 1, 0]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[V:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[2, 1, 0]> : tensor<3xi32>}> : () -> memref<3xi32>
   // CHECK-DAG: [[CAT_INT64s:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[1, 2, 3]> : tensor<3xi64>}> : () -> memref<3xi64>

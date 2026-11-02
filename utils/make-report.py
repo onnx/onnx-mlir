@@ -141,7 +141,9 @@ compile_info_str = ""
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
-    return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    return (
+        r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z_\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    )
 
 
 def match_start_report(line):
@@ -173,7 +175,10 @@ simd_legend = (
 sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PAR-REPORT==, onnx.Mul-par, Mul_28, elementwise variadic not simdized, 0, -1
-par_legend = "message, loop nest (0 outermost), loop trip count (-1 runtime)"
+par_legend = (
+    "message, parallel loop level (-1 none; 0 outermost), "
+    "parallel loop trip count (0 none; -1 runtime; collapsed groups report the product)"
+)
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_legend = "(after|before), time for op(s), time since start(s)"

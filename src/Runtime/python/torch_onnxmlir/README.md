@@ -58,7 +58,7 @@ For more information about `torch.compile`, see its [document](https://docs.pyto
 
 ## Caching the exported models and compiled libraries
 
-To avoid recompiling models, the backend caches compiled models in the folder `${HOME}/.cache/torch_onnxmlir`. 
+To avoid recompiling models, the backend caches compiled models in the folder `${HOME}/.cache/torch_onnxmlir`.
 
 Users can change the cache folder in two ways:
 
@@ -72,6 +72,16 @@ Users can change the cache folder in two ways:
    import torch_onnxmlir
    torch_onnxmlir.config.cache_dir = "/path/to/cache_folder"
    ```
+
+### Security note on the disk cache
+
+The cache directory is created with permissions `0o700` (owner read/write/execute only) so other local users cannot read or tamper with compiled artifacts.
+
+Each cached `.so` (and `.constants.bin`, if present) has a SHA-256 hash stored alongside it at compile time. On reload, `load_from_disk` recomputes the hash before calling `dlopen` and treats any mismatch as a cache miss — the model is recompiled rather than the tampered file being loaded.
+
+**The cache directory must not be shared with other local users or processes.** If you redirect the cache via `TORCHONNXMLIR_CACHE_DIR` or `torch_onnxmlir.config.cache_dir`, ensure the target path is private to the account running inference. Pointing multiple workers at a shared, world-writable location bypasses the hash check's protection by allowing an attacker to replace the `.so` and update the stored hash atomically.
+
+Existing cache entries written by a version of `torch_onnxmlir` that predates this integrity check carry no stored hash. Those entries are treated as cache misses and recompiled automatically on the next run.
 
 You can view the current cache directory using the explain() feature:
 ```python

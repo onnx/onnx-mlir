@@ -24,6 +24,8 @@
 #ifndef ONNX_MLIR_FUSION_OP_BASE_PATTERN_H
 #define ONNX_MLIR_FUSION_OP_BASE_PATTERN_H
 
+#include <cassert>
+
 #include "mlir/IR/PatternMatch.h"
 
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
@@ -44,12 +46,20 @@ class FusedPatternForOpKind : public mlir::OpRewritePattern<AnchorOpType> {
   DimAnalysis *dimAnalysis;
 
 public:
+  // Benefit = FusionT::kMaxOpCount: only meaningful when another kind shares
+  // this same AnchorOpType (mlir::PatternApplicator ranks same-anchor
+  // candidates by benefit); it has no effect on precedence between kinds
+  // anchored on different op types -- see the kMaxOpCount contract note in
+  // FusionOpHelper.hpp.
   FusedPatternForOpKind(mlir::MLIRContext *context, DimAnalysis *dimAnalysis)
-      : mlir::OpRewritePattern<AnchorOpType>(context, 1),
+      : mlir::OpRewritePattern<AnchorOpType>(context, FusionT::kMaxOpCount),
         dimAnalysis(dimAnalysis) {}
 
   mlir::LogicalResult matchAndRewrite(
       AnchorOpType anchorOp, mlir::PatternRewriter &rewriter) const override {
+    // Every detectIfBeneficial() relies on DimAnalysis to prove dynamic dims
+    // equal; verify() at lowering time trusts that proof (it has none).
+    assert(dimAnalysis && "fused op detection requires a non-null DimAnalysis");
     FusionT fusion;
     if (!fusion.detectIfBeneficial(dimAnalysis, anchorOp))
       return mlir::failure();

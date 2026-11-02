@@ -1227,6 +1227,21 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   getConstPropONNXToONNXPatterns(patterns);
   if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
+
+  // After constant propagation, operand types of onnx.Return may have become
+  // more concrete (e.g. tensor<?xf32> → tensor<4xf32>). Update the function
+  // result types to stay in sync so the IR remains valid under the stricter
+  // verifier introduced in LLVM-23.
+  function.walk([&](ONNXReturnOp retOp) {
+    auto funcType = function.getFunctionType();
+    SmallVector<Type> newResultTypes(
+        retOp.getOperandTypes().begin(), retOp.getOperandTypes().end());
+    if (SmallVector<Type>(funcType.getResults().begin(),
+            funcType.getResults().end()) != newResultTypes) {
+      function.setType(
+          FunctionType::get(context, funcType.getInputs(), newResultTypes));
+    }
+  });
 }
 
 } // end anonymous namespace.

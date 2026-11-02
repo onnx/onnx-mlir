@@ -129,6 +129,12 @@ decoder_sess = OMExecutionSession(shared_lib_path=decoder_model) # tag will be `
 
 To use functions without tags, e.g. `run_main_graph`, set `tag = "NONE"`.
 
+> **Note:** Tags only namespace the model's entry-point and signature symbols
+> (`run_main_graph_<tag>`, `omInputSignature_<tag>`, etc.). Each model's
+> statically-linked runtime helpers (`omTensorCreate`, `omTensorDestroy`, and
+> others from `libcruntime.a`) are self-contained within that model's `.so` and
+> do not interfere with co-loaded models.
+
 ## PyRuntime model API
 The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.
 However, using the constructor and run method is enough to perform inferences.
@@ -275,7 +281,12 @@ def __init__(self, input_model_path: str, flags: str,
         flags: Compilation flags as a single string (e.g., '-O3', '-O3 -o output_name').
         compiler_path: Path to onnx-mlir compiler binary. If empty, use default location.
         log_file_name: Path to log file for compilation output. If empty, output to stdout/stderr.
-        reuse_compiled_model: If True, reuse existing compiled model if it exists. Default: False.
+        reuse_compiled_model: If True, skip recompilation when a previously compiled
+            output already exists at the predicted output path.
+            WARNING: This is a content-blind existence check — no hash, mtime, or
+            integrity verification is performed on the cached file. Any bytes already
+            at the output path are loaded as-is. Do not set this flag if the output
+            directory is writable by any other local principal. Default: False.
 
     Raises:
         RuntimeError: If the model file doesn't exist, compilation fails, or no input model provided.

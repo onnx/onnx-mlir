@@ -716,5 +716,24 @@ bool supportedLayoutForCompilerGeneratedStickUnstick(
          (includeNHWC && layout.getValue().equals_insensitive("NHWC"));
 }
 
+int64_t getExtendedLayoutTransformInnerTile(mlir::Type sourceType) {
+  auto shapedType = mlir::dyn_cast<ShapedType>(sourceType);
+  if (!shapedType || !shapedType.hasRank() || shapedType.getRank() == 0)
+    return 0;
+  int64_t innermost = shapedType.getShape()[shapedType.getRank() - 1];
+  if (innermost == ShapedType::kDynamic)
+    return 0;
+  if (innermost % 64 == 0)
+    return 64; // Full sticks.
+  // A half stick is only supported when the innermost dim is exactly 32, so
+  // that every source half stick starts at offset 0 within its stick (the
+  // dlf16 to f32 conversion code does not support mid-stick reads). The output
+  // may start mid-stick (e.g. when merging heads of 32 into the innermost
+  // dim); it is addressed through the layout map or as a CPU memref.
+  if (innermost == 32)
+    return 32;
+  return 0;
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir

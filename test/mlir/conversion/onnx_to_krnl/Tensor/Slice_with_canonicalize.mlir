@@ -233,40 +233,31 @@ func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %
 // CHECK-DAG:       [[VAR_8_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_]] : index
 // CHECK-DAG:       [[VAR_9_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_3_]]{{.}}
 // CHECK:           [[VAR_10_:%.+]] = arith.select [[VAR_8_]], [[VAR_9_]], [[VAR_3_]] : index
-// CHECK:           [[VAR_11_:%.+]] = arith.cmpi slt, [[VAR_10_]], [[CST_0_]] : index
-// CHECK:           [[VAR_12_:%.+]] = arith.select [[VAR_11_]], [[CST_0_]], [[VAR_10_]] : index
-// CHECK:           [[VAR_13_:%.+]] = arith.cmpi sgt, [[VAR_12_]], [[CST_4_]] : index
-// CHECK-DAG:       [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[CST_4_]], [[VAR_12_]] : index
-// CHECK-DAG:       [[VAR_15_:%.+]] = arith.cmpi slt, [[VAR_10_]], [[CST_0_]] : index
-// CHECK:           [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[CST_0_]], [[VAR_10_]] : index
-// CHECK:           [[VAR_17_:%.+]] = arith.cmpi sgt, [[VAR_16_]], [[CST_5_]] : index
-// CHECK-DAG:       [[VAR_18_:%.+]] = arith.select [[VAR_17_]], [[CST_5_]], [[VAR_16_]] : index
-// CHECK-DAG:       [[VAR_19_:%.+]] = arith.cmpi slt, [[VAR_7_]], [[CST_0_]] : index
+// CHECK:           [[VAR_11_:%.+]] = arith.maxsi [[VAR_10_]], [[CST_0_]] : index
+// CHECK:           [[VAR_12_:%.+]] = arith.minsi [[VAR_11_]], [[CST_4_]] : index
+// CHECK-DAG:       [[VAR_13_:%.+]] = arith.maxsi [[VAR_10_]], [[CST_0_]] : index
+// CHECK-DAG:       [[VAR_14_:%.+]] = arith.minsi [[VAR_13_]], [[CST_5_]] : index
+// CHECK-DAG:       [[VAR_15_:%.+]] = arith.cmpi slt, [[VAR_7_]], [[CST_0_]] : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_20_:%.+]] = arith.select [[VAR_19_]], [[VAR_14_]], [[VAR_18_]] : index
-// CHECK-DAG:       [[VAR_21_:%.+]] = arith.cmpi slt, [[VAR_5_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_22_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_5_]]{{.}}
+// CHECK-DAG:       [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[VAR_12_]], [[VAR_14_]] : index
+// CHECK-DAG:       [[VAR_17_:%.+]] = arith.cmpi slt, [[VAR_5_]], [[CST_0_]] : index
+// CHECK-DAG:       [[VAR_18_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_5_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_23_:%.+]] = arith.select [[VAR_21_]], [[VAR_22_]], [[VAR_5_]] : index
-// CHECK-DAG:       [[VAR_24_:%.+]] = arith.cmpi sle, [[VAR_5_]], [[CST_minus_2147483648_]] : index
+// CHECK-DAG:       [[VAR_19_:%.+]] = arith.select [[VAR_17_]], [[VAR_18_]], [[VAR_5_]] : index
+// CHECK-DAG:       [[VAR_20_:%.+]] = arith.cmpi sle, [[VAR_5_]], [[CST_minus_2147483648_]] : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_25_:%.+]] = arith.select [[VAR_24_]], [[CST_minus_1_]], [[VAR_23_]] : index
-// CHECK-DAG:       [[VAR_26_:%.+]] = arith.cmpi sge, [[VAR_5_]], [[CST_2147483647_]] : index
-// CHECK:           [[VAR_27_:%.+]] = arith.select [[VAR_26_]], [[CST_5_]], [[VAR_25_]] : index
-// CHECK:           [[VAR_28_:%.+]] = arith.cmpi slt, [[VAR_27_]], [[CST_minus_1_]] : index
-// CHECK:           [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[CST_minus_1_]], [[VAR_27_]] : index
-// CHECK:           [[VAR_30_:%.+]] = arith.cmpi sgt, [[VAR_29_]], [[CST_5_]] : index
-// CHECK-DAG:       [[VAR_31_:%.+]] = arith.select [[VAR_30_]], [[CST_5_]], [[VAR_29_]] : index
-// CHECK-DAG:       [[VAR_32_:%.+]] = arith.cmpi slt, [[VAR_27_]], [[CST_0_]] : index
-// CHECK:           [[VAR_33_:%.+]] = arith.select [[VAR_32_]], [[CST_0_]], [[VAR_27_]] : index
-// CHECK:           [[VAR_34_:%.+]] = arith.cmpi sgt, [[VAR_33_]], [[CST_5_]] : index
-// CHECK-DAG:       [[VAR_35_:%.+]] = arith.select [[VAR_34_]], [[CST_5_]], [[VAR_33_]] : index
-// CHECK-DAG:       [[VAR_36_:%.+]] = arith.cmpi slt, [[VAR_7_]], [[CST_0_]] : index
-// CHECK:           [[VAR_37_:%.+]] = arith.select [[VAR_36_]], [[VAR_31_]], [[VAR_35_]] : index
-// CHECK:           [[VAR_38_:%.+]] = arith.subi [[VAR_37_]], [[VAR_20_]] : index
-// CHECK:           [[VAR_39_:%.+]] = arith.ceildivsi [[VAR_38_]], [[VAR_7_]] : index
-// CHECK:           [[VAR_40_:%.+]] = arith.cmpi slt, [[VAR_39_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_41_:%.+]] = arith.select [[VAR_40_]], [[CST_0_]], [[VAR_39_]] : index
+// CHECK-DAG:       [[VAR_21_:%.+]] = arith.select [[VAR_20_]], [[CST_minus_1_]], [[VAR_19_]] : index
+// CHECK-DAG:       [[VAR_22_:%.+]] = arith.cmpi sge, [[VAR_5_]], [[CST_2147483647_]] : index
+// CHECK:           [[VAR_23_:%.+]] = arith.select [[VAR_22_]], [[CST_5_]], [[VAR_21_]] : index
+// CHECK:           [[VAR_24_:%.+]] = arith.maxsi [[VAR_23_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_25_:%.+]] = arith.minsi [[VAR_24_]], [[CST_5_]] : index
+// CHECK-DAG:       [[VAR_26_:%.+]] = arith.maxsi [[VAR_23_]], [[CST_0_]] : index
+// CHECK-DAG:       [[VAR_27_:%.+]] = arith.minsi [[VAR_26_]], [[CST_5_]] : index
+// CHECK-DAG:       [[VAR_28_:%.+]] = arith.cmpi slt, [[VAR_7_]], [[CST_0_]] : index
+// CHECK:           [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[VAR_25_]], [[VAR_27_]] : index
+// CHECK:           [[VAR_30_:%.+]] = arith.subi [[VAR_29_]], [[VAR_16_]] : index
+// CHECK:           [[VAR_31_:%.+]] = arith.ceildivsi [[VAR_30_]], [[VAR_7_]] : index
+// CHECK:           [[VAR_32_:%.+]] = arith.maxsi [[VAR_31_]], [[CST_0_]] : index
 // CHECK-DAG:       [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[PARAM_0_]]{{\[}}[[CST_1_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_43_:%.+]] = arith.index_cast [[LOAD_PARAM_0_MEM_1_]] : i64 to index
@@ -279,49 +270,40 @@ func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %
 // CHECK-DAG:       [[VAR_48_:%.+]] = arith.cmpi slt, [[VAR_43_]], [[CST_0_]] : index
 // CHECK-DAG:       [[VAR_49_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_43_]]{{.}}
 // CHECK:           [[VAR_50_:%.+]] = arith.select [[VAR_48_]], [[VAR_49_]], [[VAR_43_]] : index
-// CHECK:           [[VAR_51_:%.+]] = arith.cmpi slt, [[VAR_50_]], [[CST_0_]] : index
-// CHECK:           [[VAR_52_:%.+]] = arith.select [[VAR_51_]], [[CST_0_]], [[VAR_50_]] : index
-// CHECK:           [[VAR_53_:%.+]] = arith.cmpi sgt, [[VAR_52_]], [[CST_3_]] : index
-// CHECK-DAG:       [[VAR_54_:%.+]] = arith.select [[VAR_53_]], [[CST_3_]], [[VAR_52_]] : index
-// CHECK-DAG:       [[VAR_55_:%.+]] = arith.cmpi slt, [[VAR_50_]], [[CST_0_]] : index
-// CHECK:           [[VAR_56_:%.+]] = arith.select [[VAR_55_]], [[CST_0_]], [[VAR_50_]] : index
-// CHECK:           [[VAR_57_:%.+]] = arith.cmpi sgt, [[VAR_56_]], [[CST_4_]] : index
-// CHECK-DAG:       [[VAR_58_:%.+]] = arith.select [[VAR_57_]], [[CST_4_]], [[VAR_56_]] : index
-// CHECK-DAG:       [[VAR_59_:%.+]] = arith.cmpi slt, [[VAR_47_]], [[CST_0_]] : index
+// CHECK:           [[VAR_51_:%.+]] = arith.maxsi [[VAR_50_]], [[CST_0_]] : index
+// CHECK:           [[VAR_52_:%.+]] = arith.minsi [[VAR_51_]], [[CST_3_]] : index
+// CHECK-DAG:       [[VAR_53_:%.+]] = arith.maxsi [[VAR_50_]], [[CST_0_]] : index
+// CHECK-DAG:       [[VAR_54_:%.+]] = arith.minsi [[VAR_53_]], [[CST_4_]] : index
+// CHECK-DAG:       [[VAR_55_:%.+]] = arith.cmpi slt, [[VAR_47_]], [[CST_0_]] : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_60_:%.+]] = arith.select [[VAR_59_]], [[VAR_54_]], [[VAR_58_]] : index
-// CHECK-DAG:       [[VAR_61_:%.+]] = arith.cmpi slt, [[VAR_45_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_62_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_45_]]{{.}}
+// CHECK-DAG:       [[VAR_56_:%.+]] = arith.select [[VAR_55_]], [[VAR_52_]], [[VAR_54_]] : index
+// CHECK-DAG:       [[VAR_57_:%.+]] = arith.cmpi slt, [[VAR_45_]], [[CST_0_]] : index
+// CHECK-DAG:       [[VAR_58_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_45_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_63_:%.+]] = arith.select [[VAR_61_]], [[VAR_62_]], [[VAR_45_]] : index
-// CHECK-DAG:       [[VAR_64_:%.+]] = arith.cmpi sle, [[VAR_45_]], [[CST_minus_2147483648_]] : index
+// CHECK-DAG:       [[VAR_59_:%.+]] = arith.select [[VAR_57_]], [[VAR_58_]], [[VAR_45_]] : index
+// CHECK-DAG:       [[VAR_60_:%.+]] = arith.cmpi sle, [[VAR_45_]], [[CST_minus_2147483648_]] : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_65_:%.+]] = arith.select [[VAR_64_]], [[CST_minus_1_]], [[VAR_63_]] : index
-// CHECK-DAG:       [[VAR_66_:%.+]] = arith.cmpi sge, [[VAR_45_]], [[CST_2147483647_]] : index
-// CHECK:           [[VAR_67_:%.+]] = arith.select [[VAR_66_]], [[CST_4_]], [[VAR_65_]] : index
-// CHECK:           [[VAR_68_:%.+]] = arith.cmpi slt, [[VAR_67_]], [[CST_minus_1_]] : index
-// CHECK:           [[VAR_69_:%.+]] = arith.select [[VAR_68_]], [[CST_minus_1_]], [[VAR_67_]] : index
-// CHECK:           [[VAR_70_:%.+]] = arith.cmpi sgt, [[VAR_69_]], [[CST_4_]] : index
-// CHECK-DAG:       [[VAR_71_:%.+]] = arith.select [[VAR_70_]], [[CST_4_]], [[VAR_69_]] : index
-// CHECK-DAG:       [[VAR_72_:%.+]] = arith.cmpi slt, [[VAR_67_]], [[CST_0_]] : index
-// CHECK:           [[VAR_73_:%.+]] = arith.select [[VAR_72_]], [[CST_0_]], [[VAR_67_]] : index
-// CHECK:           [[VAR_74_:%.+]] = arith.cmpi sgt, [[VAR_73_]], [[CST_4_]] : index
-// CHECK-DAG:       [[VAR_75_:%.+]] = arith.select [[VAR_74_]], [[CST_4_]], [[VAR_73_]] : index
-// CHECK-DAG:       [[VAR_76_:%.+]] = arith.cmpi slt, [[VAR_47_]], [[CST_0_]] : index
-// CHECK:           [[VAR_77_:%.+]] = arith.select [[VAR_76_]], [[VAR_71_]], [[VAR_75_]] : index
-// CHECK:           [[VAR_78_:%.+]] = arith.subi [[VAR_77_]], [[VAR_60_]] : index
-// CHECK:           [[VAR_79_:%.+]] = arith.ceildivsi [[VAR_78_]], [[VAR_47_]] : index
-// CHECK:           [[VAR_80_:%.+]] = arith.cmpi slt, [[VAR_79_]], [[CST_0_]] : index
-// CHECK:           [[VAR_81_:%.+]] = arith.select [[VAR_80_]], [[CST_0_]], [[VAR_79_]] : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_81_]], [[VAR_41_]]) {{.*}} : memref<3x?x?xi64>
+// CHECK-DAG:       [[VAR_61_:%.+]] = arith.select [[VAR_60_]], [[CST_minus_1_]], [[VAR_59_]] : index
+// CHECK-DAG:       [[VAR_62_:%.+]] = arith.cmpi sge, [[VAR_45_]], [[CST_2147483647_]] : index
+// CHECK:           [[VAR_63_:%.+]] = arith.select [[VAR_62_]], [[CST_4_]], [[VAR_61_]] : index
+// CHECK:           [[VAR_64_:%.+]] = arith.maxsi [[VAR_63_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_65_:%.+]] = arith.minsi [[VAR_64_]], [[CST_4_]] : index
+// CHECK-DAG:       [[VAR_66_:%.+]] = arith.maxsi [[VAR_63_]], [[CST_0_]] : index
+// CHECK-DAG:       [[VAR_67_:%.+]] = arith.minsi [[VAR_66_]], [[CST_4_]] : index
+// CHECK-DAG:       [[VAR_68_:%.+]] = arith.cmpi slt, [[VAR_47_]], [[CST_0_]] : index
+// CHECK:           [[VAR_69_:%.+]] = arith.select [[VAR_68_]], [[VAR_65_]], [[VAR_67_]] : index
+// CHECK:           [[VAR_70_:%.+]] = arith.subi [[VAR_69_]], [[VAR_56_]] : index
+// CHECK:           [[VAR_71_:%.+]] = arith.ceildivsi [[VAR_70_]], [[VAR_47_]] : index
+// CHECK:           [[VAR_72_:%.+]] = arith.maxsi [[VAR_71_]], [[CST_0_]] : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_72_]], [[VAR_32_]]) {{.*}} : memref<3x?x?xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[VAR_81_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[VAR_41_]]){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[VAR_72_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[VAR_32_]]){
 // CHECK:             [[IV:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK:             [[VAR_84_:%.+]] = arith.muli [[VAR_47_]], [[IV]]#1 : index
-// CHECK-DAG:         [[VAR_85_:%.+]] = arith.addi [[VAR_84_]], [[VAR_60_]] : index
-// CHECK-DAG:         [[VAR_86_:%.+]] = arith.muli [[VAR_7_]], [[IV]]#2 : index
-// CHECK:             [[VAR_87_:%.+]] = arith.addi [[VAR_86_]], [[VAR_20_]] : index
-// CHECK:             [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][[[IV]]#0, [[VAR_85_]], [[VAR_87_]]{{.}} : memref<3x4x5xi64>
+// CHECK:             [[VAR_73_:%.+]] = arith.muli [[VAR_47_]], [[IV]]#1 : index
+// CHECK-DAG:         [[VAR_74_:%.+]] = arith.addi [[VAR_73_]], [[VAR_56_]] : index
+// CHECK-DAG:         [[VAR_75_:%.+]] = arith.muli [[VAR_7_]], [[IV]]#2 : index
+// CHECK:             [[VAR_76_:%.+]] = arith.addi [[VAR_75_]], [[VAR_16_]] : index
+// CHECK:             [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][[[IV]]#0, [[VAR_74_]], [[VAR_76_]]{{.}} : memref<3x4x5xi64>
 // CHECK:             krnl.store [[LOAD_VAR_0_MEM_]], [[RES_]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<3x?x?xi64>
 // CHECK:           }
 // CHECK:           return

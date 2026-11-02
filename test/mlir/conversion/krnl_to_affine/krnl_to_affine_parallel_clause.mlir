@@ -5,14 +5,14 @@
 func.func @parallel_threads_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<16x8x128xf32> {onnx.name = "y"}) {
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_0[0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_1[0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_3[0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   %0 = krnl.define_loops 1
@@ -42,14 +42,14 @@ func.func @parallel_threads_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x
 func.func @parallel_threads(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<16x8x128xf32> {onnx.name = "y"}) {
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_0[0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_1[0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_3[0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   %0 = krnl.define_loops 1
@@ -79,14 +79,14 @@ func.func @parallel_threads(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (m
 func.func @parallel_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<16x8x128xf32> {onnx.name = "y"}) {
   %c8_i32 = arith.constant 8 : i32
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_0[0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_1[0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   affine.store %c16384, %alloc_3[0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   %0 = krnl.define_loops 1

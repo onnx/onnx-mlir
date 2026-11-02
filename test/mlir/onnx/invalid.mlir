@@ -43,6 +43,14 @@ func.func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor
 
 // -----
 
+func.func @test_eyelike_verifier_rank(%arg0 : tensor<5x5x5xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.EyeLike' op Input should have a rank of two}}
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<5x5x5xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Concat: 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
@@ -211,6 +219,14 @@ func.func @test_gatherElements_verifier_1(%data: tensor<2x2xf32>, %indices: tens
   // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<2xi64>' at index: 1' has rank 1, rank should be 2}}
   %1 = "onnx.GatherElements"(%data, %indices) { } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_global_lp_pool_verifier_p(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  // expected-error @+1 {{'onnx.GlobalLpPool' op p must be >= 1, got 0}}
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 0 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  "onnx.Return"(%0) : (tensor<1x3x1x1xf32>) -> ()
 }
 
 // -----
@@ -476,10 +492,10 @@ func.func @test_scatterelements_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 :
 
 // -----
 
-func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf32>) -> tensor<*xf32> {
+func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
   // expected-error @+2 {{onnx.ScatterElements: 'indices' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<3xf32>)  -> tensor<*xf32>
+  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<1xf32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -832,3 +848,174 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
   "onnx.Return"(%0) : (tensor<*xf16>) -> ()
 }
 
+// -----
+
+// A mismatched-dtype comparison not covered by the float-vs-integer-zero-
+// literal exception (non-zero literal here) must be rejected by the
+// verifier, not silently accepted only to abort deep in ONNXToKrnl lowering.
+func.func @test_greater_or_equal_mismatched_types(%arg0: tensor<f32>) -> tensor<i1> {
+  %0 = onnx.Constant dense<1> : tensor<i64>
+  // expected-error @+1 {{'onnx.GreaterOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %1 = "onnx.GreaterOrEqual"(%arg0, %0) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %1 : tensor<i1>
+}
+
+// -----
+
+func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor<i64>) -> tensor<i1> {
+  // expected-error @+1 {{'onnx.LessOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %0 : tensor<i1>
+}
+
+
+// -----
+
+func.func @test_det_bf16(%arg0: tensor<3x3xbf16>) -> tensor<bf16> {
+  // expected-error @+1 {{'onnx.Det' op only f16, f32 and f64 element types are supported for Det}}
+  %0 = "onnx.Det"(%arg0) : (tensor<3x3xbf16>) -> tensor<bf16>
+  onnx.Return %0 : tensor<bf16>
+}
+
+// -----
+
+func.func @test_transpose_perm_too_short(%arg0: tensor<4x3x2x1xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 2 elements but rank is 4}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 1]} : (tensor<4x3x2x1xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_transpose_perm_too_long(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 4 elements but rank is 2}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [1, 0, 0, 1]} : (tensor<2x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_out_of_range(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %axes = onnx.Constant dense<[2]> : tensor<1xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes[0] = 2 is out of range [-2, 1]}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<2xi64>, none, tensor<1xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_repeated(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %axes = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes[1] repeats axis 1 of axes[0]}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<4xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_repeated_negative(%arg0: tensor<2x3x4x5xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %axes = onnx.Constant dense<[1, -3]> : tensor<2xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes[1] repeats axis 1 of axes[0]}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3x4x5xf32>, tensor<4xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_pads_size(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %axes = onnx.Constant dense<[1]> : tensor<1xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op pads must have 2 * 1 elements, one begin and one end per padded axis, got 4}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<4xi64>, none, tensor<1xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_unknown_mode(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op mode must be one of constant, reflect, edge or wrap, got mirror}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %none) {mode = "mirror"} : (tensor<2x3xf32>, tensor<4xi64>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_pads_not_1d(%arg0: tensor<2x3xf32>, %pads: tensor<2x2xi64>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op pads must be a 1-D tensor, got rank 2}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %none) {mode = "constant"} : (tensor<2x3xf32>, tensor<2x2xi64>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_not_1d(%arg0: tensor<2x3xf32>, %axes: tensor<1x1xi64>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes must be a 1-D tensor, got rank 2}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<2xi64>, none, tensor<1x1xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_channels(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x4x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{offset must have offset_group * prod(kernel_shape) * spatial_rank channels}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x4x2x2xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_mask_channels(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x2x2xf32>, %arg3 : tensor<1x8x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{mask must have offset_group * prod(kernel_shape) channels}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %arg3) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x2x2xf32>, none, tensor<1x8x2x2xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_group(%arg0 : tensor<1x3x3x3xf32>, %arg1 : tensor<1x3x2x2xf32>, %arg2 : tensor<1x16x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{Channel In (C) must be a multiple of offset_group}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2], offset_group = 2 : si64} : (tensor<1x3x3x3xf32>, tensor<1x3x2x2xf32>, tensor<1x16x2x2xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_batch(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<2x8x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{offset batch size must match the input}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<2x8x2x2xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_spatial(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x3x3xf32>) -> tensor<1x1x2x2xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{offset spatial dimensions must match the output}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x3x3xf32>, none, none) -> tensor<1x1x2x2xf32>
+  "onnx.Return"(%0) : (tensor<1x1x2x2xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_mask_spatial(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x2x2xf32>, %arg3 : tensor<1x4x3x3xf32>) -> tensor<1x1x2x2xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{mask spatial dimensions must match the output}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %arg3) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x2x2xf32>, none, tensor<1x4x3x3xf32>) -> tensor<1x1x2x2xf32>
+  "onnx.Return"(%0) : (tensor<1x1x2x2xf32>) -> ()
+}

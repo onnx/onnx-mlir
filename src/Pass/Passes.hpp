@@ -43,6 +43,13 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
+// Pass for fusing chains of ONNX operations into a single ONNXFusedOp, for
+// kinds that are not accelerator-specific -- declared via TableGen, see
+// src/Dialect/ONNX/Transforms/Passes.td (FusionOpTransformPass) and
+// src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
+#define GEN_PASS_DECL_FUSIONOPTRANSFORMPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+
 // Pass for appending a decoding strategy into the main graph.
 std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
 
@@ -116,11 +123,14 @@ std::unique_ptr<mlir::Pass> createONNXCSEWithNodeNamePass();
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
+/// Pass for expanding attention mask tensors in MatMul-Add-Softmax patterns.
+std::unique_ptr<mlir::Pass> createExpandAttentionMaskPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
-    bool enableSIMD, bool enableParallel, bool enableFastMath,
-    std::string opsForCall);
+    bool enableSIMD, bool enableParallel, bool enableCollapse,
+    bool enableFastMath, std::string opsForCall);
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
     bool simdIsEnabled);
@@ -140,6 +150,10 @@ std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 
 /// Pass for eliminating locally-allocated memrefs that are only written to.
 std::unique_ptr<mlir::Pass> createEliminateWriteOnlyAllocPass();
+
+/// Pass for removing bufferization.clone ops of entry function inputs that are
+/// returned, inserted by the buffer deallocation pipeline.
+std::unique_ptr<mlir::Pass> createEliminateEntryArgClonePass();
 
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
@@ -177,6 +191,10 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 // This function is the only globally visible function for the pass, and
 // is defined at the end of the pass implementation file.
 #define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
+#include "src/Transform/Passes.h.inc"
+
+// For the omp wsloop nowait pass, it is createOMPWsloopNowaitPass().
+#define GEN_PASS_DECL_OMPWSLOOPNOWAITPASS
 #include "src/Transform/Passes.h.inc"
 
 // The function registerTransformsPasses() is generated from Passes.td and used

@@ -42,7 +42,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           # /usr/local using the --prefix=/usr option to install in /usr/local instead of
           # /usr which is the default for pip.
           pip3 install -q setuptools packaging --upgrade --prefix=/usr && \
-          pip3 install -q pytest==9.0.2 numpy==2.2.6 pytest-xdist==3.8.0 --prefix=/usr  && \
+          pip3 install -q pytest==9.0.2 numpy==2.2.6 pytest-xdist==3.8.0 \
+               scikit_build_core==1.0.3 --prefix=/usr  && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
@@ -71,7 +72,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           pip3 install -q setuptools --upgrade && \
           pip3 install -q \ 
                Cython pytest==9.0.2 numpy==2.2.6 pytest-xdist==3.8.0 \
-               typing-extensions==4.10.0 && \
+               scikit_build_core==1.0.3 typing-extensions==4.10.0 && \
           rm -rf /var/cache/dnf/* && \
           echo -e "/usr/local/lib" > /etc/ld.so.conf.d/local.conf; \
        fi \

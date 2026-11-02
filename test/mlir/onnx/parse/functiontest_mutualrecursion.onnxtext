@@ -1,0 +1,41 @@
+// RUN: not onnx-mlir --EmitONNXBasic --printIR %s 2>&1 | FileCheck %s
+
+// Tests that a pair of mutually-recursive model-local functions (A calls B,
+// B calls A) is rejected with a clear diagnostic instead of overflowing the
+// C++ call stack.  This exercises the indirect cycle path of the recursion
+// guard in ImportFunctionCallNode.
+//
+// The cycle is now detected by check_function_call_cycles before shape
+// inference runs.  The reported function name is the first node in the cycle
+// as determined by the ONNX checker's DFS order, which depends on the order
+// functions appear in the model and is not guaranteed to be stable across
+// ONNX versions, so the CHECK uses a wildcard for the exact name.
+
+<
+ir_version: 8,
+opset_import: [ "" : 16, "local" : 1 ]
+>
+agraph (float[N] x) => (float[N] y)
+{
+    y = local.funcA (x)
+}
+
+<
+opset_import: [ "" : 16, "local" : 1],
+domain: "local"
+>
+funcA (lx) => (ly) {
+    // funcA calls funcB — start of the mutual cycle.
+    ly = local.funcB (lx)
+}
+
+<
+opset_import: [ "" : 16, "local" : 1],
+domain: "local"
+>
+funcB (lx) => (ly) {
+    // funcB calls funcA — closes the cycle.  This must be caught.
+    ly = local.funcA (lx)
+}
+
+// CHECK: model-local function '{{.*}}func{{.*}}' is directly or indirectly recursive

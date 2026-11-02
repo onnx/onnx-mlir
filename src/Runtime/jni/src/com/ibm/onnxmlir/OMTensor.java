@@ -113,6 +113,8 @@ public class OMTensor {
      * @param flag true for boolean tensor, false for byte tensor
      *
      * @return OMTensor with boolean or byte data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(byte[] data, long[] shape, boolean flag) {
 	if (flag)
@@ -129,6 +131,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with byte data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(byte[] data, long[] shape) {
 	this(data, shape, false);
@@ -141,6 +145,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with short data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(short[] data, long[] shape) {
         setShortData(data);
@@ -154,6 +160,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with int data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(int[] data, long[] shape) {
         setIntData(data);
@@ -167,6 +175,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with long data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(long[] data, long[] shape) {
         setLongData(data);
@@ -180,6 +190,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with float data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(float[] data, long[] shape) {
         setFloatData(data);
@@ -193,6 +205,8 @@ public class OMTensor {
      * @param shape data shape array
      *
      * @return OMTensor with double data
+     * @throws IllegalArgumentException if shape is null, has a negative
+     *         dimension, or does not match the size of data
      */
     public OMTensor(double[] data, long[] shape) {
         setDoubleData(data);
@@ -235,7 +249,7 @@ public class OMTensor {
          */
         _data = ByteBuffer.allocateDirect(data.length);
         _data.slice().put(data);
-        _dataType = ONNX_TYPE_INT8;
+        _dataType = ONNX_TYPE_BOOL;
     }
 
     /* ---------- Byte data getter and setter ---------- */
@@ -558,9 +572,9 @@ public class OMTensor {
      * @return number of data elements in the data buffer
      */
     public long getNumElems() {
-        if (_shape.length == 0) return 1;
-        long n = _shape[0];
-        for (int i = 1; i < _shape.length; i++) n *= _shape[i];
+        if (_shape == null || _shape.length == 0) return 1;
+        long n = 1;
+        for (int i = 0; i < _shape.length; i++) n *= _shape[i];
         return n;
     }
 
@@ -568,7 +582,31 @@ public class OMTensor {
 
 
     /* Called by public constructors to initialize rank, shape, and stride */
+    private void validateShape(long[] shape) {
+        if (shape == null)
+            throw new IllegalArgumentException("shape cannot be null");
+        for (int i = 0; i < shape.length; i++) {
+            if (shape[i] < 0)
+                throw new IllegalArgumentException("shape dimension at index " + i + " cannot be negative, got " + shape[i]);
+        }
+    }
+
+    /* Types without a fixed element size (UNDEFINED, STRING) are not checked. */
+    private void validateBufferSize() {
+        if (_data == null || _shape == null) return;
+        long elemSize = ONNX_TYPE_SIZE[_dataType];
+        if (elemSize == 0) return;
+        long numElems = getNumElems();
+        long expectedBytes = numElems * elemSize;
+        if (expectedBytes != _data.limit()) {
+            throw new IllegalArgumentException(
+                    "Tensor buffer size mismatch: expected " + expectedBytes + " bytes (" + numElems + " elems * " + elemSize + " bytes), but buffer has " + _data.limit() + " bytes");
+        }
+    }
+
+    /* Called by public constructors to initialize rank, shape, and stride */
     private void putShape(long[] shape) {
+        validateShape(shape);
         _rank = shape.length;
         _shape = new long[_rank];
         _strides = new long[_rank];
@@ -581,6 +619,7 @@ public class OMTensor {
           else
             _strides[i] = _strides[i+1] * _shape[i+1];
         }
+        validateBufferSize();
     }
 
     /**
@@ -590,6 +629,9 @@ public class OMTensor {
      * @param shape data shape
      * @param dataType data type
      * @param endian data endian
+     * @throws IllegalArgumentException if dataType is unknown, endian is
+     *         null, shape is null or has a negative dimension, or shape and
+     *         dataType do not match the size of data
      */
     protected OMTensor(ByteBuffer data, long[] shape, ByteOrder endian, int dataType) {
         if (dataType < 0 || dataType > LAST_ONNX_TYPE)
@@ -610,8 +652,12 @@ public class OMTensor {
      * @param shape data shape
      * @param strides data stride
      * @param dataType data type
+     * @throws IllegalArgumentException if shape is null or has a negative
+     *         dimension, shape and strides lengths differ, dataType is
+     *         unknown, or shape and dataType do not match the size of data
      */
     protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+        validateShape(shape);
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
@@ -626,6 +672,7 @@ public class OMTensor {
         _rank = shape.length;
         _shape = shape;
         _strides = strides;
+        validateBufferSize();
     }
 
     /**
