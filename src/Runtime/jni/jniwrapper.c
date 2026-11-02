@@ -111,8 +111,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
   LIB_CALL(type(var) = (call), (success), (env), (ecpt), __VA_ARGS__);
 
 /* Debug output of OMTensor fields */
-#define OMT_DEBUG(                                                             \
-    i, n, data, shape, strides, dataType, bufferSize, rank, owning)            \
+#define OMT_DEBUG(i, n, data, shape, dataType, bufferSize, rank, owning)       \
   do {                                                                         \
     char tmp[1024];                                                            \
     LOG_BUF((dataType), (tmp), (data), (n));                                   \
@@ -120,16 +119,20 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     tmp[0] = '\0';                                                             \
     LOG_LONG_BUF(tmp, (shape), (rank));                                        \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:(shape)=[%s]", (i), tmp);                   \
-    if (strides) {                                                             \
-      tmp[0] = '\0';                                                           \
-      LOG_LONG_BUF(tmp, (strides), (rank));                                    \
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:(strides)=[%s]", (i), tmp);               \
-    }                                                                          \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:(dataType)=%d", (i), (dataType));           \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:(bufferSize)=%ld", (i), (bufferSize));      \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:(rank)=%ld", (i), (rank));                  \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:(owning)=%ld", (i), (owning));              \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:(numElems)=%ld", (i), (n));                 \
+  } while (0)
+
+/* Debug output of OMTensor strides (native to Java direction only) */
+#define OMT_STRIDES_DEBUG(i, strides, rank)                                    \
+  do {                                                                         \
+    char tmp[1024];                                                            \
+    tmp[0] = '\0';                                                             \
+    LOG_LONG_BUF(tmp, (strides), (rank));                                      \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(strides)=[%s]", (i), (tmp));               \
   } while (0)
 
 /* Debug output of hex string */
@@ -430,7 +433,7 @@ OMTensorList *omtl_java_to_native(
         i, expectedBytes, jni_bufferSize);
 
     /* Print debug info on what we got from the Java side */
-    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, NULL, jni_dataType,
+    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_dataType,
         jni_bufferSize, jni_rank, 0);
 
     /* Create native OMTensor struct. Note jni_data is owned by the
@@ -548,8 +551,9 @@ jobject omtl_native_to_java(
         jni_numElems);
 
     /* Print debug info on what we got from the native side */
-    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_strides, jni_dataType,
+    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_dataType,
         jni_bufferSize, jni_rank, jni_owning);
+    OMT_STRIDES_DEBUG(i, jni_strides, jni_rank);
 
     /* Primitive type int can be directly used */
     jint jomt_dataType = jni_dataType;
