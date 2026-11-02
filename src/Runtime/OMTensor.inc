@@ -4,7 +4,7 @@
 
 //===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -798,41 +798,14 @@ static OMTensor *omTensorCreateUntyped(int64_t rank) {
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
-  /* Create a OMTensor with data shape and strides allocated */
-  auto omt = omTensorCreateUntyped(shape.size());
-  if (omt == NULL)
-    return NULL;
-
-  /* Allocate data buffer */
-  omt->_rank = shape.size();
-  if ((omt->_allocatedPtr = malloc(
-           getNumElems(shape.data(), omt->_rank) * sizeof(T))) == NULL) {
-    omTensorDestroy(omt);
-    return NULL;
-  }
-
-  omt->_alignedPtr = omt->_allocatedPtr;
-  omt->_offset = 0;
-
-  /* Copy shape, _shape already allocated by omTensorCreate */
-  copy(shape.begin(), shape.end(), omt->_shape);
-
-  /* Compute and copy dataStrides, _strides already allocated by
-   * omTensorCreateUntyped
-   */
-  auto computedStrides = computeStridesFromShape(omt->_shape, omt->_rank);
-  copy(computedStrides.begin(), computedStrides.end(), omt->_strides);
-
   /* Convert CPP type to ONNX type */
+  OM_DATA_TYPE dtype;
   try {
-    omt->_dataType = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
+    dtype = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
   } catch (const std::out_of_range &) {
-    omt->_dataType = ONNX_TYPE_UNDEFINED;
+    dtype = ONNX_TYPE_UNDEFINED;
   }
-
-  /* Set flag for destructor */
-  omt->_owning = true;
-  return omt;
+  return omTensorCreateEmpty(shape.data(), shape.size(), dtype);
 }
 
 // Static variables used by omDefineSeed and omTensorCreateWithRandomData.
