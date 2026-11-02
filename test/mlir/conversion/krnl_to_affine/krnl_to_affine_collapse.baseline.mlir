@@ -436,3 +436,50 @@ func.func @collapse_nested_iterate_both_then_parallel(%arg0: memref<4x5x6x7xf32>
   }
   return %alloc : memref<4x5x6x7xf32>
 }
+
+// -----
+
+func.func @collapse_after_block_of_inner_loop(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
+  %ii, %jj, %kk = krnl.define_loops 3
+  krnl.iterate(%ii, %jj, %kk) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6) {
+    %a, %b, %c = krnl.get_induction_var_value(%ii, %jj, %kk) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c] : memref<4x5x6xf32>
+    %c5 = arith.constant 5 : index
+    %c6 = arith.constant 6 : index
+    %t0 = arith.muli %a, %c5 : index
+    %t1 = arith.addi %t0, %b : index
+    %t2 = arith.muli %t1, %c6 : index
+    %lin = arith.addi %t2, %c : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c] : memref<4x5x6xf32>
+  }
+  return %alloc : memref<4x5x6xf32>
+}
+
+// -----
+
+func.func @collapse_two_groups_inner_first(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
+  %ii, %jj, %kk, %ll = krnl.define_loops 4
+  krnl.iterate(%ii, %jj, %kk, %ll) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6, %ll -> %l = 0 to 7) {
+    %a, %b, %c, %d = krnl.get_induction_var_value(%ii, %jj, %kk, %ll) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c, %d] : memref<4x5x6x7xf32>
+    %c5 = arith.constant 5 : index
+    %c6 = arith.constant 6 : index
+    %c7 = arith.constant 7 : index
+    %t0 = arith.muli %a, %c5 : index
+    %t1 = arith.addi %t0, %b : index
+    %t2 = arith.muli %t1, %c6 : index
+    %t3 = arith.addi %t2, %c : index
+    %t4 = arith.muli %t3, %c7 : index
+    %lin = arith.addi %t4, %d : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c, %d] : memref<4x5x6x7xf32>
+  }
+  return %alloc : memref<4x5x6x7xf32>
+}

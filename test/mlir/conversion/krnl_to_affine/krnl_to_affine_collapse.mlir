@@ -1040,3 +1040,119 @@ func.func @collapse_nested_iterate_both_then_parallel(%arg0: memref<4x5x6x7xf32>
 
 }
 
+
+// -----
+
+// A krnl.block on a loop outside the collapsed group, placed before the
+// collapse in the IR. The collapse is resolved after the block has been applied,
+// so it fuses (%ii, %jj) above the tile loops of %kk.
+func.func @collapse_after_block_of_inner_loop(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
+  %ii, %jj, %kk = krnl.define_loops 3
+  %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  krnl.iterate(%ff, %kb, %kl) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6) {
+    %a, %b, %c = krnl.get_induction_var_value(%ff, %kl) : (!krnl.loop, !krnl.loop) -> (index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c] : memref<4x5x6xf32>
+    %c5 = arith.constant 5 : index
+    %c6 = arith.constant 6 : index
+    %t0 = arith.muli %a, %c5 : index
+    %t1 = arith.addi %t0, %b : index
+    %t2 = arith.muli %t1, %c6 : index
+    %lin = arith.addi %t2, %c : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c] : memref<4x5x6xf32>
+  }
+  return %alloc : memref<4x5x6xf32>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 + 4, 6)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 mod 5)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> (d0 floordiv 5)>
+// CHECK-LABEL:  func.func @collapse_after_block_of_inner_loop
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) attributes {llvm.emit_c_interface} {
+// CHECK-DAG:       [[CST_6_:%.+]] = arith.constant 6 : index
+// CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() alignment = 16 : memref<4x5x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 20 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 6 step 4 {
+// CHECK:               affine.for [[I_2_:%.+]] = [[MAP_0_]]([[I_1_]]) to min [[MAP_1_]]([[I_1_]]) {
+// CHECK-DAG:             [[VAR_0_:%.+]] = affine.apply [[MAP_2_]]([[I_0_]])
+// CHECK-DAG:             [[VAR_1_:%.+]] = affine.apply [[MAP_3_]]([[I_0_]])
+// CHECK-DAG:             [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]] floordiv 5, [[I_0_]] mod 5, [[I_2_]]{{.}} : memref<4x5x6xf32>
+// CHECK:                 [[VAR_3_:%.+]] = arith.muli [[VAR_1_]], [[CST_5_]] : index
+// CHECK:                 [[VAR_4_:%.+]] = arith.addi [[VAR_3_]], [[VAR_0_]] : index
+// CHECK:                 [[VAR_5_:%.+]] = arith.muli [[VAR_4_]], [[CST_6_]] : index
+// CHECK:                 [[VAR_6_:%.+]] = arith.addi [[VAR_5_]], [[I_2_]] : index
+// CHECK:                 [[VAR_7_:%.+]] = arith.index_cast [[VAR_6_]] : index to i64
+// CHECK:                 [[VAR_8_:%.+]] = arith.sitofp [[VAR_7_]] : i64 to f32
+// CHECK:                 [[VAR_9_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[VAR_8_]] : f32
+// CHECK:                 affine.store [[VAR_9_]], [[RES_]]{{.}}[[I_0_]] floordiv 5, [[I_0_]] mod 5, [[I_2_]]{{.}} : memref<4x5x6xf32>
+// CHECK:               }
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<4x5x6xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Two sibling collapses written innermost first. Collapses are resolved in IR
+// order, so the inner group is fused first and its fused loop then sits inside
+// the innermost loop of the outer group, which coalescing carries along.
+func.func @collapse_two_groups_inner_first(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
+  %ii, %jj, %kk, %ll = krnl.define_loops 4
+  %f2 = krnl.collapse(%kk, %ll) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  %f1 = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  krnl.iterate(%f1, %f2) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6, %ll -> %l = 0 to 7) {
+    %a, %b, %c, %d = krnl.get_induction_var_value(%f1, %f2) : (!krnl.loop, !krnl.loop) -> (index, index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c, %d] : memref<4x5x6x7xf32>
+    %c5 = arith.constant 5 : index
+    %c6 = arith.constant 6 : index
+    %c7 = arith.constant 7 : index
+    %t0 = arith.muli %a, %c5 : index
+    %t1 = arith.addi %t0, %b : index
+    %t2 = arith.muli %t1, %c6 : index
+    %t3 = arith.addi %t2, %c : index
+    %t4 = arith.muli %t3, %c7 : index
+    %lin = arith.addi %t4, %d : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c, %d] : memref<4x5x6x7xf32>
+  }
+  return %alloc : memref<4x5x6x7xf32>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 mod 5)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 floordiv 5)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 mod 7)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> (d0 floordiv 7)>
+// CHECK-LABEL:  func.func @collapse_two_groups_inner_first
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) attributes {llvm.emit_c_interface} {
+// CHECK-DAG:       [[CST_7_:%.+]] = arith.constant 7 : index
+// CHECK-DAG:       [[CST_6_:%.+]] = arith.constant 6 : index
+// CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 20 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 42 {
+// CHECK-DAG:           [[VAR_0_:%.+]] = affine.apply [[MAP_0_]]([[I_0_]])
+// CHECK-DAG:           [[VAR_1_:%.+]] = affine.apply [[MAP_1_]]([[I_0_]])
+// CHECK-DAG:           [[VAR_2_:%.+]] = affine.apply [[MAP_2_]]([[I_1_]])
+// CHECK-DAG:           [[VAR_3_:%.+]] = affine.apply [[MAP_3_]]([[I_1_]])
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]] floordiv 5, [[I_0_]] mod 5, [[I_1_]] floordiv 7, [[I_1_]] mod 7] : memref<4x5x6x7xf32>
+// CHECK:               [[VAR_5_:%.+]] = arith.muli [[VAR_1_]], [[CST_5_]] : index
+// CHECK:               [[VAR_6_:%.+]] = arith.addi [[VAR_5_]], [[VAR_0_]] : index
+// CHECK:               [[VAR_7_:%.+]] = arith.muli [[VAR_6_]], [[CST_6_]] : index
+// CHECK:               [[VAR_8_:%.+]] = arith.addi [[VAR_7_]], [[VAR_3_]] : index
+// CHECK:               [[VAR_9_:%.+]] = arith.muli [[VAR_8_]], [[CST_7_]] : index
+// CHECK:               [[VAR_10_:%.+]] = arith.addi [[VAR_9_]], [[VAR_2_]] : index
+// CHECK:               [[VAR_11_:%.+]] = arith.index_cast [[VAR_10_]] : index to i64
+// CHECK:               [[VAR_12_:%.+]] = arith.sitofp [[VAR_11_]] : i64 to f32
+// CHECK:               [[VAR_13_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[VAR_12_]] : f32
+// CHECK:               affine.store [[VAR_13_]], [[RES_]]{{.}}[[I_0_]] floordiv 5, [[I_0_]] mod 5, [[I_1_]] floordiv 7, [[I_1_]] mod 7] : memref<4x5x6x7xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<4x5x6x7xf32>
+// CHECK:         }
+}
