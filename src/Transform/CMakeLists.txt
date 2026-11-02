@@ -63,6 +63,24 @@ add_onnx_mlir_library(BufferOMPLoopHoist
   OMOptionUtils
   )
 
+add_onnx_mlir_library(OMPWsloopNowait
+  OMPWsloopNowait.cpp
+
+  DEPENDS
+  OMTransformsPassIncGen
+  # This target links no OM dialect library, so the other pass declarations
+  # included by src/Pass/Passes.hpp must be requested directly.
+  OMTransformsKrnlPassIncGen
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  MLIRPass
+  MLIROpenMPDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  OMOptionUtils
+  )
+
 add_onnx_mlir_library(OMWriteOpStatsToModuleAttribute
   WriteOpStatsToModuleAttribute.cpp
 
