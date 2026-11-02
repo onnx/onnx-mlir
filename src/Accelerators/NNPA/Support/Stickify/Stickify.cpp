@@ -919,15 +919,10 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // Prefetch (read) the next input buffer to be used. The HW should
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
-#if defined(__MVS__)
-            __dcbt(reinterpret_cast<void *>(
-                reinterpret_cast<uintptr_t>(in_buf) + input_offset));
-#else
             __builtin_prefetch(
                 reinterpret_cast<void *>(
                     reinterpret_cast<uintptr_t>(in_buf) + input_offset),
                 0);
-#endif
             // used for pushing out_offset from w to w+1 (i.e., +
             // AIU_BYTES_PER_STICK)
             uint64_t out_offset_w = output_offset;
@@ -938,17 +933,11 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
                  e1x += AIU_2BYTE_CELLS_PER_STICK) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
-#if defined(__MVS__)
-              __dcbtst(reinterpret_cast<void *>(
-                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
-                  output_offset));
-#else
               __builtin_prefetch(
                   reinterpret_cast<void *>(
                       reinterpret_cast<uintptr_t>(ztensor->buffer) +
                       output_offset),
                   1);
-#endif
               fields_to_convert = MIN((ztensor->transformed_desc->dim1 - e1x),
                   AIU_2BYTE_CELLS_PER_STICK);
 
@@ -967,13 +956,8 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
 
               // Release L1 cacheline for stick. The next "touch" will be
               // from NNPA, and it doesn't need L1 caching.
-#if defined(__MVS__)
-              __dcbf(reinterpret_cast<void *>(
-                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
-                  output_offset));
-#else
-// No known equivalent fn without dropping to ASM....
-#endif
+              // Note: __dcbf (cache flush) has no portable compiler built-in
+              // equivalent; omitted intentionally.
               // push input_offset the next c-stick, fake the multiply by
               // bit-shifting
               input_offset += (nbr_fields_converted << input_cell_shift);
@@ -1032,15 +1016,10 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // Prefetch (read) the next input buffer to be used. The HW should
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
-#if defined(__MVS__)
-            __dcbt(reinterpret_cast<void *>(
-                reinterpret_cast<uintptr_t>(in_buf) + input_offset));
-#else
             __builtin_prefetch(
                 reinterpret_cast<void *>(
                     reinterpret_cast<uintptr_t>(in_buf) + input_offset),
                 0);
-#endif
 
             nbr_fields_converted = convert_data_format(
                 reinterpret_cast<void *>(
@@ -1058,17 +1037,11 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             for (uint32_t w = 0; w < fields_to_convert; w++) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
-#if defined(__MVS__)
-              __dcbtst(reinterpret_cast<void *>(
-                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
-                  output_offset));
-#else
               __builtin_prefetch(
                   reinterpret_cast<void *>(
                       reinterpret_cast<uintptr_t>(ztensor->buffer) +
                       output_offset),
                   1);
-#endif
 
               *reinterpret_cast<uint16_t *>(
                   reinterpret_cast<uintptr_t>(ztensor->buffer) +
@@ -1129,12 +1102,6 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // need to aggressively prefetch here.
             // Also, Prefetch the new output offset to write that HW wouldn't
             // know about.
-#if defined(__MVS__)
-            __dcbt(reinterpret_cast<void *>(
-                reinterpret_cast<uintptr_t>(in_buf) + input_offset));
-            __dcbtst(reinterpret_cast<void *>(
-                reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
-#else
             __builtin_prefetch(
                 reinterpret_cast<void *>(
                     reinterpret_cast<uintptr_t>(in_buf) + input_offset),
@@ -1144,7 +1111,6 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
                     reinterpret_cast<uintptr_t>(ztensor->buffer) +
                     output_offset),
                 1);
-#endif
             fields_to_convert = MIN((ztensor->transformed_desc->dim1 - e1x),
                 AIU_2BYTE_CELLS_PER_STICK);
 
@@ -1249,28 +1215,18 @@ zdnn_status transform_bidir_weight_ztensor(
   for (uint32_t i = 0; i < 2; i++) {
 
     for (uint32_t e2x = 0; e2x < real_dim2; e2x++) {
-#if defined(__MVS__)
-      __dcbt(reinterpret_cast<void *>(
-          reinterpret_cast<uintptr_t>(in_buf) + input_offset));
-#else
       __builtin_prefetch(
           reinterpret_cast<void *>(
               reinterpret_cast<uintptr_t>(in_buf) + input_offset),
           0);
-#endif
       uint64_t out_offset_w = output_offset;
 
       for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
            e1x += AIU_2BYTE_CELLS_PER_STICK) {
-#if defined(__MVS__)
-        __dcbtst(reinterpret_cast<void *>(
-            reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
-#else
         __builtin_prefetch(
             reinterpret_cast<void *>(
                 reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
             1);
-#endif
         fields_to_convert = MIN(
             (ztensor->transformed_desc->dim1 - e1x), AIU_2BYTE_CELLS_PER_STICK);
 
@@ -1284,11 +1240,8 @@ zdnn_status transform_bidir_weight_ztensor(
 
         if (nbr_fields_converted == 0)
           return ZDNN_CONVERT_FAILURE;
-#if defined(__MVS__)
-        __dcbf(reinterpret_cast<void *>(
-            reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
-#else
-#endif
+        // Note: __dcbf (cache flush) has no portable compiler built-in
+        // equivalent; omitted intentionally.
         input_offset += (nbr_fields_converted << input_cell_shift);
         output_offset += bytes_all_w;
       }
