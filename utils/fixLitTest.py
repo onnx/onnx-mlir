@@ -542,7 +542,12 @@ def main(argv):
             run_command = run_command.replace("-split-input-file", "")
             continue
         # Handle function
-        m = re.match(r"\s*func.*@(\w+)\(", line)
+        m = re.match(r"\s*func(?:\.func)?\s.*@(\w+)\(", line)
+        # Skip bodiless declarations (e.g. "func.func private @callee()"), which
+        # are support code for the segment's function, not a function to test.
+        # MLIR requires declarations to be non-public, hence the "private" test.
+        if m is not None and re.search(r"\bprivate\b", line) and "{" not in line:
+            continue
         if m is not None:
             curr_segment_fct_name = m.group(1)
             # Allow multiple functions only in the first segment (before any separator).
