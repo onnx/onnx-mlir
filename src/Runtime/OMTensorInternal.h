@@ -4,7 +4,7 @@
 
 //===-------- OMTensorInternal.h - OMTensor Internal Declarations ---------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,6 +23,29 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * Create an empty OMTensor with specified rank but no shape and type info.
+ *
+ * For internal use only (compiler wrapper code).
+ *
+ * @param rank tensor rank
+ * @return pointer to OMTensor created, NULL if creation failed.
+ */
+OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateUntyped(int64_t rank);
+
+/**
+ * Set the data pointers and ownership flag of the OMTensor.
+ *
+ * For internal use only (compiler wrapper code).
+ *
+ * @param tensor pointer to the OMTensor
+ * @param owning ownership flag (1 if tensor owns buffer, 0 otherwise)
+ * @param allocatedPtr pointer to allocated memory
+ * @param alignedPtr pointer to aligned data start
+ */
+OM_EXTERNAL_VISIBILITY void omTensorSetDataPtr(
+    OMTensor *tensor, int64_t owning, void *allocatedPtr, void *alignedPtr);
 
 /**
  * OMTensor data shape setter.

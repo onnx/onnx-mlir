@@ -4,7 +4,7 @@
 
 //===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -748,31 +748,6 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
  * asserts are present to ensure that we do not perform a null ptr access.
  */
 
-#ifdef OM_EXECUTION_SESSION_ONLY
-/* When compiling for the Execution Session, omTensorCreateUntyped is not
- * exported (it is compiler-internal), but the omTensorCreateWithShape<T>
- * template needs it. Provide a static (file-scope) version here. */
-static OMTensor *omTensorCreateUntyped(int64_t rank) {
-  OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if (!omt)
-    return NULL;
-  if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (omt->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    omt->_allocatedPtr = NULL;
-    omt->_alignedPtr = NULL;
-    omt->_offset = 0;
-    omt->_dataType = ONNX_TYPE_UNDEFINED;
-    omt->_rank = rank;
-    omt->_owning = false;
-  } else {
-    free(omt->_shape);
-    free(omt);
-    return NULL;
-  }
-  return omt;
-}
-#endif /* OM_EXECUTION_SESSION_ONLY */
-
 /* Helper function to compute cartesian product */
 static inline std::vector<std::vector<int64_t>> CartProduct(
     const std::vector<std::vector<int64_t>> &v) {
@@ -822,41 +797,14 @@ static inline void printVector(const std::vector<T> &vec,
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
-  /* Create a OMTensor with data shape and strides allocated */
-  auto omt = omTensorCreateUntyped(shape.size());
-  if (omt == NULL)
-    return NULL;
-
-  /* Allocate data buffer */
-  omt->_rank = shape.size();
-  if ((omt->_allocatedPtr = malloc(
-           getNumElems(shape.data(), omt->_rank) * sizeof(T))) == NULL) {
-    omTensorDestroy(omt);
-    return NULL;
-  }
-
-  omt->_alignedPtr = omt->_allocatedPtr;
-  omt->_offset = 0;
-
-  /* Copy shape, _shape already allocated by omTensorCreate */
-  copy(shape.begin(), shape.end(), omt->_shape);
-
-  /* Compute and copy dataStrides, _strides already allocated by
-   * omTensorCreateUntyped
-   */
-  auto computedStrides = computeStridesFromShape(omt->_shape, omt->_rank);
-  copy(computedStrides.begin(), computedStrides.end(), omt->_strides);
-
   /* Convert CPP type to ONNX type */
+  OM_DATA_TYPE dtype;
   try {
-    omt->_dataType = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
+    dtype = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
   } catch (const std::out_of_range &) {
-    omt->_dataType = ONNX_TYPE_UNDEFINED;
+    dtype = ONNX_TYPE_UNDEFINED;
   }
-
-  /* Set flag for destructor */
-  omt->_owning = true;
-  return omt;
+  return omTensorCreateEmpty(shape.data(), shape.size(), dtype);
 }
 
 /* Access an element (by reference) at offset computed by index array */
