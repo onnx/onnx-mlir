@@ -48,19 +48,6 @@ OM_EXTERNAL_VISIBILITY void omTensorSetDataPtr(
     OMTensor *tensor, int64_t owning, void *allocatedPtr, void *alignedPtr);
 
 /**
- * OMTensor data shape setter.
- *
- * For internal use only. Shape is fixed at construction time for user-created
- * tensors; this setter exists for compiler-generated wrapper code that
- * constructs tensors from MemRefs after the fact.
- *
- * @param tensor pointer to the OMTensor
- * @param shape data shape array to be copied into the tensor
- */
-OM_EXTERNAL_VISIBILITY void omTensorSetShape(
-    OMTensor *tensor, const int64_t *shape);
-
-/**
  * OMTensor data strides getter.
  *
  * For internal use only. Strides are derived from shape and are not part of
@@ -71,17 +58,6 @@ OM_EXTERNAL_VISIBILITY void omTensorSetShape(
  */
 OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetStrides(
     const OMTensor *tensor);
-
-/**
- * OMTensor data strides setter.
- *
- * For internal use only.
- *
- * @param tensor pointer to the OMTensor
- * @param strides tensor strides array to be copied into the tensor.
- */
-OM_EXTERNAL_VISIBILITY void omTensorSetStrides(
-    OMTensor *tensor, const int64_t *strides);
 
 /**
  * OMTensor data strides setter with stride values from PyArray strides.

@@ -12,9 +12,9 @@
 // helper functions. It is compiled into OMTensorUtils, which is linked by the
 // Execution Session (C++/Python). Compiler-internal functions that are only
 // called from compiler-generated wrapper code (omTensorCreateUntyped,
-// omTensorSetDataPtr, omTensorSetShape, omTensorSetStrides,
-// omTensorSetDataType) are excluded here via OM_EXECUTION_SESSION_ONLY;
-// they are provided by cruntime (OMTensor.c) which is embedded in model.so.
+// omTensorSetDataPtr, omTensorGetStrides, omTensorSetDataType) are excluded
+// here via OM_EXECUTION_SESSION_ONLY; they are provided by cruntime
+// (OMTensor.c) which is embedded in model.so.
 //
 //===----------------------------------------------------------------------===//
 

@@ -42,7 +42,9 @@
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
+#ifndef OM_EXECUTION_SESSION_ONLY
 #include "src/Runtime/OMTensorInternal.h"
+#endif
 
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
@@ -328,27 +330,11 @@ const int64_t *omTensorGetShape(const OMTensor *tensor) {
 }
 
 #ifndef OM_EXECUTION_SESSION_ONLY
-/* OMTensor data shape setter */
-void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
-  if (!tensor || !shape)
-    return;
-  for (int64_t i = 0; i < tensor->_rank; i++)
-    tensor->_shape[i] = shape[i];
-}
-
 /* OMTensor data strides getter */
 const int64_t *omTensorGetStrides(const OMTensor *tensor) {
   if (!tensor)
     return NULL;
   return tensor->_strides;
-}
-
-/* OMTensor data strides setter */
-void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
-  if (!tensor || !strides)
-    return;
-  for (int64_t i = 0; i < tensor->_rank; i++)
-    tensor->_strides[i] = strides[i];
 }
 #endif /* OM_EXECUTION_SESSION_ONLY */
 
