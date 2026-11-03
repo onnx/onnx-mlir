@@ -220,12 +220,7 @@ public class OMTensor {
         putShape(shape);
     }
 
-    /* Helper to allocate a direct byte buffer sized for length elements of elemSize bytes each. */
-    private ByteBuffer allocNative(int length, int elemSize) {
-        return ByteBuffer.allocateDirect(length * elemSize).order(nativeEndian);
-    }
-
-    /* ---------- Bool data getter and setter ---------- */
+    /* ---------- Bool data getter ---------- */
     /* On the native side bool is backed by byte so bool */
     /* array is the same as byte array.                  */
 
@@ -250,16 +245,7 @@ public class OMTensor {
         return b;
     }
 
-    private void setBoolData(byte[] data) {
-        /* slice() creates a new view so the position of the
-         * original data will stay at 0 for getByteData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length);
-        _data.slice().put(data);
-        _dataType = ONNX_TYPE_BOOL;
-    }
-
-    /* ---------- Byte data getter and setter ---------- */
+    /* ---------- Byte data getter ---------- */
 
     /**
      * Byte data getter
@@ -282,16 +268,7 @@ public class OMTensor {
         return b;
     }
 
-    private void setByteData(byte[] data) {
-        /* slice() creates a new view so the position of the
-         * original data will stay at 0 for getByteData() after put(data).
-         */
-        _data = ByteBuffer.allocateDirect(data.length);
-        _data.slice().put(data);
-        _dataType = ONNX_TYPE_INT8;
-    }
-
-    /* ---------- Short data getter and setter ---------- */
+    /* ---------- Short data getter ---------- */
 
     /**
      * Short data getter
@@ -315,13 +292,7 @@ public class OMTensor {
         return s;
     }
 
-    private void setShortData(short[] data) {
-        _data = allocNative(data.length, 2);
-        _data.asShortBuffer().put(data);
-        _dataType = ONNX_TYPE_INT16;
-    }
-
-    /* ---------- Int data getter and setter ---------- */
+    /* ---------- Int data getter ---------- */
 
     /**
      * Int data getter
@@ -345,13 +316,7 @@ public class OMTensor {
         return i;
     }
 
-    private void setIntData(int[] data) {
-        _data = allocNative(data.length, 4);
-        _data.asIntBuffer().put(data);
-        _dataType = ONNX_TYPE_INT32;
-    }
-
-    /* ---------- Long data getter and setter ---------- */
+    /* ---------- Long data getter ---------- */
 
     /**
      * Long data getter
@@ -375,13 +340,7 @@ public class OMTensor {
         return l;
     }
 
-    private void setLongData(long[] data) {
-        _data = allocNative(data.length, 8);
-        _data.asLongBuffer().put(data);
-        _dataType = ONNX_TYPE_INT64;
-    }
-
-    /* ---------- Float data getter and setter ---------- */
+    /* ---------- Float data getter ---------- */
 
     /**
      * Float data getter
@@ -405,13 +364,7 @@ public class OMTensor {
         return f;
     }
 
-    private void setFloatData(float[] data) {
-        _data = allocNative(data.length, 4);
-        _data.asFloatBuffer().put(data);
-        _dataType = ONNX_TYPE_FLOAT;
-    }
-
-    /* ---------- Double data getter and setter ---------- */
+    /* ---------- Double data getter ---------- */
 
     /**
      * Double data getter
@@ -435,12 +388,6 @@ public class OMTensor {
         return d;
     }
 
-    private void setDoubleData(double[] data) {
-        _data = allocNative(data.length, 8);
-        _data.asDoubleBuffer().put(data);
-        _dataType = ONNX_TYPE_DOUBLE;
-    }
-
     /* ---------- Data shape getter ---------- */
 
     /**
@@ -452,7 +399,7 @@ public class OMTensor {
         return _shape == null ? null : _shape.clone();
     }
 
-    /* ---------- Data type getter and setter ---------- */
+    /* ---------- Data type getter ---------- */
 
     /**
      * Data type getter
@@ -461,13 +408,6 @@ public class OMTensor {
      */
     public int getDataType() {
         return _dataType;
-    }
-
-    private void setDataType(int dataType) {
-        if (dataType < 0 || dataType > LAST_ONNX_TYPE)
-            throw new IllegalArgumentException(
-                    "data type " + dataType + " unknown");
-        _dataType = dataType;
     }
 
     /* ---------- Data buffer size getter ---------- */
@@ -516,6 +456,70 @@ public class OMTensor {
     }
 
     /* ---------- End of public methods ---------- */
+
+    /* ---------- Private data and data type setters ---------- */
+    /* These are used only by the public constructors, which always follow */
+    /* them with putShape() so that shape/strides/data stay consistent.    */
+
+    /* Helper to allocate a direct byte buffer sized for length elements of elemSize bytes each. */
+    private ByteBuffer allocNative(int length, int elemSize) {
+        return ByteBuffer.allocateDirect(length * elemSize).order(nativeEndian);
+    }
+
+    private void setBoolData(byte[] data) {
+        /* slice() creates a new view so the position of the
+         * original data will stay at 0 for getByteData() after put(data).
+         */
+        _data = ByteBuffer.allocateDirect(data.length);
+        _data.slice().put(data);
+        _dataType = ONNX_TYPE_BOOL;
+    }
+
+    private void setByteData(byte[] data) {
+        /* slice() creates a new view so the position of the
+         * original data will stay at 0 for getByteData() after put(data).
+         */
+        _data = ByteBuffer.allocateDirect(data.length);
+        _data.slice().put(data);
+        _dataType = ONNX_TYPE_INT8;
+    }
+
+    private void setShortData(short[] data) {
+        _data = allocNative(data.length, 2);
+        _data.asShortBuffer().put(data);
+        _dataType = ONNX_TYPE_INT16;
+    }
+
+    private void setIntData(int[] data) {
+        _data = allocNative(data.length, 4);
+        _data.asIntBuffer().put(data);
+        _dataType = ONNX_TYPE_INT32;
+    }
+
+    private void setLongData(long[] data) {
+        _data = allocNative(data.length, 8);
+        _data.asLongBuffer().put(data);
+        _dataType = ONNX_TYPE_INT64;
+    }
+
+    private void setFloatData(float[] data) {
+        _data = allocNative(data.length, 4);
+        _data.asFloatBuffer().put(data);
+        _dataType = ONNX_TYPE_FLOAT;
+    }
+
+    private void setDoubleData(double[] data) {
+        _data = allocNative(data.length, 8);
+        _data.asDoubleBuffer().put(data);
+        _dataType = ONNX_TYPE_DOUBLE;
+    }
+
+    private void setDataType(int dataType) {
+        if (dataType < 0 || dataType > LAST_ONNX_TYPE)
+            throw new IllegalArgumentException(
+                    "data type " + dataType + " unknown");
+        _dataType = dataType;
+    }
 
     /* Validates shape dimensions are non-negative and product does not overflow. */
     private void validateShape(long[] shape) {
