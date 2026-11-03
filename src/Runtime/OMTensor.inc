@@ -40,7 +40,7 @@
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
-#ifndef OM_EXECUTION_SESSION_ONLY
+#ifdef OM_EXECUTION_SESSION_ONLY
 #include "src/Runtime/OMTensorInternal.h"
 #endif
 
@@ -360,7 +360,9 @@ const int64_t *omTensorGetStrides(const OMTensor *tensor) {
 }
 #endif /* OM_EXECUTION_SESSION_ONLY */
 
-/* OMTensor data strides setter with PyArray stride values */
+#ifdef OM_EXECUTION_SESSION_ONLY
+/* OMTensor data strides setter with PyArray stride values.
+ * For OMTensorUtils / Python execution session only. */
 OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
     OMTensor *tensor, const int64_t *stridesInBytes) {
   if (!tensor || !stridesInBytes)
@@ -374,6 +376,7 @@ OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = stridesInBytes[i] / dataTypeSize;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data type getter */
 OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor) {
