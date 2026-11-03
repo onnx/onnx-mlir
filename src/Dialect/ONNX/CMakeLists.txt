@@ -10,8 +10,12 @@ add_subdirectory(ElementsAttr)
 add_subdirectory(ONNXOps)
 add_subdirectory(Transforms)
 
+# ONNX.td includes ONNXOps.td.inc, which is not matched by tablegen's *.td
+# glob, so list it explicitly to re-run tablegen when it changes.
+set(LLVM_TARGET_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ONNXOps.td.inc)
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
+unset(LLVM_TARGET_DEPENDS)
 
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
