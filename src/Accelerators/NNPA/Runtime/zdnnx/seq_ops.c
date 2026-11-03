@@ -24,7 +24,9 @@
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
 #include "zdnnx_private.h"
-
+#if defined(__MVS__)
+#include <builtins.h>
+#endif
 // -----------------------------------------------------------------------------
 // Element-wise operations
 // -----------------------------------------------------------------------------
@@ -890,12 +892,20 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
     for (uint32_t b = 0; b < num_tiles_batch && status == ZDNN_OK; ++b) {
       zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
+      /* Copy if reuse is off. */
+      zdnnx_copy_data_to_tile(&tq);
 
       // -- First tile (c=0): no correction needed, write directly to
       // accumulators.
       zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
+      /* Copy if reuse is off. */
+      zdnnx_copy_data_to_tile(&tkt);
       zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, 0);
+      /* Copy if reuse is off. */
+      zdnnx_copy_data_to_tile(&tmask);
       zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
+      /* Copy if reuse is off. */
+      zdnnx_copy_data_to_tile(&tv);
 
       // 1. scores = Q * KT[0] + Mask[0]
       if (status == ZDNN_OK)
@@ -962,8 +972,14 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
           zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, c, 0);
         else
           zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, c);
+        /* Copy if reuse is off. */
+        zdnnx_copy_data_to_tile(&tkt);
         zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, c);
+        /* Copy if reuse is off. */
+        zdnnx_copy_data_to_tile(&tmask);
         zdnnx_set_tile(&si_v, &tv, NULL, b, 0, c, 0);
+        /* Copy if reuse is off. */
+        zdnnx_copy_data_to_tile(&tv);
 
         // 1. scores = Q * KT[c] + Mask[c]  [S, T]
         if (status == ZDNN_OK)
@@ -1044,6 +1060,8 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
       if (status == ZDNN_OK) {
         zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
         status = zdnn_div(&o_acc, &pv_tmp, &tout.data);
+        /* Copy if reuse is off. */
+        zdnnx_copy_data_to_full(&tout);
       }
     }
   }
