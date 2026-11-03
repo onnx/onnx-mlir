@@ -365,7 +365,7 @@ const int64_t *omTensorGetStrides(const OMTensor *tensor) {
 #ifdef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data strides setter with PyArray stride values.
  * For OMTensorUtils / Python execution session only. */
-OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
+void omTensorSetStridesWithPyArrayStrides(
     OMTensor *tensor, const int64_t *stridesInBytes) {
   if (!tensor || !stridesInBytes)
     return;
