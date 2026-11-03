@@ -13,12 +13,20 @@
 // DimAnalysis is used to determin if two dynamic dimensions are the same or
 // not.
 //
+// When the dynamic dimension is also a dimension of a function argument, the
+// onnx.Dim operations are instead replaced by an onnx.Dim of that argument,
+// placed at the beginning of the function (and created if needed). This keeps
+// shape computations away from intermediate tensors, so that these tensors
+// are not given extra uses only to query their shapes.
+//
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -47,6 +55,35 @@ struct RemoveSameONNXDimPass
   void runOnOperation() final;
 };
 
+// Return the function whose entry block has val as argument, or null.
+static func::FuncOp getFuncOfEntryArg(Value val) {
+  auto arg = mlir::dyn_cast<BlockArgument>(val);
+  if (!arg)
+    return nullptr;
+  auto funcOp = mlir::dyn_cast<func::FuncOp>(arg.getOwner()->getParentOp());
+  if (!funcOp || arg.getOwner() != &funcOp.getBody().front())
+    return nullptr;
+  return funcOp;
+}
+
+// Return an onnx.Dim of a function argument at the given axis, located at the
+// beginning of the function entry block so that it dominates all uses in the
+// function. An existing onnx.Dim in the entry block is reused (and moved),
+// otherwise a new one is created.
+static Value getOrCreateArgDim(BlockArgument arg, int64_t axis) {
+  Block *entryBlock = arg.getOwner();
+  for (Operation *user : arg.getUsers()) {
+    auto dimOp = mlir::dyn_cast<ONNXDimOp>(user);
+    if (dimOp && dimOp.getAxis() == axis && user->getBlock() == entryBlock) {
+      user->moveBefore(entryBlock, entryBlock->begin());
+      return dimOp.getDim();
+    }
+  }
+  OpBuilder b = OpBuilder::atBlockBegin(entryBlock);
+  MultiDialectBuilder<OnnxBuilder> create(b, arg.getLoc());
+  return create.onnx.dim(arg, axis);
+}
+
 void RemoveSameONNXDimPass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
 
@@ -60,12 +97,26 @@ void RemoveSameONNXDimPass::runOnOperation() {
     // Find the first onnx.Dim in the group.
     Value firstONNXDimVal = nullptr;
     SmallVector<Value> dimVals;
+    // Function argument dimension in the group, if any. When there are many,
+    // keep the one with the lowest (argument number, axis) to be
+    // deterministic.
+    BlockArgument funcArg = nullptr;
+    int64_t funcArgAxis = -1;
     for (auto &ti : dimSet) {
       Value val = ti.first;
       int64_t axis = ti.second;
-      // Check if val is produced by onnx.Dim?
-      if (auto arg = mlir::dyn_cast<BlockArgument>(val))
+      // Record function arguments; other block arguments are skipped.
+      if (auto arg = mlir::dyn_cast<BlockArgument>(val)) {
+        if (getFuncOfEntryArg(arg) &&
+            (!funcArg ||
+                std::make_pair(arg.getArgNumber(), axis) <
+                    std::make_pair(funcArg.getArgNumber(), funcArgAxis))) {
+          funcArg = arg;
+          funcArgAxis = axis;
+        }
         continue;
+      }
+      // Check if val is produced by onnx.Dim?
       Operation *op = val.getDefiningOp();
       auto dimOp = mlir::dyn_cast<ONNXDimOp>(op);
       if (!dimOp) {
@@ -100,8 +151,25 @@ void RemoveSameONNXDimPass::runOnOperation() {
     if (firstONNXDimVal == nullptr)
       continue;
 
+    // Prefer an onnx.Dim of a function argument. Only onnx.Dim ops in the
+    // same function can use it.
+    func::FuncOp argFuncOp = nullptr;
+    if (funcArg) {
+      argFuncOp = getFuncOfEntryArg(funcArg);
+      bool hasDimInFunc = llvm::any_of(dimVals, [&](Value v) {
+        return v.getDefiningOp()->getParentOfType<func::FuncOp>() == argFuncOp;
+      });
+      if (hasDimInFunc)
+        firstONNXDimVal = getOrCreateArgDim(funcArg, funcArgAxis);
+      else
+        argFuncOp = nullptr;
+    }
+
     // Replace onnx.Dim ops in the group by the first onnx.Dim.
     for (Value v : dimVals) {
+      if (argFuncOp &&
+          v.getDefiningOp()->getParentOfType<func::FuncOp>() != argFuncOp)
+        continue;
       if (v != firstONNXDimVal) {
         Operation *op = v.getDefiningOp();
         v.replaceAllUsesWith(firstONNXDimVal);
