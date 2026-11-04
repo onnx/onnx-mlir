@@ -965,3 +965,57 @@ func.func @test_pad_axes_not_1d(%arg0: tensor<2x3xf32>, %axes: tensor<1x1xi64>) 
   %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<2xi64>, none, tensor<1x1xi64>) -> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 }
+
+// -----
+
+func.func @test_deform_conv_bad_offset_channels(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x4x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{offset must have offset_group * prod(kernel_shape) * spatial_rank channels}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x4x2x2xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_mask_channels(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x2x2xf32>, %arg3 : tensor<1x8x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{mask must have offset_group * prod(kernel_shape) channels}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %arg3) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x2x2xf32>, none, tensor<1x8x2x2xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_group(%arg0 : tensor<1x3x3x3xf32>, %arg1 : tensor<1x3x2x2xf32>, %arg2 : tensor<1x16x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{Channel In (C) must be a multiple of offset_group}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2], offset_group = 2 : si64} : (tensor<1x3x3x3xf32>, tensor<1x3x2x2xf32>, tensor<1x16x2x2xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_batch(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<2x8x2x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{offset batch size must match the input}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<2x8x2x2xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_offset_spatial(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x3x3xf32>) -> tensor<1x1x2x2xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{offset spatial dimensions must match the output}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x3x3xf32>, none, none) -> tensor<1x1x2x2xf32>
+  "onnx.Return"(%0) : (tensor<1x1x2x2xf32>) -> ()
+}
+
+// -----
+
+func.func @test_deform_conv_bad_mask_spatial(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x2x2xf32>, %arg3 : tensor<1x4x3x3xf32>) -> tensor<1x1x2x2xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{mask spatial dimensions must match the output}}
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %arg3) {kernel_shape = [2, 2]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x2x2xf32>, none, tensor<1x4x3x3xf32>) -> tensor<1x1x2x2xf32>
+  "onnx.Return"(%0) : (tensor<1x1x2x2xf32>) -> ()
+}
