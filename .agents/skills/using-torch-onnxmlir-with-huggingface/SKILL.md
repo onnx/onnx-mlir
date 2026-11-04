@@ -363,7 +363,7 @@ python -m pytest test_decoder_models.py
 
 ### Test Coverage
 
-- **`test_add.py`**: Simple element-wise addition (sanity check)
+- **`test_add.py`**: Simple element-wise addition
 - **`test_gemm.py`**: Matrix multiplication
 - **`test_relu.py`**: Activation function
 - **`test_encoder_models.py`**: BERT/Granite embedding models
