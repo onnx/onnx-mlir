@@ -24,9 +24,6 @@
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
 #include "zdnnx_private.h"
-#if defined(__MVS__)
-#include <builtins.h>
-#endif
 // -----------------------------------------------------------------------------
 // Element-wise operations
 // -----------------------------------------------------------------------------
@@ -541,29 +538,23 @@ static void *huge_page_malloc_4k(size_t size) {
   return malloc(size);
 }
 
+// Use the portable __builtin_prefetch on all platforms, including z/OS.
+// ibm-clang64 does not provide the XL C intrinsics __dcbt/__dcbtst/__dcbf
+// (they are not declared by <builtins.h> there), so calling them left
+// unresolved symbols at link time.
 static inline void prefetch_read(const void *ptr, uintptr_t offset) {
-#if defined(__MVS__)
-  __dcbt((void *)((uintptr_t)ptr + offset));
-#else
   __builtin_prefetch((void *)((uintptr_t)ptr + offset), 0);
-#endif
 }
 
 static inline void prefetch_write(const void *ptr, uintptr_t offset) {
-#if defined(__MVS__)
-  __dcbtst((void *)((uintptr_t)ptr + offset));
-#else
   __builtin_prefetch((void *)((uintptr_t)ptr + offset), 1);
-#endif
 }
 
+// There is no portable built-in equivalent of __dcbf (cache line flush), so
+// this is intentionally a no-op. It is only a performance hint.
 static inline void cache_flush(const void *ptr, uintptr_t offset) {
-#if defined(__MVS__)
-  __dcbf((void *)((uintptr_t)ptr + offset));
-#else
   (void)ptr;
   (void)offset;
-#endif
 }
 
 // Broadcast a column vector [1, S, 1] to a tile [1, S, T] in stickified space.
