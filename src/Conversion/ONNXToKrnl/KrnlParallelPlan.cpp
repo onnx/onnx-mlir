@@ -152,10 +152,11 @@ static bool isSafeForParallel(int64_t i, int64_t parFirstInclusiveDim,
 // the compilation, so screening it here turns that into a narrower group or a
 // fall back to STEP 0.
 //
-// No step check: krnl.iterate has no step, the lowering builds every affine.for
-// with a step of 1, and a step can only appear via krnl.block, whose results
-// KrnlCollapseOp's verifier already refuses as operands. A plan cannot produce
-// a non-unit step, so there is nothing to screen.
+// No step check: krnl.iterate has no step, so a step can only appear via
+// krnl.block. Its tile loop may be collapsed, and the lowering normalizes it to
+// a count of tiles; its intra-tile loop is refused by KrnlCollapseOp's
+// verifier. A site holding a tile loop passes that level's bound in tiles, so
+// the trip counts weighed here are those the fused loop iterates.
 static bool isSafeForCollapse(int64_t i, ArrayRef<IndexExpr> lbs,
     int64_t parFirstInclusiveDim, int64_t collapseLastExclusiveDim,
     ArrayRef<int64_t> exclusiveDims) {

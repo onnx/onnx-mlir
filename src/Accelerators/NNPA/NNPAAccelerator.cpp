@@ -242,8 +242,10 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
       enableParallel, /*enableCollapse*/ enableParallel && !disableCollapse,
       nnpaDisableSaturation);
-  onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
-      patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
+  onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(patterns,
+      typeConverter, ctx, enableParallel,
+      /*enableCollapse*/ enableParallel && !disableCollapse,
+      nnpaDisableSaturation);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(
