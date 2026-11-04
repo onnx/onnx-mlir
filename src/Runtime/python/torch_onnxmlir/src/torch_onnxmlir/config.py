@@ -43,3 +43,13 @@ generate_test_data_set = False
 # Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
 # This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging.
 regenerate_test_data_set = False
+
+# Internal profiling state -- controlled by explain_context(profiling=True).
+_profiling_enabled = False
+_profiling_file_path = None
+
+# Number of warmup runs to skip when computing profiling statistics.
+profiling_warmup = 0
+
+# Profiling reporting mode: "quartile", "all", or "sum".
+profiling_reporting = "quartile"

@@ -13,6 +13,7 @@
 import hashlib
 import io
 import os
+import re as _re
 import sys
 import tempfile
 import time
@@ -394,7 +395,7 @@ def generate_hash_key(
         details = OMFxGraphHashDetails(gm, compile_options)
         key = pickler.get_hash(details)
 
-    key = "_om_" + key
+    key = ("_om_profile_" if config._profiling_enabled else "_om_") + key
     logger.info(
         f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}"
     )
@@ -411,6 +412,19 @@ class TorchONNXMLIR:
 
         # Indice of the actual example inputs if the graph's signature is changed.
         self.example_inputs_indices = None
+
+        # When profiling is enabled, inject --profile-ir into compile_options
+        # before cache key generation so profiling-compiled models get a
+        # separate cache key from non-profiling ones.
+        if config._profiling_enabled and kwargs.get("options") is not None:
+            co = kwargs["options"].get("compile_options", "")
+            if "--profile-ir" not in co:
+                kwargs = dict(kwargs)
+                kwargs["options"] = dict(kwargs["options"])
+                if _re.search(r"-{1,2}maccel[=\s]+NNPA", co, _re.IGNORECASE):
+                    kwargs["options"]["compile_options"] = co + " --profile-ir=ZHigh"
+                else:
+                    kwargs["options"]["compile_options"] = co + " --profile-ir=Onnx"
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")

@@ -12,6 +12,8 @@
 ################################################################################
 
 import json
+import os
+import tempfile
 from typing import Optional, Dict, List, Literal
 from . import metrics, config
 
@@ -291,6 +293,18 @@ def _format_as_table(
                 )
             out.append("")
 
+    # Profiling data section.
+    profiling_data = metrics.global_metrics_collector.get_profiling_data()
+    if profiling_data:
+        from . import profiling as profiling_mod
+
+        out.append("=" * 80)
+        out.append("PER-OP PROFILING DATA")
+        out.append("=" * 80)
+        for cache_key, prof_result in profiling_data.items():
+            out.append("")
+            out.append(profiling_mod.format_profiling_table(prof_result))
+
     if not HAS_TABULATE:
         out.append("Tip: pip install tabulate")
 
@@ -341,6 +355,32 @@ def _format_as_dict(
         if info.cache_key:
             result["eager_fallbacks"][key]["cache_key"] = info.cache_key
 
+    # Profiling data.
+    profiling_data = metrics.global_metrics_collector.get_profiling_data()
+    if profiling_data:
+        result["profiling"] = {}
+        for cache_key, prof_result in profiling_data.items():
+            entry = {
+                "total_time": prof_result.total_time,
+                "num_measurements": prof_result.num_measurements,
+                "reporting_mode": prof_result.reporting_mode,
+                "ops": [
+                    {
+                        "op_name": op.op_name,
+                        "count": op.count,
+                        "avg_time": op.avg_time,
+                        "total_time": op.total_time,
+                        "percentage": op.percentage,
+                    }
+                    for op in prof_result.op_timings
+                ],
+            }
+            if prof_result.cpu_time is not None:
+                entry["cpu_time"] = prof_result.cpu_time
+            if prof_result.accel_time is not None:
+                entry["accel_time"] = prof_result.accel_time
+            result["profiling"][cache_key] = entry
+
     return result
 
 
@@ -367,7 +407,7 @@ class ExplainContext:
         data = ctx.data
     """
 
-    def __init__(self, format="table", sort_by="time", export_to=None):
+    def __init__(self, format="table", sort_by="time", export_to=None, profiling=False):
         """
         Initialize context manager.
 
@@ -375,17 +415,23 @@ class ExplainContext:
             format: Output format ('table', 'dict', 'json'). Default: 'table'.
             sort_by: Sort order ('time', 'calls', 'order'). Default: 'time'.
             export_to: Optional file path to automatically export metrics on exit.
+            profiling: Enable per-op profiling data capture. Default: False.
         """
         self.format = format
         self.sort_by = sort_by
         self.export_to = export_to
+        self.profiling = profiling
         self.metrics = None
         self._previous_enable_state = None
+        self._previous_profiling_state = None
+        self._previous_instrument_file = None
+        self._profiling_file_path = None
 
     def __enter__(self):
         """Enable metrics collection and clear existing metrics."""
         # Save previous state.
         self._previous_enable_state = _enable_explain
+        self._previous_profiling_state = config._profiling_enabled
 
         # Enable metrics collection using internal setter.
         _set_enable_explain(True)
@@ -393,10 +439,36 @@ class ExplainContext:
         # Clear any existing metrics.
         _clear_metrics()
 
+        # Set up profiling if requested.
+        if self.profiling:
+            import torch._dynamo
+
+            fd, self._profiling_file_path = tempfile.mkstemp(
+                suffix=".prof", prefix="torch_onnxmlir_"
+            )
+            os.close(fd)
+            config._profiling_enabled = True
+            config._profiling_file_path = self._profiling_file_path
+            self._previous_instrument_file = os.environ.get(
+                "ONNX_MLIR_INSTRUMENT_FILE"
+            )
+            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = self._profiling_file_path
+            torch._dynamo.reset()
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Capture metrics and restore previous state."""
+        # Parse profiling output if profiling was active.
+        if self.profiling and self._profiling_file_path:
+            if self._previous_instrument_file is not None:
+                os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = (
+                    self._previous_instrument_file
+                )
+            else:
+                os.environ.pop("ONNX_MLIR_INSTRUMENT_FILE", None)
+            self._collect_profiling_data()
+
         # Capture metrics before disabling.
         self.metrics = _explain(format=self.format, sort_by=self.sort_by)
 
@@ -406,9 +478,38 @@ class ExplainContext:
 
         # Restore previous state using internal setter.
         _set_enable_explain(self._previous_enable_state)
+        config._profiling_enabled = self._previous_profiling_state
+        config._profiling_file_path = None
+
+        if self.profiling:
+            import torch._dynamo
+
+            torch._dynamo.reset()
 
         # Don't suppress exceptions.
         return False
+
+    def _collect_profiling_data(self):
+        """Parse the accumulated profiling temp file and record results."""
+        from . import profiling as profiling_mod
+
+        path = self._profiling_file_path
+        try:
+            if os.path.exists(path) and os.path.getsize(path) > 0:
+                prof_result = profiling_mod.parse_profiling_output(
+                    file_path=path,
+                    warmup_num=config.profiling_warmup,
+                    reporting=config.profiling_reporting,
+                )
+                if prof_result is not None:
+                    metrics.global_metrics_collector.record_profiling(
+                        "_om_profile_", prof_result
+                    )
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     def _export_metrics(self):
         """Export metrics to file."""
@@ -446,7 +547,10 @@ class ExplainContext:
 
     def __repr__(self):
         """Return representation of context manager."""
-        return f"ExplainContext(format={self.format!r}, sort_by={self.sort_by!r})"
+        return (
+            f"ExplainContext(format={self.format!r}, sort_by={self.sort_by!r}"
+            f", profiling={self.profiling!r})"
+        )
 
     @property
     def data(self):
@@ -459,7 +563,7 @@ class ExplainContext:
         return self.metrics
 
 
-def explain_context(format="table", sort_by="time", export_to=None):
+def explain_context(format="table", sort_by="time", export_to=None, profiling=False):
     """
     Create a context manager for automatic metrics collection.
 
@@ -470,6 +574,10 @@ def explain_context(format="table", sort_by="time", export_to=None):
         format: Output format - 'table', 'dict', or 'json' (default: 'table').
         sort_by: Sort order - 'time', 'calls', or 'order' (default: 'time').
         export_to: Optional file path to automatically export metrics on exit (default: None).
+        profiling: Enable per-op profiling data capture (default: False).
+                   When True, --profile-ir is automatically added to compile options
+                   (ZHigh for NNPA, Onnx otherwise) and per-op timing breakdown
+                   is included in the output.
 
     Returns:
         ExplainContext: Context manager instance.
@@ -480,17 +588,19 @@ def explain_context(format="table", sort_by="time", export_to=None):
         ...     output = compiled_model(input)
         ...     print(metrics)
 
-        Access metrics data:
-        >>> with torch_onnxmlir.explain_context(format="dict") as metrics:
+        With profiling:
+        >>> with torch_onnxmlir.explain_context(profiling=True, format="dict") as ctx:
         ...     output = compiled_model(input)
-        ...     cache_hits = metrics.data['summary']['total_cache_hits']
+        ...     print(ctx.data["profiling"])
 
         Automatic export:
         >>> with torch_onnxmlir.explain_context(export_to="metrics.json") as metrics:
         ...     output = compiled_model(input)
         ...     # Metrics automatically saved to metrics.json on exit.
     """
-    return ExplainContext(format=format, sort_by=sort_by, export_to=export_to)
+    return ExplainContext(
+        format=format, sort_by=sort_by, export_to=export_to, profiling=profiling
+    )
 
 
 def _clear_metrics():

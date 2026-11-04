@@ -72,6 +72,7 @@ class MetricsCollector:
         self.eager_fallbacks: Dict[str, EagerFallbackInfo] = {}
         self.total_eager_fallbacks: int = 0
         self._call_counter: int = 0
+        self._profiling_data: Dict[str, object] = {}
 
     def record_compilation(self, cache_key: str, compilation_time: float):
         """Record compilation metrics."""
@@ -131,12 +132,23 @@ class MetricsCollector:
         """Get all eager fallback information."""
         return dict(self.eager_fallbacks)
 
+    def record_profiling(self, cache_key: str, profiling_result):
+        """Record profiling data for a graph."""
+        if not explain._enable_explain:
+            return
+        self._profiling_data[cache_key] = profiling_result
+
+    def get_profiling_data(self) -> Dict[str, object]:
+        """Get all collected profiling data."""
+        return dict(self._profiling_data)
+
     def clear(self):
         """Clear all metrics."""
         self.models.clear()
         self.eager_fallbacks.clear()
         self.total_eager_fallbacks = 0
         self._call_counter = 0
+        self._profiling_data.clear()
 
 
 # Global metrics collector instance
