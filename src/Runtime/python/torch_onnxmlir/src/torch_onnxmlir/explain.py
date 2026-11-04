@@ -13,7 +13,6 @@
 
 import json
 import os
-import tempfile
 from typing import Optional, Dict, List, Literal
 from . import metrics, config
 
@@ -302,7 +301,9 @@ def _format_as_table(
         out.append("PER-OP PROFILING DATA")
         out.append("=" * 80)
         for cache_key, prof_result in profiling_data.items():
+            mid = cache_key[:16] + "..." if len(cache_key) > 16 else cache_key
             out.append("")
+            out.append(f"Graph: {mid}")
             out.append(profiling_mod.format_profiling_table(prof_result))
 
     if not HAS_TABULATE:
@@ -425,7 +426,6 @@ class ExplainContext:
         self._previous_enable_state = None
         self._previous_profiling_state = None
         self._previous_instrument_file = None
-        self._profiling_file_path = None
 
     def __enter__(self):
         """Enable metrics collection and clear existing metrics."""
@@ -443,16 +443,10 @@ class ExplainContext:
         if self.profiling:
             import torch._dynamo
 
-            fd, self._profiling_file_path = tempfile.mkstemp(
-                suffix=".prof", prefix="torch_onnxmlir_"
-            )
-            os.close(fd)
             config._profiling_enabled = True
-            config._profiling_file_path = self._profiling_file_path
             self._previous_instrument_file = os.environ.get(
                 "ONNX_MLIR_INSTRUMENT_FILE"
             )
-            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = self._profiling_file_path
             torch._dynamo.reset()
 
         return self
@@ -460,7 +454,7 @@ class ExplainContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Capture metrics and restore previous state."""
         # Parse profiling output if profiling was active.
-        if self.profiling and self._profiling_file_path:
+        if self.profiling:
             if self._previous_instrument_file is not None:
                 os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = (
                     self._previous_instrument_file
@@ -479,7 +473,6 @@ class ExplainContext:
         # Restore previous state using internal setter.
         _set_enable_explain(self._previous_enable_state)
         config._profiling_enabled = self._previous_profiling_state
-        config._profiling_file_path = None
 
         if self.profiling:
             import torch._dynamo
@@ -490,22 +483,26 @@ class ExplainContext:
         return False
 
     def _collect_profiling_data(self):
-        """Parse the accumulated profiling temp file and record results."""
-        from . import profiling as profiling_mod
+        """Parse per-graph profiling files from cache dir and record results."""
+        import glob
 
-        path = self._profiling_file_path
-        try:
-            if os.path.exists(path) and os.path.getsize(path) > 0:
-                prof_result = profiling_mod.parse_profiling_output(
-                    file_path=path,
-                    warmup_num=config.profiling_warmup,
-                    reporting=config.profiling_reporting,
+        from . import profiling as profiling_mod
+        from . import sessioncache
+
+        pattern = os.path.join(sessioncache.cache_dir(), "*", "profile.prof")
+        for path in glob.glob(pattern):
+            if os.path.getsize(path) == 0:
+                continue
+            cache_key = os.path.basename(os.path.dirname(path))
+            prof_result = profiling_mod.parse_profiling_output(
+                file_path=path,
+                warmup_num=config.profiling_warmup,
+                reporting=config.profiling_reporting,
+            )
+            if prof_result is not None:
+                metrics.global_metrics_collector.record_profiling(
+                    cache_key, prof_result
                 )
-                if prof_result is not None:
-                    metrics.global_metrics_collector.record_profiling(
-                        "_om_profile_", prof_result
-                    )
-        finally:
             try:
                 os.unlink(path)
             except OSError:

@@ -616,7 +616,23 @@ class TorchONNXMLIR:
 
         if logger.isEnabledFor(logging.INFO):
             start = time.perf_counter()
-        om_outputs = sess.run(om_inputs)
+        if config._profiling_enabled:
+            from . import sessioncache
+
+            prof_path = os.path.join(
+                sessioncache.cache_dir(), self.cache_key, "profile.prof"
+            )
+            _prev_env = os.environ.get("ONNX_MLIR_INSTRUMENT_FILE")
+            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = prof_path
+            try:
+                om_outputs = sess.run(om_inputs)
+            finally:
+                if _prev_env is not None:
+                    os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = _prev_env
+                else:
+                    os.environ.pop("ONNX_MLIR_INSTRUMENT_FILE", None)
+        else:
+            om_outputs = sess.run(om_inputs)
         if logger.isEnabledFor(logging.INFO):
             logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
 

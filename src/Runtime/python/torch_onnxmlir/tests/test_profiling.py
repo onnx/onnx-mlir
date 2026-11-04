@@ -87,24 +87,17 @@ class TestProfilingIntegration(TorchOMTestCase):
 
     def test_profiling_state_restoration(self):
         """Test that profiling state is properly restored after context."""
-        import os
         from torch_onnxmlir import config
 
         self.assertFalse(config._profiling_enabled)
-        self.assertIsNone(config._profiling_file_path)
-        self.assertNotIn("ONNX_MLIR_INSTRUMENT_FILE", os.environ)
 
         compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
         with torch_onnxmlir.explain_context(profiling=True) as ctx:
             self.assertTrue(config._profiling_enabled)
-            self.assertIsNotNone(config._profiling_file_path)
-            self.assertIn("ONNX_MLIR_INSTRUMENT_FILE", os.environ)
             x = torch.randn(2, 3)
             output = compiled_model(x)
 
         self.assertFalse(config._profiling_enabled)
-        self.assertIsNone(config._profiling_file_path)
-        self.assertNotIn("ONNX_MLIR_INSTRUMENT_FILE", os.environ)
 
     def test_profiling_multiple_inferences(self):
         """Test profiling with multiple inference calls."""

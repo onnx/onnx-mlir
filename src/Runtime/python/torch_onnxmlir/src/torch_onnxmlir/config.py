@@ -46,7 +46,6 @@ regenerate_test_data_set = False
 
 # Internal profiling state -- controlled by explain_context(profiling=True).
 _profiling_enabled = False
-_profiling_file_path = None
 
 # Number of warmup runs to skip when computing profiling statistics.
 profiling_warmup = 0
