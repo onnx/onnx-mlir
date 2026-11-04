@@ -193,6 +193,10 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 #define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
 
+// For the omp wsloop nowait pass, it is createOMPWsloopNowaitPass().
+#define GEN_PASS_DECL_OMPWSLOOPNOWAITPASS
+#include "src/Transform/Passes.h.inc"
+
 // The function registerTransformsPasses() is generated from Passes.td and used
 // to register th pass for onnx-mlir-opt. Different Passes.td will generate the
 // same name function. They have to be put into different name space to be
