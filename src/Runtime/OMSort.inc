@@ -27,6 +27,7 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
+#include "src/Runtime/OMTensorInternal.h"
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif

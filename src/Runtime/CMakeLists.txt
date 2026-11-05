@@ -54,8 +54,9 @@ add_onnx_mlir_library(OMTensorUtils
   OnnxDataType.cpp
   ${ONNX_MLIR_SRC_ROOT}/src/Support/SmallFPConversion.c
 
-  DEPENDS 
+  DEPENDS
   AcceleratorsInc
+
 
   EXCLUDE_FROM_OM_LIBS
 

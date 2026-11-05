@@ -4,7 +4,7 @@
 
 //===------------- jniwrapper.c - JNI wrapper Implementation -------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,6 +29,7 @@
 #include "OnnxMlirRuntime.h"
 #include "com_ibm_onnxmlir_OMModel.h"
 #include "jnilog.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 extern OMTensorList *run_main_graph(OMTensorList *);
 
