@@ -84,11 +84,11 @@ def _get_node_name_from_timing_key(timing_key: str) -> str:
 
 def _parse_perf_lines(
     lines, warmup_num: int = 0, reporting: str = "quartile"
-) -> Tuple[Dict[str, float], float]:
-    """Parse ==PERF-REPORT== lines and return (node_time_dict, total_time).
+) -> Tuple[Dict[str, float], float, Dict[str, List[float]]]:
+    """Parse ==PERF-REPORT== lines.
 
-    Handles multiple measurement sets delimited by ==START-REPORT==,
-    warmup skipping, and quartile/all/sum averaging.
+    Returns (node_time_dict, total_time, per_run_times) where per_run_times
+    holds individual run values after warmup (before averaging/discard).
     """
     line_iter = iter(lines)
 
@@ -99,7 +99,7 @@ def _parse_perf_lines(
             has_start = True
             break
     if not has_start:
-        return {}, 0.0
+        return {}, 0.0, {}
 
     # Collect all measurement sets.
     time_stat_dict_all_meas: Dict[str, List[float]] = {}
@@ -146,7 +146,7 @@ def _parse_perf_lines(
     # Apply warmup and reporting mode.
     meas_num = start_count - warmup_num
     if meas_num <= 0:
-        return {}, 0.0
+        return {}, 0.0, {}
 
     discard_num = 0
     if reporting == "quartile":
@@ -155,6 +155,7 @@ def _parse_perf_lines(
         pass  # no discard
     # "all": no discard
 
+    per_run_times: Dict[str, List[float]] = {}
     node_time_dict: Dict[str, float] = {}
     for node in time_stat_dict_all_meas:
         if node == "tot_time":
@@ -162,6 +163,7 @@ def _parse_perf_lines(
         time_array = time_stat_dict_all_meas[node][warmup_num:]
         if len(time_array) != meas_num:
             continue
+        per_run_times[node] = list(time_array)
         if discard_num > 0 and meas_num - 2 * discard_num > 0:
             time_array = sorted(time_array)
             time_array = time_array[discard_num : len(time_array) - discard_num]
@@ -171,7 +173,7 @@ def _parse_perf_lines(
             node_time_dict[node] = sum(time_array) / len(time_array)
 
     tot_time = sum(node_time_dict.values())
-    return node_time_dict, tot_time
+    return node_time_dict, tot_time, per_run_times
 
 
 _SIG_REPORT_RE = re.compile(
@@ -179,9 +181,9 @@ _SIG_REPORT_RE = re.compile(
 )
 
 
-def _parse_sig_lines(lines) -> Dict[str, str]:
-    """Parse ==SIG-REPORT== lines and return {timing_key: signature_string}."""
-    sig_dict: Dict[str, str] = {}
+def _parse_sig_lines(lines) -> Dict[str, List[str]]:
+    """Parse ==SIG-REPORT== lines and return {timing_key: [sig, ...]}."""
+    sig_dict: Dict[str, List[str]] = {}
     for line in lines:
         m = _SIG_REPORT_RE.match(line.strip() if isinstance(line, str) else line)
         if m is None:
@@ -195,17 +197,23 @@ def _parse_sig_lines(lines) -> Dict[str, str]:
         else:
             sig_str = details.strip()
         key = _get_timing_key(op, node_name)
-        if key not in sig_dict:
-            sig_dict[key] = sig_str
+        sig_dict.setdefault(key, []).append(sig_str)
     return sig_dict
 
 
 def _build_op_summary(
     node_time_dict: Dict[str, float],
     tot_time: float,
-    sig_dict: Optional[Dict[str, str]] = None,
+    sig_dict: Optional[Dict[str, List[str]]] = None,
+    per_run_times: Optional[Dict[str, List[float]]] = None,
+    reporting: str = "all",
 ) -> Tuple[List[OpTiming], Optional[float], Optional[float], List[NodeTiming]]:
-    """Aggregate per-node timings into per-op-type summaries."""
+    """Aggregate per-node timings into per-op-type summaries.
+
+    For "sum" reporting, each (node, run) pair becomes a separate NodeTiming
+    with that run's time and signature, and OpTiming.count reflects total
+    invocations across all runs.
+    """
     if sig_dict is None:
         sig_dict = {}
 
@@ -216,21 +224,44 @@ def _build_op_summary(
     for timing_key, time_val in node_time_dict.items():
         op = _get_op_from_timing_key(timing_key)
         node_name = _get_node_name_from_timing_key(timing_key)
-        pct = (time_val / tot_time * 100) if tot_time > 0 else 0.0
-        node_timings.append(
-            NodeTiming(
-                node_name=node_name,
-                op_name=op,
-                time=time_val,
-                percentage=pct,
-                signature=sig_dict.get(timing_key),
+        sigs = sig_dict.get(timing_key, [])
+
+        if reporting == "sum" and per_run_times and timing_key in per_run_times:
+            run_times = per_run_times[timing_key]
+            sig_offset = max(0, len(sigs) - len(run_times))
+            for ri, rt in enumerate(run_times):
+                sig_idx = sig_offset + ri
+                sig = sigs[sig_idx] if sig_idx < len(sigs) else None
+                pct = (rt / tot_time * 100) if tot_time > 0 else 0.0
+                node_timings.append(
+                    NodeTiming(
+                        node_name=node_name,
+                        op_name=op,
+                        time=rt,
+                        percentage=pct,
+                        signature=sig,
+                    )
+                )
+            num_invocations = len(run_times)
+        else:
+            sig = sigs[0] if sigs else None
+            pct = (time_val / tot_time * 100) if tot_time > 0 else 0.0
+            node_timings.append(
+                NodeTiming(
+                    node_name=node_name,
+                    op_name=op,
+                    time=time_val,
+                    percentage=pct,
+                    signature=sig,
+                )
             )
-        )
+            num_invocations = 1
+
         if op not in op_times:
             op_times[op] = 0.0
             op_counts[op] = 0
         op_times[op] += time_val
-        op_counts[op] += 1
+        op_counts[op] += num_invocations
 
     node_timings.sort(key=lambda x: x.time, reverse=True)
 
@@ -282,7 +313,15 @@ def parse_profiling_output(
         file_path: Path to a file containing profiling output.
         text: Raw profiling output text (alternative to file_path).
         warmup_num: Number of warmup measurement sets to skip.
-        reporting: Averaging mode -- "quartile", "all", or "sum".
+        reporting: How per-node times are aggregated across multiple runs:
+            "all" -- average time per node across all runs (default).
+                Count = number of distinct node instances per op type.
+            "quartile" -- sort runs, discard top/bottom 25%, average the rest.
+                Count = number of distinct node instances per op type.
+            "sum" -- cumulative time per node across all runs (not averaged).
+                Count = total invocations (distinct nodes x runs).
+                Each (node, run) becomes a separate entry with that run's
+                signature, useful for decoding where tensor sizes change.
 
     Returns:
         ProfilingResult with per-op timing breakdown, or None if no data.
@@ -304,13 +343,15 @@ def parse_profiling_output(
     if not lines:
         return None
 
-    node_time_dict, tot_time = _parse_perf_lines(lines, warmup_num, reporting)
+    node_time_dict, tot_time, per_run_times = _parse_perf_lines(
+        lines, warmup_num, reporting
+    )
     if not node_time_dict and tot_time == 0.0:
         return None
 
     sig_dict = _parse_sig_lines(lines)
     timings, cpu_time, accel_time, node_timings = _build_op_summary(
-        node_time_dict, tot_time, sig_dict
+        node_time_dict, tot_time, sig_dict, per_run_times, reporting
     )
 
     # Count measurement sets used.
@@ -356,10 +397,17 @@ def format_profiling_table(
         scale = 1000.0
         time_unit = "ms"
 
+    mode_desc = {
+        "all": "all -- average per-node time across all runs",
+        "sum": "sum -- cumulative per-node time across all runs",
+        "quartile": "quartile -- average after discarding top/bottom 25% of runs",
+    }
     lines = []
     lines.append(
         "Reporting: {} ({} measurement(s), {} warmup skipped)".format(
-            result.reporting_mode, result.num_measurements, result.warmup_skipped
+            mode_desc.get(result.reporting_mode, result.reporting_mode),
+            result.num_measurements,
+            result.warmup_skipped,
         )
     )
     lines.append("")

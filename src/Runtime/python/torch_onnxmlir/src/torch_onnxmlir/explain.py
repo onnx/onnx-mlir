@@ -500,8 +500,11 @@ class ExplainContext:
                 - True: enabled with defaults from config.
                 - dict: enabled with overrides, keys:
                     "detail": 0 (op summary), 1 (+ signatures), 2 (+ nodes).
-                    "warmup": number of warmup runs to skip.
-                    "reporting": averaging mode ("quartile", "all", "sum").
+                    "warmup": number of initial runs to skip before collecting.
+                    "reporting": how per-node times aggregate across runs:
+                        "all" -- average across all runs (default).
+                        "quartile" -- discard top/bottom 25%, average the rest.
+                        "sum" -- cumulative time, not averaged.
         """
         self.format = format
         self.sort_by = sort_by
@@ -680,8 +683,11 @@ def explain_context(format="table", sort_by="time", export_to=None, profiling=Fa
             - True: enabled with defaults from config.
             - dict: enabled with overrides, keys:
                 "detail": 0 (op summary), 1 (+ signatures), 2 (+ nodes).
-                "warmup": number of warmup runs to skip.
-                "reporting": averaging mode ("quartile", "all", "sum").
+                "warmup": number of initial runs to skip before collecting data.
+                "reporting": how per-node times are aggregated across runs:
+                    "all" -- average time per node across all runs (default).
+                    "quartile" -- discard top/bottom 25% of runs, average the rest.
+                    "sum" -- cumulative time per node across all runs.
 
     Returns:
         ExplainContext: Context manager instance.

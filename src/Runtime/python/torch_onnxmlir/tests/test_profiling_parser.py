@@ -373,7 +373,7 @@ class TestSigReportParsing(unittest.TestCase):
         sig_dict = _parse_sig_lines(lines)
         key = _get_timing_key("onnx.Conv", "/conv1")
         self.assertIn(key, sig_dict)
-        self.assertEqual(sig_dict[key], "1x3x32x32xf32")
+        self.assertEqual(sig_dict[key], ["1x3x32x32xf32"])
 
     def test_parse_sig_lines_no_match(self):
         lines = ["Some random line\n", "Another line\n"]
@@ -500,6 +500,137 @@ class TestTreeTableFormat(unittest.TestCase):
         result = parse_profiling_output(text=SAMPLE_NO_SIG)
         table = format_profiling_table(result, detail_level=1)
         self.assertIn("(no signature)", table)
+
+
+# Decoding scenario: same nodes, different signatures per run (seq len grows).
+SAMPLE_SUM_DECODING = """\
+==SIG-REPORT==, onnx.MatMul, /matmul1, sig, 1x1x128xf32, 1x128x128xf32
+==SIG-REPORT==, onnx.Add, /add1, sig, 1x1x128xf32, 1x1x128xf32
+==START-REPORT==
+==PERF-REPORT==, onnx.MatMul, /matmul1, before, 0.000000, 100.000000
+==PERF-REPORT==, onnx.MatMul, /matmul1, after, 0.000100, 100.000100
+==PERF-REPORT==, onnx.Add, /add1, before, 0.000000, 100.000101
+==PERF-REPORT==, onnx.Add, /add1, after, 0.000020, 100.000121
+==SIG-REPORT==, onnx.MatMul, /matmul1, sig, 1x2x128xf32, 1x128x128xf32
+==SIG-REPORT==, onnx.Add, /add1, sig, 1x2x128xf32, 1x2x128xf32
+==START-REPORT==
+==PERF-REPORT==, onnx.MatMul, /matmul1, before, 0.000000, 200.000000
+==PERF-REPORT==, onnx.MatMul, /matmul1, after, 0.000120, 200.000120
+==PERF-REPORT==, onnx.Add, /add1, before, 0.000000, 200.000121
+==PERF-REPORT==, onnx.Add, /add1, after, 0.000025, 200.000146
+==SIG-REPORT==, onnx.MatMul, /matmul1, sig, 1x3x128xf32, 1x128x128xf32
+==SIG-REPORT==, onnx.Add, /add1, sig, 1x3x128xf32, 1x3x128xf32
+==START-REPORT==
+==PERF-REPORT==, onnx.MatMul, /matmul1, before, 0.000000, 300.000000
+==PERF-REPORT==, onnx.MatMul, /matmul1, after, 0.000130, 300.000130
+==PERF-REPORT==, onnx.Add, /add1, before, 0.000000, 300.000131
+==PERF-REPORT==, onnx.Add, /add1, after, 0.000030, 300.000161
+"""
+
+
+class TestSumModeDecoding(unittest.TestCase):
+    """Tests for sum mode with per-run signature expansion (decoding use case)."""
+
+    def test_sum_count_is_total_invocations(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul = next(op for op in result.op_timings if op.op_name == "onnx.MatMul")
+        # 1 node x 3 runs = 3 invocations
+        self.assertEqual(matmul.count, 3)
+
+    def test_sum_cumulative_time(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul = next(op for op in result.op_timings if op.op_name == "onnx.MatMul")
+        self.assertAlmostEqual(matmul.total_time, 0.000350, places=6)
+
+    def test_sum_node_timings_expanded(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul_nts = [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"]
+        # 1 node x 3 runs = 3 NodeTimings
+        self.assertEqual(len(matmul_nts), 3)
+
+    def test_sum_each_run_has_own_signature(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul_nts = [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"]
+        sigs = [nt.signature for nt in matmul_nts]
+        self.assertIn("1x1x128xf32, 1x128x128xf32", sigs)
+        self.assertIn("1x2x128xf32, 1x128x128xf32", sigs)
+        self.assertIn("1x3x128xf32, 1x128x128xf32", sigs)
+
+    def test_sum_all_different_signatures(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul_nts = [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"]
+        sigs = set(nt.signature for nt in matmul_nts)
+        self.assertEqual(len(sigs), 3)
+
+    def test_sum_individual_run_times(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul_nts = sorted(
+            [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"],
+            key=lambda x: x.time,
+        )
+        self.assertAlmostEqual(matmul_nts[0].time, 0.000100, places=6)
+        self.assertAlmostEqual(matmul_nts[1].time, 0.000120, places=6)
+        self.assertAlmostEqual(matmul_nts[2].time, 0.000130, places=6)
+
+    def test_all_mode_count_is_distinct_nodes(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="all")
+        matmul = next(op for op in result.op_timings if op.op_name == "onnx.MatMul")
+        # all mode: count = distinct nodes, not invocations
+        self.assertEqual(matmul.count, 1)
+
+    def test_all_mode_uses_first_signature(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="all")
+        matmul_nts = [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"]
+        self.assertEqual(len(matmul_nts), 1)
+        self.assertEqual(matmul_nts[0].signature, "1x1x128xf32, 1x128x128xf32")
+
+    def test_sum_with_warmup_skips_first_run(self):
+        result = parse_profiling_output(
+            text=SAMPLE_SUM_DECODING, reporting="sum", warmup_num=1
+        )
+        matmul = next(op for op in result.op_timings if op.op_name == "onnx.MatMul")
+        # 1 node x 2 runs (3 - 1 warmup) = 2 invocations
+        self.assertEqual(matmul.count, 2)
+        matmul_nts = [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"]
+        sigs = [nt.signature for nt in matmul_nts]
+        # First run's sig (1x1x128xf32) should be skipped
+        self.assertNotIn("1x1x128xf32, 1x128x128xf32", sigs)
+        self.assertIn("1x2x128xf32, 1x128x128xf32", sigs)
+        self.assertIn("1x3x128xf32, 1x128x128xf32", sigs)
+
+    def test_sum_with_warmup_cumulative_time(self):
+        result = parse_profiling_output(
+            text=SAMPLE_SUM_DECODING, reporting="sum", warmup_num=1
+        )
+        matmul = next(op for op in result.op_timings if op.op_name == "onnx.MatMul")
+        # Runs 2+3: 0.000120 + 0.000130 = 0.000250
+        self.assertAlmostEqual(matmul.total_time, 0.000250, places=6)
+
+    def test_sum_sig_grouping_for_tree(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        matmul_nts = [nt for nt in result.node_timings if nt.op_name == "onnx.MatMul"]
+        sig_groups: dict = {}
+        for nt in matmul_nts:
+            sig_groups.setdefault(nt.signature, []).append(nt)
+        # Each run has a unique sig, so 3 groups each with 1 entry
+        self.assertEqual(len(sig_groups), 3)
+        for nts in sig_groups.values():
+            self.assertEqual(len(nts), 1)
+
+    def test_sum_tree_table_shows_all_signatures(self):
+        result = parse_profiling_output(text=SAMPLE_SUM_DECODING, reporting="sum")
+        table = format_profiling_table(result, detail_level=1)
+        self.assertIn("1x1x128xf32, 1x128x128xf32", table)
+        self.assertIn("1x2x128xf32, 1x128x128xf32", table)
+        self.assertIn("1x3x128xf32, 1x128x128xf32", table)
+
+    def test_parse_sig_lines_collects_all_runs(self):
+        lines = SAMPLE_SUM_DECODING.splitlines(keepends=True)
+        sig_dict = _parse_sig_lines(lines)
+        key = _get_timing_key("onnx.MatMul", "/matmul1")
+        self.assertEqual(len(sig_dict[key]), 3)
+        self.assertEqual(sig_dict[key][0], "1x1x128xf32, 1x128x128xf32")
+        self.assertEqual(sig_dict[key][2], "1x3x128xf32, 1x128x128xf32")
 
 
 if __name__ == "__main__":
