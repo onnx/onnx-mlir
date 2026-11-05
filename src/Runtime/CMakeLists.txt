@@ -59,14 +59,12 @@ set_target_properties(cruntime
 add_onnx_mlir_library(OMTensorUtils
   OMTensor.cpp
   OMTensorList.cpp
-  # ${ONNX_MLIR_SRC_ROOT}/src/Support/SmallFPConversion.c
+  OnnxDataType.c
+  ${ONNX_MLIR_SRC_ROOT}/src/Support/SmallFPConversion.c
 
-  DEPENDS 
+  DEPENDS
   AcceleratorsInc
 
-  LINK_LIBS PUBLIC
-  cruntime
-  
   EXCLUDE_FROM_OM_LIBS
 
   INCLUDE_DIRS PUBLIC
