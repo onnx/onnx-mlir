@@ -68,6 +68,7 @@ Static-cache graph signature (--static-cache, opset 24):
     already in the cache (per sample, may differ). Requires
     write_indices[b] + seq <= max_cache_len.
 """
+
 import argparse
 import collections
 
@@ -83,36 +84,74 @@ def tiny_config(arch: str):
     from transformers import BertConfig, GPT2Config, LlamaConfig
 
     if arch == "bert":
-        return BertConfig(hidden_size=64, num_hidden_layers=2,
-                          num_attention_heads=4, intermediate_size=128,
-                          vocab_size=1000), False
+        return (
+            BertConfig(
+                hidden_size=64,
+                num_hidden_layers=2,
+                num_attention_heads=4,
+                intermediate_size=128,
+                vocab_size=1000,
+            ),
+            False,
+        )
     if arch == "gpt2":
         return GPT2Config(n_embd=64, n_layer=2, n_head=4, vocab_size=1000), True
     if arch == "llama":
-        return LlamaConfig(hidden_size=64, num_hidden_layers=2,
-                           num_attention_heads=4, num_key_value_heads=2,
-                           intermediate_size=128, vocab_size=1000), True
+        return (
+            LlamaConfig(
+                hidden_size=64,
+                num_hidden_layers=2,
+                num_attention_heads=4,
+                num_key_value_heads=2,
+                intermediate_size=128,
+                vocab_size=1000,
+            ),
+            True,
+        )
     if arch == "granite":
         # Same layer type as ibm-granite/granite-4.1-* (GraniteForCausalLM:
         # GQA, RoPE, SwiGLU, RMSNorm, attention/residual multipliers).
         from transformers import GraniteConfig
-        return GraniteConfig(hidden_size=64, num_hidden_layers=2,
-                             num_attention_heads=4, num_key_value_heads=2,
-                             intermediate_size=128, vocab_size=1000,
-                             attention_multiplier=0.0625, embedding_multiplier=12.0,
-                             residual_multiplier=0.22, logits_scaling=8.0,
-                             tie_word_embeddings=True), True
+
+        return (
+            GraniteConfig(
+                hidden_size=64,
+                num_hidden_layers=2,
+                num_attention_heads=4,
+                num_key_value_heads=2,
+                intermediate_size=128,
+                vocab_size=1000,
+                attention_multiplier=0.0625,
+                embedding_multiplier=12.0,
+                residual_multiplier=0.22,
+                logits_scaling=8.0,
+                tie_word_embeddings=True,
+            ),
+            True,
+        )
     if arch == "modernbert":
         # Same attention layout as ModernBERT checkpoints such as
         # ibm-granite/granite-embedding-311m-multilingual-r2: RoPE, a global
         # layer every 3rd layer, 128-token sliding window on the others.
         from transformers import ModernBertConfig
-        return ModernBertConfig(hidden_size=64, num_hidden_layers=6,
-                                num_attention_heads=4, intermediate_size=128,
-                                vocab_size=1000, pad_token_id=0, bos_token_id=1,
-                                eos_token_id=2, cls_token_id=1, sep_token_id=2,
-                                global_attn_every_n_layers=3,
-                                local_attention=128), False
+
+        return (
+            ModernBertConfig(
+                hidden_size=64,
+                num_hidden_layers=6,
+                num_attention_heads=4,
+                intermediate_size=128,
+                vocab_size=1000,
+                pad_token_id=0,
+                bos_token_id=1,
+                eos_token_id=2,
+                cls_token_id=1,
+                sep_token_id=2,
+                global_attn_every_n_layers=3,
+                local_attention=128,
+            ),
+            False,
+        )
     raise ValueError(arch)
 
 
@@ -127,8 +166,9 @@ def load_model(args):
 
     causal = args.causal or args.kv_cache
     cls = AutoModelForCausalLM if causal else AutoModel
-    model = cls.from_pretrained(args.model, attn_implementation="sdpa",
-                                dtype=torch.float32)
+    model = cls.from_pretrained(
+        args.model, attn_implementation="sdpa", dtype=torch.float32
+    )
     return model, causal
 
 
@@ -171,9 +211,14 @@ class KVWrapper(torch.nn.Module):
         cache = DynamicCache(config=self.model.config)
         for i in range(self.n_layers):
             cache.update(past[2 * i], past[2 * i + 1], i)
-        out = self.model(input_ids=input_ids, attention_mask=attention_mask,
-                         position_ids=position_ids, past_key_values=cache,
-                         use_cache=True, return_dict=True)
+        out = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_values=cache,
+            use_cache=True,
+            return_dict=True,
+        )
         presents = []
         for layer in out.past_key_values.layers[: self.n_layers]:
             presents += [layer.keys, layer.values]
@@ -184,14 +229,15 @@ class KVWrapper(torch.nn.Module):
 # Static (fixed-size) KV cache updated with ONNX TensorScatter (opset 24)
 # --------------------------------------------------------------------------
 @torch.library.custom_op("onnx_kv::tensor_scatter", mutates_args=())
-def tensor_scatter(past: torch.Tensor, update: torch.Tensor,
-                   write_indices: torch.Tensor) -> torch.Tensor:
+def tensor_scatter(
+    past: torch.Tensor, update: torch.Tensor, write_indices: torch.Tensor
+) -> torch.Tensor:
     """Eager reference of ONNX TensorScatter (mode="linear", axis=-2)."""
     out = past.clone()
     s = update.shape[-2]
     for b in range(past.shape[0]):
         i = int(write_indices[b])
-        out[b, ..., i:i + s, :] = update[b]
+        out[b, ..., i : i + s, :] = update[b]
     return out
 
 
@@ -203,8 +249,10 @@ def _tensor_scatter_fake(past, update, write_indices):
 def tensor_scatter_onnx(past, update, write_indices):
     """Translation of onnx_kv::tensor_scatter into ai.onnx::TensorScatter-24."""
     from onnxscript.values import Opset
-    return Opset("", 24).TensorScatter(past, update, write_indices,
-                                       axis=-2, mode="linear")
+
+    return Opset("", 24).TensorScatter(
+        past, update, write_indices, axis=-2, mode="linear"
+    )
 
 
 def _make_scatter_cache(config, past, write_indices):
@@ -243,12 +291,17 @@ class StaticKVWrapper(torch.nn.Module):
         j = torch.arange(max_len, device=input_ids.device)
         # query q of sample b (absolute slot write_indices[b] + q) may attend to
         # slots 0..write_indices[b] + q: causal, and hides unwritten slots.
-        limit = write_indices[:, None] + q[None, :]                   # [B, S]
-        mask = (j[None, None, :] <= limit[:, :, None])[:, None]      # [B, 1, S, M]
+        limit = write_indices[:, None] + q[None, :]  # [B, S]
+        mask = (j[None, None, :] <= limit[:, :, None])[:, None]  # [B, 1, S, M]
         cache = _make_scatter_cache(self.model.config, past, write_indices)
-        out = self.model(input_ids=input_ids, attention_mask=mask,
-                         position_ids=position_ids, past_key_values=cache,
-                         use_cache=True, return_dict=True)
+        out = self.model(
+            input_ids=input_ids,
+            attention_mask=mask,
+            position_ids=position_ids,
+            past_key_values=cache,
+            use_cache=True,
+            return_dict=True,
+        )
         presents = []
         for i in range(self.n_layers):
             presents += list(cache.presents[i])
@@ -260,14 +313,22 @@ class StaticKVWrapper(torch.nn.Module):
 # --------------------------------------------------------------------------
 def report_ops(path):
     m = onnx.load(path, load_external_data=False)
-    ops = collections.Counter(f"{n.domain or 'ai.onnx'}::{n.op_type}" for n in m.graph.node)
+    ops = collections.Counter(
+        f"{n.domain or 'ai.onnx'}::{n.op_type}" for n in m.graph.node
+    )
     for f in m.functions:
         ops.update(f"{n.domain or 'ai.onnx'}::{n.op_type}" for n in f.node)
     print("opset_import:", {o.domain or "ai.onnx": o.version for o in m.opset_import})
-    print("inputs :", [i.name for i in m.graph.input][:8],
-          "..." if len(m.graph.input) > 8 else "")
-    print("outputs:", [o.name for o in m.graph.output][:8],
-          "..." if len(m.graph.output) > 8 else "")
+    print(
+        "inputs :",
+        [i.name for i in m.graph.input][:8],
+        "..." if len(m.graph.input) > 8 else "",
+    )
+    print(
+        "outputs:",
+        [o.name for o in m.graph.output][:8],
+        "..." if len(m.graph.output) > 8 else "",
+    )
     print("op histogram:")
     for k, v in sorted(ops.items(), key=lambda kv: -kv[1]):
         print(f"  {v:4d}  {k}")
@@ -275,8 +336,10 @@ def report_ops(path):
     if n_attn:
         print(f"OK: {n_attn} native ONNX Attention op(s)")
     else:
-        print("NOTE: no ai.onnx::Attention op; SDPA was decomposed "
-              "(opset < 23, or exporter version lacks the mapping).")
+        print(
+            "NOTE: no ai.onnx::Attention op; SDPA was decomposed "
+            "(opset < 23, or exporter version lacks the mapping)."
+        )
 
 
 def ort_session(path):
@@ -286,7 +349,9 @@ def ort_session(path):
         print("onnxruntime not installed; skipping numeric check")
         return None
     so = ort.SessionOptions()
-    so.log_severity_level = 3  # hide per-run "in-place optimization not activated" notes
+    so.log_severity_level = (
+        3  # hide per-run "in-place optimization not activated" notes
+    )
     return ort.InferenceSession(path, so, providers=["CPUExecutionProvider"])
 
 
@@ -309,11 +374,16 @@ def export_plain(args, model, causal, out):
         dynamic_shapes = tuple({0: B, 1: S} for _ in inputs)
 
     with torch.no_grad():
-        prog = torch.onnx.export(wrapped, inputs, dynamo=True,
-                                 opset_version=args.opset,
-                                 input_names=input_names, output_names=["output"],
-                                 dynamic_shapes=dynamic_shapes,
-                                 optimize=not args.no_optimize)
+        prog = torch.onnx.export(
+            wrapped,
+            inputs,
+            dynamo=True,
+            opset_version=args.opset,
+            input_names=input_names,
+            output_names=["output"],
+            dynamic_shapes=dynamic_shapes,
+            optimize=not args.no_optimize,
+        )
     prog.save(out)
     print(f"saved {out}")
     report_ops(out)
@@ -321,6 +391,7 @@ def export_plain(args, model, causal, out):
     if args.no_check or (sess := ort_session(out)) is None:
         return
     import numpy as np
+
     b2, s2 = (args.batch, args.seq) if args.static else (args.batch + 1, args.seq + 7)
     ids2 = torch.randint(0, vocab, (b2, s2), dtype=torch.long)
     mask2 = torch.ones_like(ids2)
@@ -348,7 +419,10 @@ def export_kv(args, model, out):
     position_ids = torch.arange(P, P + S, dtype=torch.long).expand(B, S).contiguous()
     past = []
     for _ in range(n_layers):
-        past += [torch.randn(B, kv_heads, P, head_dim), torch.randn(B, kv_heads, P, head_dim)]
+        past += [
+            torch.randn(B, kv_heads, P, head_dim),
+            torch.randn(B, kv_heads, P, head_dim),
+        ]
     inputs = (input_ids, attention_mask, position_ids, *past)
 
     input_names = ["input_ids", "attention_mask", "position_ids"]
@@ -369,11 +443,16 @@ def export_kv(args, model, out):
     )
 
     with torch.no_grad():
-        prog = torch.onnx.export(wrapped, inputs, dynamo=True,
-                                 opset_version=args.opset,
-                                 input_names=input_names, output_names=output_names,
-                                 dynamic_shapes=dynamic_shapes,
-                                 optimize=not args.no_optimize)
+        prog = torch.onnx.export(
+            wrapped,
+            inputs,
+            dynamo=True,
+            opset_version=args.opset,
+            input_names=input_names,
+            output_names=output_names,
+            dynamic_shapes=dynamic_shapes,
+            optimize=not args.no_optimize,
+        )
     prog.save(out)
     print(f"saved {out}")
     report_ops(out)
@@ -392,10 +471,13 @@ def export_kv(args, model, out):
 
     def feed(step_ids, past_len, pkv):
         s = step_ids.shape[1]
-        f = {"input_ids": step_ids.numpy(),
-             "attention_mask": np.ones((b, past_len + s), np.int64),
-             "position_ids": np.broadcast_to(np.arange(past_len, past_len + s),
-                                             (b, s)).astype(np.int64).copy()}
+        f = {
+            "input_ids": step_ids.numpy(),
+            "attention_mask": np.ones((b, past_len + s), np.int64),
+            "position_ids": np.broadcast_to(np.arange(past_len, past_len + s), (b, s))
+            .astype(np.int64)
+            .copy(),
+        }
         for i in range(n_layers):
             f[f"past_key.{i}"], f[f"past_value.{i}"] = pkv[2 * i], pkv[2 * i + 1]
         return f
@@ -403,14 +485,18 @@ def export_kv(args, model, out):
     empty = np.zeros((b, kv_heads, 0, head_dim), np.float32)
     outs = sess.run(None, feed(ids[:, :t0], 0, [empty] * (2 * n_layers)))
     d = np.abs(outs[0] - ref[:, :t0]).max()
-    print(f"prefill  ({t0} tok, past 0): logits max diff {d:.3e}, "
-          f"present_key.0 {outs[1].shape}")
+    print(
+        f"prefill  ({t0} tok, past 0): logits max diff {d:.3e}, "
+        f"present_key.0 {outs[1].shape}"
+    )
     for k in range(steps):
         pos = t0 + k
-        outs = sess.run(None, feed(ids[:, pos:pos + 1], pos, outs[1:]))
+        outs = sess.run(None, feed(ids[:, pos : pos + 1], pos, outs[1:]))
         d = np.abs(outs[0][:, 0] - ref[:, pos]).max()
-        print(f"decode   (1 tok, past {pos}): logits max diff {d:.3e}, "
-              f"present_key.0 {outs[1].shape}")
+        print(
+            f"decode   (1 tok, past {pos}): logits max diff {d:.3e}, "
+            f"present_key.0 {outs[1].shape}"
+        )
 
 
 def rewrite_attention_nonpad(path, native_gqa=True):
@@ -432,15 +518,30 @@ def rewrite_attention_nonpad(path, native_gqa=True):
     prod = {o: n for n in g.node for o in n.output}
 
     # nonpad_kv_seqlen [batch] = write_indices + seq_len(input_ids)
-    shape_n = helper.make_node("Shape", ["input_ids"], ["nonpad_seq_len"],
-                               start=1, end=2, name="nonpad_seq_len")
-    add_n = helper.make_node("Add", ["write_indices", "nonpad_seq_len"],
-                             ["nonpad_kv_seqlen"], name="nonpad_kv_seqlen")
+    shape_n = helper.make_node(
+        "Shape",
+        ["input_ids"],
+        ["nonpad_seq_len"],
+        start=1,
+        end=2,
+        name="nonpad_seq_len",
+    )
+    add_n = helper.make_node(
+        "Add",
+        ["write_indices", "nonpad_seq_len"],
+        ["nonpad_kv_seqlen"],
+        name="nonpad_kv_seqlen",
+    )
 
     def cache_source(t):
         """Walk back K/V through repeat_kv to the TensorScatter output."""
         seen = t
-        while t in prod and prod[t].op_type in ("Reshape", "Identity", "Expand", "Unsqueeze"):
+        while t in prod and prod[t].op_type in (
+            "Reshape",
+            "Identity",
+            "Expand",
+            "Unsqueeze",
+        ):
             t = prod[t].input[0]
         return t if t in prod and prod[t].op_type == "TensorScatter" else seen
 
@@ -472,13 +573,17 @@ def rewrite_attention_nonpad(path, native_gqa=True):
     del g.node[:]
     g.node.extend(reversed(keep))
     used = {i for n in g.node for i in n.input}
-    for vi in [vi for vi in g.value_info if vi.name not in used and vi.name not in live]:
+    for vi in [
+        vi for vi in g.value_info if vi.name not in used and vi.name not in live
+    ]:
         g.value_info.remove(vi)
     onnx.save(m, path)
     onnx.checker.check_model(path, full_check=True)
-    print(f"rewrite: {n_attn} Attention node(s) -> nonpad_kv_seqlen + is_causal=1, "
-          f"attn_mask removed; {n_gqa} repeat_kv input(s) bypassed (native GQA); "
-          f"{removed} dead node(s) removed")
+    print(
+        f"rewrite: {n_attn} Attention node(s) -> nonpad_kv_seqlen + is_causal=1, "
+        f"attn_mask removed; {n_gqa} repeat_kv input(s) bypassed (native GQA); "
+        f"{removed} dead node(s) removed"
+    )
 
 
 def export_static_kv(args, model, out):
@@ -490,14 +595,19 @@ def export_static_kv(args, model, out):
 
     B, S, P = args.batch, args.seq, args.past_seq
     if P + S > M:
-        raise SystemExit(f"--past-seq + --seq ({P + S}) must be <= --max-cache-len ({M})")
+        raise SystemExit(
+            f"--past-seq + --seq ({P + S}) must be <= --max-cache-len ({M})"
+        )
     vocab = cfg.vocab_size
     input_ids = torch.randint(0, vocab, (B, S), dtype=torch.long)
     position_ids = torch.arange(P, P + S, dtype=torch.long).expand(B, S).contiguous()
     write_indices = torch.full((B,), P, dtype=torch.long)
     past = []
     for _ in range(n_layers):
-        past += [torch.randn(B, kv_heads, M, head_dim), torch.randn(B, kv_heads, M, head_dim)]
+        past += [
+            torch.randn(B, kv_heads, M, head_dim),
+            torch.randn(B, kv_heads, M, head_dim),
+        ]
     inputs = (input_ids, position_ids, write_indices, *past)
 
     input_names = ["input_ids", "position_ids", "write_indices"]
@@ -517,11 +627,17 @@ def export_static_kv(args, model, out):
 
     with torch.no_grad():
         prog = torch.onnx.export(
-            wrapped, inputs, dynamo=True, opset_version=args.opset,
-            input_names=input_names, output_names=output_names,
-            dynamic_shapes=dynamic_shapes, optimize=not args.no_optimize,
+            wrapped,
+            inputs,
+            dynamo=True,
+            opset_version=args.opset,
+            input_names=input_names,
+            output_names=output_names,
+            dynamic_shapes=dynamic_shapes,
+            optimize=not args.no_optimize,
             custom_translation_table={
-                torch.ops.onnx_kv.tensor_scatter.default: tensor_scatter_onnx},
+                torch.ops.onnx_kv.tensor_scatter.default: tensor_scatter_onnx
+            },
         )
     prog.save(out)
     print(f"saved {out}")
@@ -542,14 +658,16 @@ def export_static_kv(args, model, out):
     refs = []
     with torch.no_grad():
         for k in range(b):
-            seq_k = torch.cat([ids[k, :lens[k]], ids[k, t0:]])[None]
+            seq_k = torch.cat([ids[k, : lens[k]], ids[k, t0:]])[None]
             refs.append(model(input_ids=seq_k, use_cache=False).logits[0].numpy())
 
     def run(step_ids, pos, pkv):
         s = step_ids.shape[1]
-        f = {"input_ids": step_ids.numpy(),
-             "position_ids": (np.asarray(pos)[:, None] + np.arange(s)).astype(np.int64),
-             "write_indices": np.asarray(pos, np.int64)}
+        f = {
+            "input_ids": step_ids.numpy(),
+            "position_ids": (np.asarray(pos)[:, None] + np.arange(s)).astype(np.int64),
+            "write_indices": np.asarray(pos, np.int64),
+        }
         for i in range(n_layers):
             f[f"past_key.{i}"], f[f"past_value.{i}"] = pkv[2 * i], pkv[2 * i + 1]
         return sess.run(None, f)
@@ -558,48 +676,88 @@ def export_static_kv(args, model, out):
     # prefill: right-pad sample 1's prompt; its pad positions get overwritten
     # by the first decode step because write_indices[1] = lens[1].
     outs = run(ids[:, :t0], [0, 0], [zero] * (2 * n_layers))
-    d = max(np.abs(outs[0][k, :lens[k]] - refs[k][:lens[k]]).max() for k in range(b))
-    print(f"prefill  (prompt lens {lens}, write_indices [0, 0]): logits max diff {d:.3e}, "
-          f"present_key.0 {outs[1].shape}")
+    d = max(np.abs(outs[0][k, : lens[k]] - refs[k][: lens[k]]).max() for k in range(b))
+    print(
+        f"prefill  (prompt lens {lens}, write_indices [0, 0]): logits max diff {d:.3e}, "
+        f"present_key.0 {outs[1].shape}"
+    )
     pos = list(lens)
     for step in range(steps):
         tok = torch.stack([ids[0, t0 + step], ids[1, t0 + step]])[:, None]
         outs = run(tok, pos, outs[1:])
         d = max(np.abs(outs[0][k, 0] - refs[k][lens[k] + step]).max() for k in range(b))
-        print(f"decode   (1 tok, write_indices {pos}): logits max diff {d:.3e}, "
-              f"present_key.0 {outs[1].shape}")
+        print(
+            f"decode   (1 tok, write_indices {pos}): logits max diff {d:.3e}, "
+            f"present_key.0 {outs[1].shape}"
+        )
         pos = [p + 1 for p in pos]
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--model", default="bert-base-uncased", help="HF model id or local path")
+    p.add_argument(
+        "--model", default="bert-base-uncased", help="HF model id or local path"
+    )
     p.add_argument("--causal", action="store_true", help="load as AutoModelForCausalLM")
-    p.add_argument("--random", choices=["bert", "gpt2", "llama", "granite", "modernbert"],
-                   help="tiny random model instead of --model (offline)")
-    p.add_argument("--kv-cache", action="store_true",
-                   help="decoder only: expose past/present KV cache as graph inputs/outputs")
-    p.add_argument("--static-cache", action="store_true",
-                   help="with --kv-cache: fixed-size cache updated by TensorScatter (opset 24)")
-    p.add_argument("--attn-mask", action="store_true",
-                   help="--static-cache: keep the exported attn_mask instead of "
-                        "rewriting to nonpad_kv_seqlen + is_causal=1")
-    p.add_argument("--keep-repeat-kv", action="store_true",
-                   help="--static-cache: keep the exported repeat_kv (no native GQA)")
-    p.add_argument("--max-cache-len", type=int, default=256,
-                   help="cache buffer length for --static-cache (static dim)")
-    p.add_argument("--opset", type=int, default=None,
-                   help="default 23 (24 with --static-cache); >=23 for native Attention")
+    p.add_argument(
+        "--random",
+        choices=["bert", "gpt2", "llama", "granite", "modernbert"],
+        help="tiny random model instead of --model (offline)",
+    )
+    p.add_argument(
+        "--kv-cache",
+        action="store_true",
+        help="decoder only: expose past/present KV cache as graph inputs/outputs",
+    )
+    p.add_argument(
+        "--static-cache",
+        action="store_true",
+        help="with --kv-cache: fixed-size cache updated by TensorScatter (opset 24)",
+    )
+    p.add_argument(
+        "--attn-mask",
+        action="store_true",
+        help="--static-cache: keep the exported attn_mask instead of "
+        "rewriting to nonpad_kv_seqlen + is_causal=1",
+    )
+    p.add_argument(
+        "--keep-repeat-kv",
+        action="store_true",
+        help="--static-cache: keep the exported repeat_kv (no native GQA)",
+    )
+    p.add_argument(
+        "--max-cache-len",
+        type=int,
+        default=256,
+        help="cache buffer length for --static-cache (static dim)",
+    )
+    p.add_argument(
+        "--opset",
+        type=int,
+        default=None,
+        help="default 23 (24 with --static-cache); >=23 for native Attention",
+    )
     p.add_argument("--batch", type=int, default=2)
-    p.add_argument("--seq", type=int, default=16, help="example sequence length for tracing")
-    p.add_argument("--past-seq", type=int, default=8, help="example past length (--kv-cache)")
-    p.add_argument("--max-seq", type=int, default=4096, help="upper bound of dynamic seq dims")
+    p.add_argument(
+        "--seq", type=int, default=16, help="example sequence length for tracing"
+    )
+    p.add_argument(
+        "--past-seq", type=int, default=8, help="example past length (--kv-cache)"
+    )
+    p.add_argument(
+        "--max-seq", type=int, default=4096, help="upper bound of dynamic seq dims"
+    )
     p.add_argument("--no-mask", action="store_true", help="don't pass attention_mask")
     p.add_argument("--static", action="store_true", help="disable dynamic batch/seq")
-    p.add_argument("--no-optimize", action="store_true",
-                   help="skip onnxscript graph optimization (no RotaryEmbedding/RMSNorm fusion)")
+    p.add_argument(
+        "--no-optimize",
+        action="store_true",
+        help="skip onnxscript graph optimization (no RotaryEmbedding/RMSNorm fusion)",
+    )
     p.add_argument("--out", default=None)
-    p.add_argument("--no-check", action="store_true", help="skip onnxruntime comparison")
+    p.add_argument(
+        "--no-check", action="store_true", help="skip onnxruntime comparison"
+    )
     args = p.parse_args()
 
     if args.static_cache:
@@ -623,7 +781,9 @@ def main():
 
     if args.kv_cache:
         if not causal:
-            raise SystemExit("--kv-cache needs a decoder (--causal or --random gpt2/llama/granite)")
+            raise SystemExit(
+                "--kv-cache needs a decoder (--causal or --random gpt2/llama/granite)"
+            )
         if args.static_cache:
             export_static_kv(args, model, out)
         else:
