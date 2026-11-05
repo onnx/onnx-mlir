@@ -572,6 +572,50 @@ func.func @test_split_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) -
 
 // -----
 
+func.func @test_split_verifier_both_split_and_num_outputs(
+    %arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) ->
+    (tensor<*xi64>, tensor<*xi64>) {
+  // expected-error @+1 {{'onnx.Split' op does not allow both 'split' and 'num_outputs' to be specified}}
+  %0:2 = "onnx.Split"(%arg0, %arg1) {num_outputs = 2 : si64} :
+      (tensor<2x2xi64>, tensor<2xi64>) ->
+      (tensor<*xi64>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*xi64>, tensor<*xi64>
+}
+
+// -----
+
+func.func @test_split_verifier_nonpositive_num_outputs(
+    %arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Split' op requires 'num_outputs' to be positive}}
+  %0 = "onnx.Split"(%arg0, %none) {num_outputs = 0 : si64} :
+      (tensor<2x2xi64>, none) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}
+
+// -----
+
+func.func @test_split_verifier_num_outputs_result_mismatch(
+    %arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Split' op requires 'num_outputs' to equal the number of variadic results}}
+  %0 = "onnx.Split"(%arg0, %none) {num_outputs = 2 : si64} :
+      (tensor<2x2xi64>, none) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}
+
+// -----
+
+func.func @test_split_verifier_no_outputs(%arg0: tensor<2x2xi64>) {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Split' op requires at least one output}}
+  "onnx.Split"(%arg0, %none) {axis = 0 : si64} :
+      (tensor<2x2xi64>, none) -> ()
+  return
+}
+
+// -----
+
 func.func @test_splitToSequence_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>> {
   // expected-error @+1 {{onnx.SplitToSequence: 'axis' value is -3, accepted range is [-2, 1]}}
   %1 = "onnx.SplitToSequence"(%arg0, %arg1) {axis = -3 : si64} : (tensor<2x2xi64>, tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>>
@@ -830,6 +874,16 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
   // expected-error @+1 {{'onnx.RandomNormalLike' op result element type f16 does not match the expected type f32}}
   %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
   "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+}
+
+// -----
+
+func.func @test_transpose_repeated_axis(
+    %arg0: tensor<2x3x4xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.Transpose' op perm attribute contains repeated axis 0}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 0, 1]} :
+      (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 }
 
 // -----

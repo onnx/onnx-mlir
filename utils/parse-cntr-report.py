@@ -28,7 +28,7 @@
 #           first "before" value seen in that run, averaged across the kept
 #           runs. This is the net change over a full run regardless of which
 #           op/node it's attributed to, so comparing it against "sum" is a
-#           useful sanity check (e.g. a counter logged twice per op will
+#           useful check (e.g. a counter logged twice per op will
 #           make "sum" roughly double "total").
 #
 # With -p/--percent, each (op, node) row is shown as a percentage of its
