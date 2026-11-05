@@ -12,6 +12,5 @@ var searchData=
   ['getnumelems_9',['getNumElems',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html#a95738797399947eb2f63dccda4b7b55d',1,'com::ibm::onnxmlir::OMTensor']]],
   ['getrank_10',['getRank',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html#aa9f811a13a0a648e8365a3977e2b7420',1,'com::ibm::onnxmlir::OMTensor']]],
   ['getshape_11',['getShape',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html#a21a72b220c62332e9fb4c2fffd488ffb',1,'com::ibm::onnxmlir::OMTensor']]],
-  ['getshortdata_12',['getShortData',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html#a54329f7446bd4b6257a4ccd934761013',1,'com::ibm::onnxmlir::OMTensor']]],
-  ['getstrides_13',['getStrides',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html#ae7cd305e7d65bdaf77f2126defa3c0c9',1,'com::ibm::onnxmlir::OMTensor']]]
+  ['getshortdata_12',['getShortData',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html#a54329f7446bd4b6257a4ccd934761013',1,'com::ibm::onnxmlir::OMTensor']]]
 ];

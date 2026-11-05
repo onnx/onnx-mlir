@@ -33,12 +33,8 @@ var menudata={children:[
 {text:"All",url:"functions.html",children:[
 {text:"g",url:"functions.html#index_g"},
 {text:"l",url:"functions.html#index_l"},
-{text:"o",url:"functions.html#index_o"},
-{text:"s",url:"functions.html#index_s"}]},
-{text:"Functions",url:"functions_func.html",children:[
-{text:"g",url:"functions_func.html#index_g"},
-{text:"o",url:"functions_func.html#index_o"},
-{text:"s",url:"functions_func.html#index_s"}]},
+{text:"o",url:"functions.html#index_o"}]},
+{text:"Functions",url:"functions_func.html"},
 {text:"Variables",url:"functions_vars.html"}]}]},
 {text:"Files",url:"files.html",children:[
 {text:"File List",url:"files.html"}]}]}
