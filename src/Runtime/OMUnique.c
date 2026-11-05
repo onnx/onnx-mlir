@@ -23,6 +23,7 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 //
 // Table for managing sliced elements
