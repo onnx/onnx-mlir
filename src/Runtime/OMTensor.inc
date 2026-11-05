@@ -352,12 +352,12 @@ const int64_t *omTensorGetShape(const OMTensor *tensor) {
   return tensor->_shape;
 }
 
-#ifndef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data strides getter */
 const int64_t *omTensorGetStrides(const OMTensor *tensor) {
+  if (!tensor)
+    return NULL;
   return tensor->_strides;
 }
-#endif /* OM_EXECUTION_SESSION_ONLY */
 
 #ifdef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data strides setter with PyArray stride values.
