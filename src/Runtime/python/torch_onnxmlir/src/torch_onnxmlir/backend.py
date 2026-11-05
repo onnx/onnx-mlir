@@ -413,18 +413,18 @@ class TorchONNXMLIR:
         # Indice of the actual example inputs if the graph's signature is changed.
         self.example_inputs_indices = None
 
-        # When profiling is enabled, inject --profile-ir into compile_options
-        # before cache key generation so profiling-compiled models get a
-        # separate cache key from non-profiling ones.
+        # When profiling is enabled, inject --profile-ir-with-sig into
+        # compile_options before cache key generation so profiling-compiled
+        # models get a separate cache key from non-profiling ones.
         if config._profiling_enabled and kwargs.get("options") is not None:
             co = kwargs["options"].get("compile_options", "")
             if "--profile-ir" not in co:
                 kwargs = dict(kwargs)
                 kwargs["options"] = dict(kwargs["options"])
                 if _re.search(r"-{1,2}maccel[=\s]+NNPA", co, _re.IGNORECASE):
-                    kwargs["options"]["compile_options"] = co + " --profile-ir=ZHigh"
+                    kwargs["options"]["compile_options"] = co + " --profile-ir-with-sig=ZHigh"
                 else:
-                    kwargs["options"]["compile_options"] = co + " --profile-ir=Onnx"
+                    kwargs["options"]["compile_options"] = co + " --profile-ir-with-sig=Onnx"
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")

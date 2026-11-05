@@ -6,7 +6,7 @@
 #
 ###############################################################################
 #
-# This module parses onnx-mlir profiling output (from --profile-ir) and
+# This module parses onnx-mlir profiling output (from --profile-ir-with-sig) and
 # returns structured per-op timing data. It is a self-contained module
 # usable independently of explain_context().
 #
@@ -91,7 +91,6 @@ def _parse_perf_lines(
         time_stat_dict: Dict[str, List[float]] = {}
         has_start = False
         start_count += 1
-        meas_tot_time = 0.0
 
         for line in line_iter:
             if _START_REPORT_RE.search(line):
@@ -113,7 +112,6 @@ def _parse_perf_lines(
             detail_array = details.split(",")
             key = _get_timing_key(op, node_name)
             time_val = float(detail_array[1])
-            meas_tot_time += time_val
 
             if key not in time_stat_dict:
                 time_stat_dict[key] = []
@@ -126,10 +124,6 @@ def _parse_perf_lines(
             if node not in time_stat_dict_all_meas:
                 time_stat_dict_all_meas[node] = []
             time_stat_dict_all_meas[node].append(avg)
-
-        if "tot_time" not in time_stat_dict_all_meas:
-            time_stat_dict_all_meas["tot_time"] = []
-        time_stat_dict_all_meas["tot_time"].append(meas_tot_time)
 
     # Apply warmup and reporting mode.
     meas_num = start_count - warmup_num
@@ -145,6 +139,8 @@ def _parse_perf_lines(
 
     node_time_dict: Dict[str, float] = {}
     for node in time_stat_dict_all_meas:
+        if node == "tot_time":
+            continue
         time_array = time_stat_dict_all_meas[node][warmup_num:]
         if len(time_array) != meas_num:
             continue
@@ -156,7 +152,7 @@ def _parse_perf_lines(
         else:
             node_time_dict[node] = sum(time_array) / len(time_array)
 
-    tot_time = node_time_dict.pop("tot_time", 0.0)
+    tot_time = sum(node_time_dict.values())
     return node_time_dict, tot_time
 
 
@@ -201,12 +197,11 @@ def _build_op_summary(
         cpu_time = 0.0
         accel_time = 0.0
         for op, t in op_times.items():
-            if re.match(r"zhigh\.", op):
-                if re.search(r".*Stick.*|.*Unstick.*", op):
-                    cpu_time += t
-                else:
-                    accel_time += t
-            elif re.match(r"onnx\.", op):
+            if re.match(r"zhigh\.", op) and not re.search(
+                r"Stick|Unstick", op
+            ):
+                accel_time += t
+            else:
                 cpu_time += t
 
     return timings, cpu_time, accel_time
@@ -330,7 +325,7 @@ def format_profiling_table(result: ProfilingResult, time_unit: str = "ms") -> st
             op_w=op_w,
         )
         lines.append(hdr)
-        lines.append("  " + "-" * (len(hdr) - 2))
+        lines.append("  " + "=" * (len(hdr) - 2))
         for op in result.op_timings:
             lines.append(
                 fmt.format(
@@ -342,6 +337,7 @@ def format_profiling_table(result: ProfilingResult, time_unit: str = "ms") -> st
                     op_w=op_w,
                 )
             )
+            lines.append("  " + "-" * (len(hdr) - 2))
 
     lines.append("")
     lines.append(

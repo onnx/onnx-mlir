@@ -572,7 +572,7 @@ def explain_context(format="table", sort_by="time", export_to=None, profiling=Fa
         sort_by: Sort order - 'time', 'calls', or 'order' (default: 'time').
         export_to: Optional file path to automatically export metrics on exit (default: None).
         profiling: Enable per-op profiling data capture (default: False).
-                   When True, --profile-ir is automatically added to compile options
+                   When True, --profile-ir-with-sig is automatically added to compile options
                    (ZHigh for NNPA, Onnx otherwise) and per-op timing breakdown
                    is included in the output.
 
