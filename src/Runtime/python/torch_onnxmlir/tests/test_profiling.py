@@ -120,6 +120,151 @@ class TestProfilingIntegration(TorchOMTestCase):
         ctx2 = torch_onnxmlir.explain_context()
         self.assertIn("profiling=False", repr(ctx2))
 
+    def test_profiling_dict_config_overrides(self):
+        """Test that profiling=dict overrides detail/warmup/reporting."""
+        ctx = torch_onnxmlir.explain_context(
+            profiling={"detail": 2, "warmup": 1, "reporting": "sum"}
+        )
+        self.assertTrue(ctx.profiling)
+        self.assertEqual(ctx.profiling_detail, 2)
+        self.assertEqual(ctx.profiling_warmup, 1)
+        self.assertEqual(ctx.profiling_reporting, "sum")
+
+    def test_profiling_dict_defaults_from_config(self):
+        """Test that omitted dict keys fall back to config defaults."""
+        from torch_onnxmlir import config
+
+        ctx = torch_onnxmlir.explain_context(profiling={})
+        self.assertTrue(ctx.profiling)
+        self.assertEqual(ctx.profiling_detail, config.profiling_detail)
+        self.assertEqual(ctx.profiling_warmup, config.profiling_warmup)
+        self.assertEqual(ctx.profiling_reporting, config.profiling_reporting)
+
+    def test_profiling_dict_partial_override(self):
+        """Test that only specified dict keys override, rest use defaults."""
+        from torch_onnxmlir import config
+
+        ctx = torch_onnxmlir.explain_context(profiling={"detail": 1})
+        self.assertTrue(ctx.profiling)
+        self.assertEqual(ctx.profiling_detail, 1)
+        self.assertEqual(ctx.profiling_warmup, config.profiling_warmup)
+        self.assertEqual(ctx.profiling_reporting, config.profiling_reporting)
+
+    def test_profiling_dict_with_warmup(self):
+        """Test profiling=dict with warmup skips initial runs."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"warmup": 1}, format="dict"
+        ) as ctx:
+            for _ in range(3):
+                x = torch.randn(2, 3)
+                output = compiled_model(x)
+
+        self.assertIn("profiling", ctx.data)
+        for key, entry in ctx.data["profiling"].items():
+            self.assertEqual(entry["reporting_mode"], "all")
+
+    def test_profiling_dict_detail_signatures_in_dict(self):
+        """Test profiling=dict with detail >= 1 includes signatures key."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"detail": 1}, format="dict"
+        ) as ctx:
+            x = torch.randn(2, 3)
+            output = compiled_model(x)
+
+        self.assertIn("profiling", ctx.data)
+        for key, entry in ctx.data["profiling"].items():
+            for op in entry["ops"]:
+                self.assertIn("signatures", op)
+
+    def test_profiling_dict_detail_nodes_in_dict(self):
+        """Test profiling=dict with detail >= 2 includes node names."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"detail": 2}, format="dict"
+        ) as ctx:
+            x = torch.randn(2, 3)
+            output = compiled_model(x)
+
+        self.assertIn("profiling", ctx.data)
+        for key, entry in ctx.data["profiling"].items():
+            for op in entry["ops"]:
+                self.assertIn("signatures", op)
+                for sig in op["signatures"]:
+                    self.assertIn("nodes", sig)
+
+    def test_profiling_dict_detail_0_no_signatures(self):
+        """Test profiling=dict with detail=0 omits signatures key."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"detail": 0}, format="dict"
+        ) as ctx:
+            x = torch.randn(2, 3)
+            output = compiled_model(x)
+
+        self.assertIn("profiling", ctx.data)
+        for key, entry in ctx.data["profiling"].items():
+            for op in entry["ops"]:
+                self.assertNotIn("signatures", op)
+
+    def test_profiling_dict_sum_reporting(self):
+        """Test profiling=dict with reporting=sum produces cumulative time."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"reporting": "sum"}, format="dict"
+        ) as ctx:
+            for _ in range(3):
+                x = torch.randn(2, 3)
+                output = compiled_model(x)
+
+        self.assertIn("profiling", ctx.data)
+        for key, entry in ctx.data["profiling"].items():
+            self.assertEqual(entry["reporting_mode"], "sum")
+
+    def test_profiling_dict_quartile_reporting(self):
+        """Test profiling=dict with reporting=quartile."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"reporting": "quartile"}, format="dict"
+        ) as ctx:
+            for _ in range(5):
+                x = torch.randn(2, 3)
+                output = compiled_model(x)
+
+        self.assertIn("profiling", ctx.data)
+        for key, entry in ctx.data["profiling"].items():
+            self.assertEqual(entry["reporting_mode"], "quartile")
+
+    def test_profiling_dict_table_format(self):
+        """Test profiling=dict config works with table format output."""
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"detail": 1, "reporting": "all"}
+        ) as ctx:
+            x = torch.randn(2, 3)
+            output = compiled_model(x)
+
+        self.assertIsInstance(ctx.data, str)
+        self.assertIn("PER-OP PROFILING DATA", ctx.data)
+        self.assertIn("Per-node breakdown:", ctx.data)
+
+    def test_profiling_dict_state_restoration(self):
+        """Test that profiling state is restored after dict config context."""
+        from torch_onnxmlir import config
+
+        self.assertFalse(config._profiling_enabled)
+
+        compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
+        with torch_onnxmlir.explain_context(
+            profiling={"detail": 2, "warmup": 1, "reporting": "sum"}
+        ) as ctx:
+            self.assertTrue(config._profiling_enabled)
+            x = torch.randn(2, 3)
+            output = compiled_model(x)
+
+        self.assertFalse(config._profiling_enabled)
+
 
 if __name__ == "__main__":
     unittest.main()

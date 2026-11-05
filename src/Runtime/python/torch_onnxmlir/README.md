@@ -83,12 +83,12 @@ Each cached `.so` (and `.constants.bin`, if present) has a SHA-256 hash stored a
 
 Existing cache entries written by a version of `torch_onnxmlir` that predates this integrity check carry no stored hash. Those entries are treated as cache misses and recompiled automatically on the next run.
 
-You can view the current cache directory using the explain() feature:
+You can view the current cache directory using `explain_context()`:
 ```python
 import torch_onnxmlir
-torch_onnxmlir.config.enable_explain = True
-# ... run your model ...
-print(torch_onnxmlir.explain())  # Shows "Cache Directory: ..." in output
+with torch_onnxmlir.explain_context() as ctx:
+    output = compiled_model(input)
+    print(ctx)  # Shows "Cache Directory: ..." in output
 ```
 
 To clean the cache and save disk space:
@@ -135,6 +135,9 @@ with torch_onnxmlir.explain_context(export_to="logs/experiment1/metrics.json") a
     # Creates logs/experiment1/ directory if it doesn't exist
 ```
 
+For per-op profiling (time spent in each ONNX op), see the
+[Per-Op Profiling](#per-op-profiling) section below.
+
 ### Example Output
 
 ```
@@ -155,6 +158,168 @@ Per-Graph Statistics (sorted by Total Time):
 | model_hash_abc...| 10    | 9    | 1.234      | 5.20              | 1.286    | 100%  |
 +------------------+-------+------+------------+-------------------+----------+-------+
 ```
+
+## Per-Op Profiling
+
+The `explain_context()` context manager can also collect per-op profiling data
+from the onnx-mlir runtime, showing how much time each ONNX (or ZHigh) op
+spends during inference.
+
+### Enabling profiling
+
+Pass `profiling=True` or a configuration dict:
+
+```python
+import torch_onnxmlir
+
+# Simple: use defaults from config.
+with torch_onnxmlir.explain_context(profiling=True) as ctx:
+    for _ in range(5):
+        output = compiled_model(input)
+    print(ctx)
+
+# Full control via dict.
+with torch_onnxmlir.explain_context(
+    profiling={"detail": 2, "warmup": 1, "reporting": "all"},
+    format="dict",
+) as ctx:
+    for _ in range(5):
+        output = compiled_model(input)
+    print(ctx.data["profiling"])
+```
+
+### Profiling configuration keys
+
+| Key | Values | Default | Description |
+|-----|--------|---------|-------------|
+| `detail` | 0, 1, 2 | 0 | Detail level (see below). |
+| `warmup` | int >= 0 | 0 | Number of initial runs to skip before collecting. |
+| `reporting` | `"all"`, `"quartile"`, `"sum"` | `"all"` | How per-node times are aggregated across runs. |
+
+Defaults can also be set globally via `torch_onnxmlir.config`:
+
+```python
+torch_onnxmlir.config.profiling_detail = 0
+torch_onnxmlir.config.profiling_warmup = 0
+torch_onnxmlir.config.profiling_reporting = "all"
+```
+
+### Detail levels
+
+- **Level 0** (default) -- Op summary table only.
+- **Level 1** -- Adds a tree showing tensor-shape signatures under each op,
+  with local percentages relative to the parent op.
+- **Level 2** -- Adds individual node names under each signature group, with
+  local percentages relative to the parent signature.
+
+Level 0 example (`profiling=True`, default):
+
+```
+Reporting: all -- average per-node time across all runs (5 measurement(s), 0 warmup skipped)
+
+  Op              Count     Avg(ms)     Total(ms)        %
+  ===========================================================
+  onnx.Conv           2      0.0415        0.0830    72.2%
+  ---------------------------------------------------------
+  onnx.Gemm           1      0.0200        0.0200    17.4%
+  ---------------------------------------------------------
+  onnx.Relu           1      0.0120        0.0120    10.4%
+  ---------------------------------------------------------
+
+Total model time: 0.1150 ms
+```
+
+Level 1 example (`profiling={"detail": 1}`):
+
+```
+onnx.Conv (count: 3, avg: 0.0167, total: 0.0500, 80.0%)
+├── 1x3x32x32xf32, 16x3x3x3xf32 (2, 0.0340, 68.0%)
+└── 1x16x30x30xf32, 32x16x3x3xf32 (1, 0.0160, 32.0%)
+```
+
+Level 2 adds individual nodes:
+
+```
+onnx.Conv (count: 3, avg: 0.0167, total: 0.0500, 80.0%)
+├── 1x3x32x32xf32, 16x3x3x3xf32 (2, 0.0340, 68.0%)
+│   ├── /conv1 (0.0180, 52.9%)
+│   └── /conv2 (0.0160, 47.1%)
+└── 1x16x30x30xf32, 32x16x3x3xf32 (1, 0.0160, 32.0%)
+    └── /conv3 (0.0160, 100.0%)
+```
+
+### Reporting modes
+
+- **`"all"`** -- Average per-node time across all (non-warmup) runs. Count is
+  the number of distinct node instances per op type. Best for steady-state
+  latency measurement.
+- **`"quartile"`** -- Sort runs, discard the top and bottom 25%, average the
+  rest. Count is the number of distinct node instances. Useful when outlier
+  runs (cold caches, GC pauses) skew the average.
+- **`"sum"`** -- Cumulative time per node across all runs (not averaged). Count
+  is the total number of invocations (distinct nodes x runs). Each (node, run)
+  pair becomes a separate entry with that run's tensor-shape signature. This
+  mode is designed for **decoding workloads** where tensor sizes grow by one
+  each step -- the report shows every distinct shape seen across steps.
+
+### Profiling in dict/json format
+
+With `format="dict"` (or `"json"`), the profiling section is structured as:
+
+```python
+ctx.data["profiling"][cache_key] = {
+    "total_time": ...,
+    "num_measurements": ...,
+    "reporting_mode": "all",
+    "ops": [
+        {
+            "op_name": "onnx.Conv",
+            "count": 3,
+            "avg_time": 0.005,
+            "total_time": 0.015,
+            "percentage": 60.0,
+            # detail >= 1:
+            "signatures": [
+                {
+                    "signature": "1x3x32x32xf32, 16x3x3x3xf32",
+                    "count": 2,
+                    "avg_time": 0.006,
+                    "total_time": 0.012,
+                    "percentage": 80.0,   # local to op
+                    # detail >= 2:
+                    "nodes": [
+                        {"node_name": "/conv1", "time": 0.007, "percentage": 58.3},
+                        {"node_name": "/conv2", "time": 0.005, "percentage": 41.7},
+                    ]
+                },
+            ]
+        },
+    ]
+}
+```
+
+Percentages inside `signatures` are local to the parent op; percentages inside
+`nodes` are local to the parent signature group.
+
+### Sum mode for decoding
+
+During autoregressive decoding, each generation step increases the sequence
+length by one, so the same op node runs with a different tensor shape each
+step. Using `reporting="sum"` captures this:
+
+```python
+with torch_onnxmlir.explain_context(
+    profiling={"detail": 1, "warmup": 1, "reporting": "sum"},
+) as ctx:
+    with torch.no_grad():
+        output = model.generate(**tokens, max_new_tokens=20)
+    print(ctx)
+```
+
+The report will show every distinct shape that appeared across decoding steps,
+grouped by op type, with cumulative times. For example, an `onnx.MatMul` node
+that ran 20 times with shapes `1x1x128xf32`, `1x2x128xf32`, ...,
+`1x20x128xf32` will have `count: 20` and 20 signature entries.
 
 ## Installation
 
