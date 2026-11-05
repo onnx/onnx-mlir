@@ -759,31 +759,6 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
  * asserts are present to ensure that we do not perform a null ptr access.
  */
 
-#ifdef OM_EXECUTION_SESSION_ONLY
-/* When compiling for the Execution Session, omTensorCreateUntyped is not
- * exported (it is compiler-internal), but the omTensorCreateWithShape<T>
- * template needs it. Provide a static (file-scope) version here. */
-static OMTensor *omTensorCreateUntyped(int64_t rank) {
-  OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if (!omt)
-    return NULL;
-  if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (omt->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    omt->_allocatedPtr = NULL;
-    omt->_alignedPtr = NULL;
-    omt->_offset = 0;
-    omt->_dataType = ONNX_TYPE_UNDEFINED;
-    omt->_rank = rank;
-    omt->_owning = false;
-  } else {
-    free(omt->_shape);
-    free(omt);
-    return NULL;
-  }
-  return omt;
-}
-#endif /* OM_EXECUTION_SESSION_ONLY */
-
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
