@@ -109,9 +109,7 @@ def _has_maccel_nnpa(compile_options: str) -> bool:
             opts = cfg.get("compile_options", [])
             if isinstance(opts, list):
                 for opt in opts:
-                    if _re.search(
-                        r"-{1,2}maccel[=\s]+NNPA", opt, _re.IGNORECASE
-                    ):
+                    if _re.search(r"-{1,2}maccel[=\s]+NNPA", opt, _re.IGNORECASE):
                         return True
         except (OSError, json.JSONDecodeError, TypeError):
             pass
@@ -446,9 +444,13 @@ class TorchONNXMLIR:
                 kwargs = dict(kwargs)
                 kwargs["options"] = dict(kwargs["options"])
                 if _has_maccel_nnpa(co):
-                    kwargs["options"]["compile_options"] = co + " --profile-ir-with-sig=ZHigh"
+                    kwargs["options"]["compile_options"] = (
+                        co + " --profile-ir-with-sig=ZHigh"
+                    )
                 else:
-                    kwargs["options"]["compile_options"] = co + " --profile-ir-with-sig=Onnx"
+                    kwargs["options"]["compile_options"] = (
+                        co + " --profile-ir-with-sig=Onnx"
+                    )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")

@@ -291,9 +291,7 @@ def _build_op_summary(
         cpu_time = 0.0
         accel_time = 0.0
         for op, t in op_times.items():
-            if re.match(r"zhigh\.", op) and not re.search(
-                r"Stick|Unstick", op
-            ):
+            if re.match(r"zhigh\.", op) and not re.search(r"Stick|Unstick", op):
                 accel_time += t
             else:
                 cpu_time += t
@@ -446,12 +444,8 @@ def format_profiling_table(
                 sorted_nts = sorted(nts, key=lambda x: x.time, reverse=True)
                 for ni, nt in enumerate(sorted_nts):
                     is_last_node = ni == len(sorted_nts) - 1
-                    node_prefix = child_prefix + (
-                        "└── " if is_last_node else "├── "
-                    )
-                    node_pct = (
-                        nt.time / sig_total * 100 if sig_total > 0 else 0.0
-                    )
+                    node_prefix = child_prefix + ("└── " if is_last_node else "├── ")
+                    node_pct = nt.time / sig_total * 100 if sig_total > 0 else 0.0
                     tree.append(
                         "{}{} ({:.4f}, {:.1f}%)".format(
                             node_prefix,

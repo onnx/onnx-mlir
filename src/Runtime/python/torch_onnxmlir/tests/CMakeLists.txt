@@ -56,6 +56,16 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_hash_key.py
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_profiling.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_profiling.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_profiling_parser.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_profiling_parser.py
+  )
+
 # Use ctest.
 enable_testing()
 
@@ -64,6 +74,8 @@ set(FEATURE_LIST
   "${CMAKE_CURRENT_BINARY_DIR}/test_explain_context.py"
   "${CMAKE_CURRENT_BINARY_DIR}/test_explain_simple_model.py"
   "${CMAKE_CURRENT_BINARY_DIR}/test_hash_key.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_profiling.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_profiling_parser.py"
 )
 
 foreach(testfile ${FEATURE_LIST})

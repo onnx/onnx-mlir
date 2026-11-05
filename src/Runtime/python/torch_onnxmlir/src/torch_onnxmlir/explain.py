@@ -420,13 +420,9 @@ def _format_as_dict(
                         }
                         if profiling_detail >= 2:
                             node_list = []
-                            for nt in sorted(
-                                nts, key=lambda x: x.time, reverse=True
-                            ):
+                            for nt in sorted(nts, key=lambda x: x.time, reverse=True):
                                 node_pct = (
-                                    nt.time / sig_total * 100
-                                    if sig_total > 0
-                                    else 0.0
+                                    nt.time / sig_total * 100 if sig_total > 0 else 0.0
                                 )
                                 node_list.append(
                                     {
@@ -437,9 +433,7 @@ def _format_as_dict(
                                 )
                             sig_entry["nodes"] = node_list
                         sig_list.append(sig_entry)
-                    sig_list.sort(
-                        key=lambda x: x["total_time"], reverse=True
-                    )
+                    sig_list.sort(key=lambda x: x["total_time"], reverse=True)
                     op_entry["signatures"] = sig_list
                 ops_list.append(op_entry)
 
@@ -550,9 +544,7 @@ class ExplainContext:
             import torch._dynamo
 
             config._profiling_enabled = True
-            self._previous_instrument_file = os.environ.get(
-                "ONNX_MLIR_INSTRUMENT_FILE"
-            )
+            self._previous_instrument_file = os.environ.get("ONNX_MLIR_INSTRUMENT_FILE")
             torch._dynamo.reset()
 
         return self
@@ -562,9 +554,7 @@ class ExplainContext:
         # Parse profiling output if profiling was active.
         if self.profiling:
             if self._previous_instrument_file is not None:
-                os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = (
-                    self._previous_instrument_file
-                )
+                os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = self._previous_instrument_file
             else:
                 os.environ.pop("ONNX_MLIR_INSTRUMENT_FILE", None)
             self._collect_profiling_data()
