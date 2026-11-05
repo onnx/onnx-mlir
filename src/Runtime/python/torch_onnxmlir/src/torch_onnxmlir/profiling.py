@@ -32,6 +32,17 @@ class OpTiming:
 
 
 @dataclass
+class NodeTiming:
+    """Timing data for a single node instance."""
+
+    node_name: str
+    op_name: str
+    time: float
+    percentage: float
+    signature: Optional[str] = None
+
+
+@dataclass
 class ProfilingResult:
     """Complete profiling result from one or more inference runs."""
 
@@ -42,6 +53,7 @@ class ProfilingResult:
     reporting_mode: str
     cpu_time: Optional[float] = None
     accel_time: Optional[float] = None
+    node_timings: List[NodeTiming] = field(default_factory=list)
 
 
 # Regex for ==PERF-REPORT==, <op>, <node>, <details...>
@@ -62,6 +74,12 @@ def _get_op_from_timing_key(timing_key: str) -> str:
     p = re.match(r"(.*)_=_(.*)", timing_key)
     assert p is not None
     return p[1]
+
+
+def _get_node_name_from_timing_key(timing_key: str) -> str:
+    p = re.match(r"(.*)_=_(.*)", timing_key)
+    assert p is not None
+    return p[2]
 
 
 def _parse_perf_lines(
@@ -156,20 +174,65 @@ def _parse_perf_lines(
     return node_time_dict, tot_time
 
 
+_SIG_REPORT_RE = re.compile(
+    r"^==SIG-REPORT==,\s*([0-9a-zA-Z_.\-]+)\s*,\s*([^,]*),\s*(.*)"
+)
+
+
+def _parse_sig_lines(lines) -> Dict[str, str]:
+    """Parse ==SIG-REPORT== lines and return {timing_key: signature_string}."""
+    sig_dict: Dict[str, str] = {}
+    for line in lines:
+        m = _SIG_REPORT_RE.match(line.strip() if isinstance(line, str) else line)
+        if m is None:
+            continue
+        op = m[1]
+        node_name = m[2].strip()
+        details = m[3]
+        parts = details.split(",", 1)
+        if len(parts) > 1 and parts[0].strip() == "sig":
+            sig_str = parts[1].strip()
+        else:
+            sig_str = details.strip()
+        key = _get_timing_key(op, node_name)
+        if key not in sig_dict:
+            sig_dict[key] = sig_str
+    return sig_dict
+
+
 def _build_op_summary(
-    node_time_dict: Dict[str, float], tot_time: float
-) -> Tuple[List[OpTiming], Optional[float], Optional[float]]:
+    node_time_dict: Dict[str, float],
+    tot_time: float,
+    sig_dict: Optional[Dict[str, str]] = None,
+) -> Tuple[List[OpTiming], Optional[float], Optional[float], List[NodeTiming]]:
     """Aggregate per-node timings into per-op-type summaries."""
+    if sig_dict is None:
+        sig_dict = {}
+
     op_times: Dict[str, float] = {}
     op_counts: Dict[str, int] = {}
+    node_timings: List[NodeTiming] = []
 
     for timing_key, time_val in node_time_dict.items():
         op = _get_op_from_timing_key(timing_key)
+        node_name = _get_node_name_from_timing_key(timing_key)
+        pct = (time_val / tot_time * 100) if tot_time > 0 else 0.0
+        node_timings.append(
+            NodeTiming(
+                node_name=node_name,
+                op_name=op,
+                time=time_val,
+                percentage=pct,
+                signature=sig_dict.get(timing_key),
+            )
+        )
         if op not in op_times:
             op_times[op] = 0.0
             op_counts[op] = 0
         op_times[op] += time_val
         op_counts[op] += 1
+
+    node_timings.sort(key=lambda x: x.time, reverse=True)
 
     timings = []
     for op in op_times:
@@ -204,7 +267,7 @@ def _build_op_summary(
             else:
                 cpu_time += t
 
-    return timings, cpu_time, accel_time
+    return timings, cpu_time, accel_time, node_timings
 
 
 def parse_profiling_output(
@@ -224,6 +287,12 @@ def parse_profiling_output(
     Returns:
         ProfilingResult with per-op timing breakdown, or None if no data.
     """
+    valid_modes = ("quartile", "all", "sum")
+    if reporting not in valid_modes:
+        raise ValueError(
+            "reporting must be one of {}, got {!r}".format(valid_modes, reporting)
+        )
+
     if file_path is not None:
         with open(file_path, "r") as f:
             lines = f.readlines()
@@ -239,7 +308,10 @@ def parse_profiling_output(
     if not node_time_dict and tot_time == 0.0:
         return None
 
-    timings, cpu_time, accel_time = _build_op_summary(node_time_dict, tot_time)
+    sig_dict = _parse_sig_lines(lines)
+    timings, cpu_time, accel_time, node_timings = _build_op_summary(
+        node_time_dict, tot_time, sig_dict
+    )
 
     # Count measurement sets used.
     start_count = sum(1 for line in lines if _START_REPORT_RE.search(line))
@@ -258,15 +330,20 @@ def parse_profiling_output(
         reporting_mode=reporting,
         cpu_time=cpu_time,
         accel_time=accel_time,
+        node_timings=node_timings,
     )
 
 
-def format_profiling_table(result: ProfilingResult, time_unit: str = "ms") -> str:
+def format_profiling_table(
+    result: ProfilingResult, time_unit: str = "ms", detail_level: int = 0
+) -> str:
     """Format a ProfilingResult as a human-readable table.
 
     Args:
         result: The profiling result to format.
         time_unit: Time unit for display -- "s", "ms", or "us".
+        detail_level: 0 = op summary only, 1 = + signature breakdown,
+                      2 = + individual nodes.
 
     Returns:
         Formatted string.
@@ -286,6 +363,56 @@ def format_profiling_table(result: ProfilingResult, time_unit: str = "ms") -> st
         )
     )
     lines.append("")
+
+    nodes_by_op: Dict[str, List[NodeTiming]] = {}
+    for nt in result.node_timings:
+        nodes_by_op.setdefault(nt.op_name, []).append(nt)
+
+    def _tree_lines_for_op(op: OpTiming, dlevel: int) -> List[str]:
+        op_nodes = nodes_by_op.get(op.op_name, [])
+        if not op_nodes:
+            return []
+        sig_groups: Dict[str, List[NodeTiming]] = {}
+        for nt in op_nodes:
+            sig_groups.setdefault(nt.signature, []).append(nt)
+        sig_items = []
+        for sig_key, nts in sig_groups.items():
+            total = sum(n.time for n in nts)
+            sig_items.append((sig_key, nts, total))
+        sig_items.sort(key=lambda x: x[2], reverse=True)
+
+        tree = []
+        for si, (sig_key, nts, sig_total) in enumerate(sig_items):
+            is_last_sig = si == len(sig_items) - 1
+            prefix = "└── " if is_last_sig else "├── "
+            child_prefix = "    " if is_last_sig else "│   "
+            sig_label = sig_key if sig_key is not None else "(no signature)"
+            op_total = op.total_time if op.total_time > 0 else 1.0
+            local_pct = sig_total / op_total * 100
+            tree.append(
+                "{}{} ({}, {:.4f}, {:.1f}%)".format(
+                    prefix, sig_label, len(nts), sig_total * scale, local_pct
+                )
+            )
+            if dlevel >= 2:
+                sorted_nts = sorted(nts, key=lambda x: x.time, reverse=True)
+                for ni, nt in enumerate(sorted_nts):
+                    is_last_node = ni == len(sorted_nts) - 1
+                    node_prefix = child_prefix + (
+                        "└── " if is_last_node else "├── "
+                    )
+                    node_pct = (
+                        nt.time / sig_total * 100 if sig_total > 0 else 0.0
+                    )
+                    tree.append(
+                        "{}{} ({:.4f}, {:.1f}%)".format(
+                            node_prefix,
+                            nt.node_name,
+                            nt.time * scale,
+                            node_pct,
+                        )
+                    )
+        return tree
 
     try:
         from tabulate import tabulate
@@ -310,7 +437,6 @@ def format_profiling_table(result: ProfilingResult, time_unit: str = "ms") -> st
         ]
         lines.append(tabulate(rows, headers=headers, tablefmt="grid"))
     except ImportError:
-        # Fallback: simple aligned output with dynamic op name width.
         op_w = max(
             len("Op"),
             max((len(op.op_name) for op in result.op_timings), default=0),
@@ -338,6 +464,23 @@ def format_profiling_table(result: ProfilingResult, time_unit: str = "ms") -> st
                 )
             )
             lines.append("  " + "-" * (len(hdr) - 2))
+
+    if detail_level >= 1 and result.node_timings:
+        lines.append("")
+        lines.append("Per-node breakdown:")
+        lines.append("")
+        for op in result.op_timings:
+            lines.append(
+                "{} (count: {}, avg: {:.4f}, total: {:.4f}, {:.1f}%)".format(
+                    op.op_name,
+                    op.count,
+                    op.avg_time * scale,
+                    op.total_time * scale,
+                    op.percentage,
+                )
+            )
+            for tree_line in _tree_lines_for_op(op, detail_level):
+                lines.append(tree_line)
 
     lines.append("")
     lines.append(

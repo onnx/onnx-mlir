@@ -94,6 +94,30 @@ global_session_cache = None
 global_uncompilable_graphs = set()
 
 
+def _has_maccel_nnpa(compile_options: str) -> bool:
+    """Check if -maccel=NNPA is set, either directly or inside a --config-file."""
+    if _re.search(r"-{1,2}maccel[=\s]+NNPA", compile_options, _re.IGNORECASE):
+        return True
+    m = _re.search(r"--config-file[=\s]+(\S+)", compile_options)
+    if m:
+        import json
+
+        config_path = m.group(1)
+        try:
+            with open(config_path, "r") as f:
+                cfg = json.load(f)
+            opts = cfg.get("compile_options", [])
+            if isinstance(opts, list):
+                for opt in opts:
+                    if _re.search(
+                        r"-{1,2}maccel[=\s]+NNPA", opt, _re.IGNORECASE
+                    ):
+                        return True
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    return False
+
+
 # Check if the graph has no inputs or outputs or not.
 def has_no_inputs_or_outputs(gm: torch.fx.GraphModule):
     def is_none_like(x):
@@ -421,7 +445,7 @@ class TorchONNXMLIR:
             if "--profile-ir" not in co:
                 kwargs = dict(kwargs)
                 kwargs["options"] = dict(kwargs["options"])
-                if _re.search(r"-{1,2}maccel[=\s]+NNPA", co, _re.IGNORECASE):
+                if _has_maccel_nnpa(co):
                     kwargs["options"]["compile_options"] = co + " --profile-ir-with-sig=ZHigh"
                 else:
                     kwargs["options"]["compile_options"] = co + " --profile-ir-with-sig=Onnx"

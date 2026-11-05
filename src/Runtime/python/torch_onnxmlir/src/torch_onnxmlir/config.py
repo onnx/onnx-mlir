@@ -51,4 +51,8 @@ _profiling_enabled = False
 profiling_warmup = 0
 
 # Profiling reporting mode: "quartile", "all", or "sum".
-profiling_reporting = "quartile"
+profiling_reporting = "all"
+
+# Profiling detail level for table output:
+#   0 = op summary only, 1 = + signature breakdown, 2 = + individual nodes.
+profiling_detail = 0
