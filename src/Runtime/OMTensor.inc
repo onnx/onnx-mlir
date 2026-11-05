@@ -4,7 +4,7 @@
 
 //===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,6 +40,9 @@
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
+#ifdef OM_EXECUTION_SESSION_ONLY
+#include "src/Runtime/OMTensorInternal.h"
+#endif
 
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
@@ -199,10 +202,18 @@ OMTensor *omTensorCreate(
   // Using signed indices helps detect when index falls below 0.
   for (int64_t i = rank - 1; i >= 0; i--) {
     tensor->_shape[i] = shape[i];
-    if (i == rank - 1)
+    if (i == rank - 1) {
       tensor->_strides[i] = 1;
-    else
-      tensor->_strides[i] = tensor->_strides[i + 1] * tensor->_shape[i + 1];
+    } else {
+      if (__builtin_mul_overflow(
+              tensor->_strides[i + 1], tensor->_shape[i + 1],
+              &tensor->_strides[i])) {
+        free(tensor->_shape);
+        free(tensor->_strides);
+        free(tensor);
+        return NULL;
+      }
+    }
   }
   return tensor;
 }
@@ -232,6 +243,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, const int64_t *shape,
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
+#ifndef OM_EXECUTION_SESSION_ONLY
 OMTensor *omTensorCreateUntyped(int64_t rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   if (!omt)
@@ -252,6 +264,7 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
 
   return omt;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 OMTensor *omTensorCreateEmpty(
     const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
@@ -313,6 +326,7 @@ void *omTensorGetDataPtr(const OMTensor *tensor) {
  * allocatedPtr.
  *
  */
+#ifndef OM_EXECUTION_SESSION_ONLY
 void omTensorSetDataPtr(
     OMTensor *tensor, int64_t owning, void *allocatedPtr, void *alignedPtr) {
   if (!tensor)
@@ -328,6 +342,7 @@ void omTensorSetDataPtr(
   else
     tensor->_alignedPtr = allocatedPtr;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data shape getter */
 const int64_t *omTensorGetShape(const OMTensor *tensor) {
@@ -336,30 +351,18 @@ const int64_t *omTensorGetShape(const OMTensor *tensor) {
   return tensor->_shape;
 }
 
-/* OMTensor data shape setter */
-void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
-  if (!tensor || !shape)
-    return;
-  for (int64_t i = 0; i < tensor->_rank; i++)
-    tensor->_shape[i] = shape[i];
-}
-
+#ifndef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data strides getter */
 const int64_t *omTensorGetStrides(const OMTensor *tensor) {
   if (!tensor)
     return NULL;
   return tensor->_strides;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
-/* OMTensor data strides setter */
-void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
-  if (!tensor || !strides)
-    return;
-  for (int64_t i = 0; i < tensor->_rank; i++)
-    tensor->_strides[i] = strides[i];
-}
-
-/* OMTensor data strides setter with PyArray stride values */
+#ifdef OM_EXECUTION_SESSION_ONLY
+/* OMTensor data strides setter with PyArray stride values.
+ * For OMTensorUtils / Python execution session only. */
 void omTensorSetStridesWithPyArrayStrides(
     OMTensor *tensor, const int64_t *stridesInBytes) {
   if (!tensor || !stridesInBytes)
@@ -373,6 +376,7 @@ void omTensorSetStridesWithPyArrayStrides(
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = stridesInBytes[i] / dataTypeSize;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data type getter */
 OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor) {
@@ -381,12 +385,14 @@ OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor) {
   return tensor->_dataType;
 }
 
+#ifndef OM_EXECUTION_SESSION_ONLY
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
   if (!tensor)
     return;
   tensor->_dataType = dataType;
 }
+#endif /* OM_EXECUTION_SESSION_ONLY */
 
 /* OMTensor data buffer size getter */
 int64_t omTensorGetBufferSize(const OMTensor *tensor) {
@@ -482,7 +488,9 @@ static void printSignature(FILE *fout, const OMTensor *tensor) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(tensor);
   const int64_t rank = omTensorGetRank(tensor);
   const int64_t *shape = omTensorGetShape(tensor);
-  const int64_t *strides = omTensorGetStrides(tensor);
+  /* Access _strides directly: omTensorGetStrides is a compiler-internal
+   * function excluded from the OM_EXECUTION_SESSION_ONLY build. */
+  const int64_t *strides = tensor ? tensor->_strides : NULL;
 
   fprintf(fout, "\trank = %lld\n", (long long)rank);
   fprintf(fout, "\tdataType = %s\n", getDataTypeName(dataType));
@@ -754,41 +762,14 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
-  /* Create a OMTensor with data shape and strides allocated */
-  auto omt = omTensorCreateUntyped(shape.size());
-  if (omt == NULL)
-    return NULL;
-
-  /* Allocate data buffer */
-  omt->_rank = shape.size();
-  if ((omt->_allocatedPtr = malloc(
-           getNumElems(shape.data(), omt->_rank) * sizeof(T))) == NULL) {
-    omTensorDestroy(omt);
-    return NULL;
-  }
-
-  omt->_alignedPtr = omt->_allocatedPtr;
-  omt->_offset = 0;
-
-  /* Copy shape, _shape already allocated by omTensorCreate */
-  copy(shape.begin(), shape.end(), omt->_shape);
-
-  /* Compute and copy dataStrides, _strides already allocated by
-   * omTensorCreateUntyped
-   */
-  auto computedStrides = computeStridesFromShape(omt->_shape, omt->_rank);
-  copy(computedStrides.begin(), computedStrides.end(), omt->_strides);
-
   /* Convert CPP type to ONNX type */
+  OM_DATA_TYPE dtype;
   try {
-    omt->_dataType = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
+    dtype = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
   } catch (const std::out_of_range &) {
-    omt->_dataType = ONNX_TYPE_UNDEFINED;
+    dtype = ONNX_TYPE_UNDEFINED;
   }
-
-  /* Set flag for destructor */
-  omt->_owning = true;
-  return omt;
+  return omTensorCreateEmpty(shape.data(), shape.size(), dtype);
 }
 
 // Static variables used by omDefineSeed and omTensorCreateWithRandomData.
