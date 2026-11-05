@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <assert.h>
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -196,6 +195,7 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
   zdnnx_tile tx, ty;
 
   // Call zdnn op on each tile.
+  zdnn_status status = ZDNN_UNAVAILABLE_FUNCTION;
   uint32_t num_tiles_e4 = zdnnx_get_num_tiles(&si_x, E4);
   uint32_t num_tiles_e3 = zdnnx_get_num_tiles(&si_x, E3);
   uint32_t num_tiles_e2 = zdnnx_get_num_tiles(&si_x, E2);
@@ -208,7 +208,6 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
           zdnnx_set_tile(&si_y, &ty, tile_buff_y, e4, e3, e2, e1);
           zdnnx_copy_data_to_tile(&tx);
 
-          zdnn_status status = ZDNN_UNAVAILABLE_FUNCTION;
           if (op_type == ZDNNX_EXP_OP)
             status = zdnn_exp(&tx.data, &ty.data);
           else if (op_type == ZDNNX_GELU_OP)
@@ -226,8 +225,6 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
             status = zdnn_sqrt(&tx.data, &ty.data);
           else if (op_type == ZDNNX_TANH_OP)
             status = zdnn_tanh(&tx.data, &ty.data);
-          if (status != ZDNN_OK)
-            return status;
 
           zdnnx_copy_data_to_full(&ty);
         }
@@ -239,7 +236,7 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
   zdnnx_free_buffer(tile_buff_x);
   zdnnx_free_buffer(tile_buff_y);
 
-  return ZDNN_OK;
+  return status;
 }
 
 zdnn_status zdnnx_seq_binary_elementwise(const zdnn_ztensor *input_a,
@@ -296,6 +293,7 @@ zdnn_status zdnnx_seq_binary_elementwise(const zdnn_ztensor *input_a,
   zdnnx_tile ta, tb, ty;
 
   // Call zdnn op on each tile.
+  zdnn_status status = ZDNN_UNAVAILABLE_FUNCTION;
   uint32_t num_tiles_e4 = zdnnx_get_num_tiles(&si_a, E4);
   uint32_t num_tiles_e3 = zdnnx_get_num_tiles(&si_a, E3);
   uint32_t num_tiles_e2 = zdnnx_get_num_tiles(&si_a, E2);
@@ -311,7 +309,6 @@ zdnn_status zdnnx_seq_binary_elementwise(const zdnn_ztensor *input_a,
           zdnnx_copy_data_to_tile(&ta);
           zdnnx_copy_data_to_tile(&tb);
 
-          zdnn_status status;
           if (op_type == ZDNNX_ADD_OP)
             status = zdnn_add(&ta.data, &tb.data, &ty.data);
           else if (op_type == ZDNNX_SUB_OP)
@@ -324,10 +321,6 @@ zdnn_status zdnnx_seq_binary_elementwise(const zdnn_ztensor *input_a,
             status = zdnn_max(&ta.data, &tb.data, &ty.data);
           else if (op_type == ZDNNX_MIN_OP)
             status = zdnn_min(&ta.data, &tb.data, &ty.data);
-          else
-            status = ZDNN_UNAVAILABLE_FUNCTION;
-          if (status != ZDNN_OK)
-            return status;
 
           zdnnx_copy_data_to_full(&ty);
         }
@@ -340,7 +333,7 @@ zdnn_status zdnnx_seq_binary_elementwise(const zdnn_ztensor *input_a,
   zdnnx_free_buffer(tile_buff_b);
   zdnnx_free_buffer(tile_buff_y);
 
-  return ZDNN_OK;
+  return status;
 }
 
 zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
@@ -379,6 +372,7 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
 
   // Call zdnn_softmax on each tile. Not use save_area.
   // TODO: could we reuse save_area in particular in the parallel scenario?
+  zdnn_status status = ZDNN_OK;
   uint32_t num_tiles_e4 = zdnnx_get_num_tiles(&si_x, E4);
   uint32_t num_tiles_e3 = zdnnx_get_num_tiles(&si_x, E3);
   uint32_t num_tiles_e2 = zdnnx_get_num_tiles(&si_x, E2);
@@ -389,8 +383,7 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
         zdnnx_set_tile(&si_y, &ty, tile_buff_y, e4, e3, e2, 0);
 
         zdnnx_copy_data_to_tile(&tx);
-        zdnn_status status = zdnn_softmax(&tx.data, NULL, act_func, &ty.data);
-        assert(status == ZDNN_OK);
+        status = zdnn_softmax(&tx.data, NULL, act_func, &ty.data);
         zdnnx_copy_data_to_full(&ty);
       }
     }
@@ -400,7 +393,7 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
   zdnnx_free_buffer(tile_buff_x);
   zdnnx_free_buffer(tile_buff_y);
 
-  return ZDNN_OK;
+  return status;
 }
 
 static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
@@ -477,6 +470,7 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
 
   // Call zdnn_matmul_op on each tile.
   // For each output tile at index (m, n): Y(m, n) = A(m, K) * B(K, n).
+  zdnn_status status = ZDNN_OK;
   uint32_t B = zdnnx_get_num_tiles(&si_a, E4);
   uint32_t M = zdnnx_get_num_tiles(&si_a, E2);
   uint32_t N = zdnnx_get_num_tiles(&si_b, E1);
@@ -500,9 +494,8 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
         zdnnx_set_tile(&si_y, &ty, tile_buff_y, b, 0, m, n);
 
         /* Operation */
-        zdnn_status status = call_zdnn_matmul_op(&ta.data, &tb.data, &tc.data,
-            transpose_a, transpose_b, op_type, &ty.data, is_bcast);
-        assert(status == ZDNN_OK);
+        status = call_zdnn_matmul_op(&ta.data, &tb.data, &tc.data, transpose_a,
+            transpose_b, op_type, &ty.data, is_bcast);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */
         zdnnx_copy_data_to_full(&ty);
@@ -515,7 +508,7 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
   zdnnx_free_buffer(tile_buff_b);
   zdnnx_free_buffer(tile_buff_c);
   zdnnx_free_buffer(tile_buff_y);
-  return ZDNN_OK;
+  return status;
 }
 
 #define PAGE_4K 4096
@@ -707,30 +700,30 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     status = create_2ds_zero_bias(B, SK, &bias1);
   if (status == ZDNN_OK) {
     if (transpose_kt)
-      status = zdnnx_matmul_transpose_op(
+      zdnnx_matmul_transpose_op(
           Q, KT, &bias1, 0, 1, MATMUL_OP_ADDITION, &scores);
     else
-      status = zdnnx_matmul_op(Q, KT, &bias1, MATMUL_OP_ADDITION, &scores);
+      zdnnx_matmul_op(Q, KT, &bias1, MATMUL_OP_ADDITION, &scores);
   }
   free_ztensor(&bias1);
 
   // masks = scores + Mask
   if (status == ZDNN_OK)
-    status = zdnnx_add(&scores, Mask, &scores);
+    zdnnx_add(&scores, Mask, &scores);
 
   // probs = softmax(scores);
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(B, S, SK, &probs, NULL);
 
   if (status == ZDNN_OK)
-    status = zdnnx_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
+    zdnnx_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
   free_ztensor(&scores);
 
   // output = probs * V
   if (status == ZDNN_OK)
     status = create_2ds_zero_bias(B, HV, &bias2);
   if (status == ZDNN_OK)
-    status = zdnnx_matmul_op(&probs, V, &bias2, MATMUL_OP_ADDITION, output);
+    zdnnx_matmul_op(&probs, V, &bias2, MATMUL_OP_ADDITION, output);
   free_ztensor(&bias2);
   free_ztensor(&probs);
 
@@ -881,7 +874,7 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
     zdnnx_tile tq, tkt, tmask, tv, tout;
 
-    for (uint32_t b = 0; b < num_tiles_batch && status == ZDNN_OK; ++b) {
+    for (uint32_t b = 0; b < num_tiles_batch; ++b) {
       zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
       /* Copy if reuse is off. */
       zdnnx_copy_data_to_tile(&tq);
@@ -899,37 +892,27 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
       zdnnx_copy_data_to_tile(&tv);
 
       // 1. scores = Q * KT[0] + Mask[0]
-      if (status == ZDNN_OK)
-        status = call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
-            transpose_kt, MATMUL_OP_ADDITION, &scratch_tile, false);
-      if (status == ZDNN_OK)
-        status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
+      call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false, transpose_kt,
+          MATMUL_OP_ADDITION, &scratch_tile, false);
+      zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
       // 2. max_row = row_max(scores) -- directly into max_row
-      if (status == ZDNN_OK)
-        status =
-            zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &max_row_zt);
+      zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &max_row_zt);
 
       // 3. P = exp(scores - max_row)
-      if (status == ZDNN_OK)
-        broadcast_column_to_tile(&max_row_zt, &p_tile);
-      if (status == ZDNN_OK)
-        status = zdnn_sub(&scratch_tile, &p_tile, &p_tile);
-      if (status == ZDNN_OK)
-        status = zdnn_exp(&p_tile, &p_tile);
+      broadcast_column_to_tile(&max_row_zt, &p_tile);
+      zdnn_sub(&scratch_tile, &p_tile, &p_tile);
+      zdnn_exp(&p_tile, &p_tile);
 
       // 4. D = row_sum(P) -- directly into sum_row
-      if (status == ZDNN_OK)
-        status = zdnn_matmul_op(
-            &p_tile, &ones_zt, &bias_1, MATMUL_OP_ADDITION, &sum_row_zt);
+      zdnn_matmul_op(
+          &p_tile, &ones_zt, &bias_1, MATMUL_OP_ADDITION, &sum_row_zt);
 
       // 5. O = P * V[0] -- directly into o_acc
-      if (status == ZDNN_OK)
-        status = zdnn_matmul_op(
-            &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &o_acc);
+      zdnn_matmul_op(&p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &o_acc);
 
       // -- Remaining tiles (c=1..N_t-1): full online softmax update.
-      for (uint32_t c = 1; c < num_tiles_sequence && status == ZDNN_OK; ++c) {
+      for (uint32_t c = 1; c < num_tiles_sequence; ++c) {
         // If the last tile is partial, allocate smaller intermediate buffers.
         // - ones_zt [1, T, 1]
         // - scratch_tile [1, S, T]
@@ -946,8 +929,7 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
           // ones [1, T, 1] for row-sum matmul.
           // Reuse fp32_buf that is larger than last_T.
-          if (status == ZDNN_OK)
-            status = create_3ds_ztensor(1, last_T, 1, &ones_zt, fp32_buf);
+          status = create_3ds_ztensor(1, last_T, 1, &ones_zt, fp32_buf);
           // scratch_tile [1, S, T] -- holds scores.
           if (status == ZDNN_OK)
             status = create_3ds_ztensor(1, S, last_T, &scratch_tile, NULL);
@@ -974,64 +956,63 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
         // 1. scores = Q * KT[c] + Mask[c]  [S, T]
         if (status == ZDNN_OK)
-          status = call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
+          call_zdnn_matmul_op(&tq.data, &tkt.data, &bias_qkt, false,
               transpose_kt, MATMUL_OP_ADDITION, &scratch_tile, false);
         if (status == ZDNN_OK)
-          status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
+          zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
         // 2. block_max = row_max(scores)  [S, 1]
         if (status == ZDNN_OK)
-          status = zdnn_reduce(
-              &scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
+          zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
 
         // 3. Update running max via pointer swap.
         if (status == ZDNN_OK) {
           void *tmp = old_max_zt.buffer;
           old_max_zt.buffer = max_row_zt.buffer;
           max_row_zt.buffer = tmp;
-          status = zdnn_max(&old_max_zt, &block_max_zt, &max_row_zt);
+          zdnn_max(&old_max_zt, &block_max_zt, &max_row_zt);
         }
 
         // 4. correction = exp(old_max - new_max)  [S, 1]
         if (status == ZDNN_OK)
-          status = zdnn_sub(&old_max_zt, &max_row_zt, &correction_zt);
+          zdnn_sub(&old_max_zt, &max_row_zt, &correction_zt);
         if (status == ZDNN_OK)
-          status = zdnn_exp(&correction_zt, &correction_zt);
+          zdnn_exp(&correction_zt, &correction_zt);
 
         // 5. D = D * correction
         if (status == ZDNN_OK)
-          status = zdnn_mul(&sum_row_zt, &correction_zt, &sum_row_zt);
+          zdnn_mul(&sum_row_zt, &correction_zt, &sum_row_zt);
 
         // 6. P = exp(scores - max_row)  [S, T]
         if (status == ZDNN_OK)
           broadcast_column_to_tile(&max_row_zt, &p_tile);
         if (status == ZDNN_OK)
-          status = zdnn_sub(&scratch_tile, &p_tile, &p_tile);
+          zdnn_sub(&scratch_tile, &p_tile, &p_tile);
         if (status == ZDNN_OK)
-          status = zdnn_exp(&p_tile, &p_tile);
+          zdnn_exp(&p_tile, &p_tile);
 
         // 7. D = D + row_sum(P)  (reuse block_max_zt as tile_rowsum)
         if (status == ZDNN_OK)
-          status = zdnn_matmul_op(
+          zdnn_matmul_op(
               &p_tile, &ones_zt, &bias_1, MATMUL_OP_ADDITION, &block_max_zt);
         if (status == ZDNN_OK)
-          status = zdnn_add(&sum_row_zt, &block_max_zt, &sum_row_zt);
+          zdnn_add(&sum_row_zt, &block_max_zt, &sum_row_zt);
 
         // 8. O = O * correction + P * V[c]
         if (status == ZDNN_OK) {
           broadcast_column_to_tile(&correction_zt, &pv_tmp);
-          status = zdnn_mul(&o_acc, &pv_tmp, &o_acc);
+          zdnn_mul(&o_acc, &pv_tmp, &o_acc);
         }
         if (status == ZDNN_OK)
-          status = zdnn_matmul_op(
+          zdnn_matmul_op(
               &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &pv_tmp);
         if (status == ZDNN_OK)
-          status = zdnn_add(&o_acc, &pv_tmp, &o_acc);
+          zdnn_add(&o_acc, &pv_tmp, &o_acc);
       }
 
       // Restore full-size tile buffers after processing a tail tile so
       // that the next batch iteration starts with correctly-sized buffers.
-      if (has_tail_tile && status == ZDNN_OK) {
+      if (has_tail_tile) {
         free_ztensor(&ones_zt);
         free_ztensor(&scratch_tile);
         free_ztensor(&p_tile);
@@ -1046,11 +1027,10 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
       }
 
       // Final normalization: output = O / D.
-      if (status == ZDNN_OK)
-        broadcast_column_to_tile(&sum_row_zt, &pv_tmp);
       if (status == ZDNN_OK) {
+        broadcast_column_to_tile(&sum_row_zt, &pv_tmp);
         zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
-        status = zdnn_div(&o_acc, &pv_tmp, &tout.data);
+        zdnn_div(&o_acc, &pv_tmp, &tout.data);
         /* Copy if reuse is off. */
         zdnnx_copy_data_to_full(&tout);
       }
