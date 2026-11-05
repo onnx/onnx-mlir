@@ -110,18 +110,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a7ec70587213b4fa5096681c92d34b932"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> allocated data pointer getter.  <br /></td></tr>
 <tr class="memitem:acd4a24993980060b9d71ce45e13d1344" id="r_acd4a24993980060b9d71ce45e13d1344"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY const int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acd4a24993980060b9d71ce45e13d1344">omTensorGetShape</a> (const <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:acd4a24993980060b9d71ce45e13d1344"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data shape getter.  <br /></td></tr>
-<tr class="memitem:a8b88fc76030c023376d9ade8fed848e4" id="r_a8b88fc76030c023376d9ade8fed848e4"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8b88fc76030c023376d9ade8fed848e4">omTensorSetShape</a> (<a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, const int64_t *shape)</td></tr>
-<tr class="memdesc:a8b88fc76030c023376d9ade8fed848e4"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data shape setter.  <br /></td></tr>
-<tr class="memitem:a26459505f952da465e0724f80cdc57c8" id="r_a26459505f952da465e0724f80cdc57c8"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY const int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a26459505f952da465e0724f80cdc57c8">omTensorGetStrides</a> (const <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a26459505f952da465e0724f80cdc57c8"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data strides getter.  <br /></td></tr>
-<tr class="memitem:a17cbf11538639b65ad035f944681d049" id="r_a17cbf11538639b65ad035f944681d049"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a17cbf11538639b65ad035f944681d049">omTensorSetStrides</a> (<a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, const int64_t *stride)</td></tr>
-<tr class="memdesc:a17cbf11538639b65ad035f944681d049"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data strides setter.  <br /></td></tr>
-<tr class="memitem:a41d206f498a85df046f1211f5fcf8e14" id="r_a41d206f498a85df046f1211f5fcf8e14"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a41d206f498a85df046f1211f5fcf8e14">omTensorSetStridesWithPyArrayStrides</a> (<a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, const int64_t *stridesInBytes)</td></tr>
-<tr class="memdesc:a41d206f498a85df046f1211f5fcf8e14"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data strides setter with stride values from PyArray strides.  <br /></td></tr>
 <tr class="memitem:ae2d2de3f38d13171d8420993bc05b087" id="r_ae2d2de3f38d13171d8420993bc05b087"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY OM_DATA_TYPE&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae2d2de3f38d13171d8420993bc05b087">omTensorGetDataType</a> (const <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:ae2d2de3f38d13171d8420993bc05b087"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data type getter.  <br /></td></tr>
-<tr class="memitem:a2db42a2e857e0943429da16ac8dc9865" id="r_a2db42a2e857e0943429da16ac8dc9865"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2db42a2e857e0943429da16ac8dc9865">omTensorSetDataType</a> (<a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, OM_DATA_TYPE dataType)</td></tr>
-<tr class="memdesc:a2db42a2e857e0943429da16ac8dc9865"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data type setter.  <br /></td></tr>
 <tr class="memitem:adef64e21a204f8d505df77fb438f4d90" id="r_adef64e21a204f8d505df77fb438f4d90"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adef64e21a204f8d505df77fb438f4d90">omTensorGetBufferSize</a> (const <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:adef64e21a204f8d505df77fb438f4d90"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> numerical data buffer size getter.  <br /></td></tr>
 <tr class="memitem:a892cdaf405ed5991c5597ef28e390e06" id="r_a892cdaf405ed5991c5597ef28e390e06"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a892cdaf405ed5991c5597ef28e390e06">omTensorGetRank</a> (const <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
@@ -503,8 +493,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data shape getter. </p>
-<p>The numerical data shape is returned as a pointer pointing to an array of n 64-bit integers where n is the rank of the tensor.</p>
-<p>The shape array is returned without copying, so caller should not free the returned pointer.</p>
+<p>The numerical data shape is returned as a pointer pointing to an array of n 64-bit integers where n is the rank of the tensor. The returned pointer points to the tensor's internal shape array; callers should not modify or free it.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">tensor</td><td>pointer to the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> </td></tr>
@@ -512,34 +501,6 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>pointer to the data shape array. </dd></dl>
-
-</div>
-</div>
-<a id="a26459505f952da465e0724f80cdc57c8" name="a26459505f952da465e0724f80cdc57c8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a26459505f952da465e0724f80cdc57c8">&#9670;&#160;</a></span>omTensorGetStrides()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">OM_EXTERNAL_VISIBILITY const int64_t * omTensorGetStrides </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *</td>          <td class="paramname"><span class="paramname"><em>tensor</em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data strides getter. </p>
-<p>The data strides are returned as a pointer pointing to an array of n 64-bit integers where n is the rank of the tensor.</p>
-<p>The strides array is returned without copying, so caller should not free the returned pointer.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">tensor</td><td>pointer to the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>pointer to the data strides array. </dd></dl>
 
 </div>
 </div>
@@ -572,38 +533,6 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a2db42a2e857e0943429da16ac8dc9865" name="a2db42a2e857e0943429da16ac8dc9865"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2db42a2e857e0943429da16ac8dc9865">&#9670;&#160;</a></span>omTensorSetDataType()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetDataType </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *</td>          <td class="paramname"><span class="paramname"><em>tensor</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">OM_DATA_TYPE</td>          <td class="paramname"><span class="paramname"><em>dataType</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data type setter. </p>
-<p>OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL, FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example, a 1-bit boolean number is represented by the ONNX_TYPE_BOOL enum value.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">tensor</td><td>pointer to the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> </td></tr>
-    <tr><td class="paramname">dataType</td><td>ONNX data type to be set</td></tr>
-  </table>
-  </dd>
-</dl>
-<p>Set the ONNX data type of the data buffer elements. </p>
-
-</div>
-</div>
 <a id="afd85d4282220ce580b405a7deb10de21" name="afd85d4282220ce580b405a7deb10de21"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afd85d4282220ce580b405a7deb10de21">&#9670;&#160;</a></span>omTensorSetOwning()</h2>
 
@@ -624,106 +553,6 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> owning flag setter. </p>
-
-</div>
-</div>
-<a id="a8b88fc76030c023376d9ade8fed848e4" name="a8b88fc76030c023376d9ade8fed848e4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8b88fc76030c023376d9ade8fed848e4">&#9670;&#160;</a></span>omTensorSetShape()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetShape </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *</td>          <td class="paramname"><span class="paramname"><em>tensor</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const int64_t *</td>          <td class="paramname"><span class="paramname"><em>shape</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data shape setter. </p>
-<p>n int64 elements are copied from the shape array to indicate the shape of the tensor, where n is the rank of the tensor.</p>
-<p>The shape array is copied without being freed, so caller is expected to manage the shape array oneself.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">tensor</td><td>pointer to the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> </td></tr>
-    <tr><td class="paramname">shape</td><td>data shape array to be set</td></tr>
-  </table>
-  </dd>
-</dl>
-<p>Set the data shape array of the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> to the values in the input array. </p>
-
-</div>
-</div>
-<a id="a17cbf11538639b65ad035f944681d049" name="a17cbf11538639b65ad035f944681d049"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a17cbf11538639b65ad035f944681d049">&#9670;&#160;</a></span>omTensorSetStrides()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetStrides </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *</td>          <td class="paramname"><span class="paramname"><em>tensor</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const int64_t *</td>          <td class="paramname"><span class="paramname"><em>stride</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data strides setter. </p>
-<p>n int64 elements are copied from the strides array to indicate the per-dimension stride of the tensor, where n is the rank of the tensor.</p>
-<p>The strides array is copied without being freed, so caller is expected to manage the strides array oneself.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">tensor</td><td>pointer to the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> </td></tr>
-    <tr><td class="paramname">strides</td><td>tensor strides array to be set.</td></tr>
-  </table>
-  </dd>
-</dl>
-<p>Set the data strides array of the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> to the values in the input array. </p>
-
-</div>
-</div>
-<a id="a41d206f498a85df046f1211f5fcf8e14" name="a41d206f498a85df046f1211f5fcf8e14"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a41d206f498a85df046f1211f5fcf8e14">&#9670;&#160;</a></span>omTensorSetStridesWithPyArrayStrides()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *</td>          <td class="paramname"><span class="paramname"><em>tensor</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const int64_t *</td>          <td class="paramname"><span class="paramname"><em>stridesInBytes</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p><a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> data strides setter with stride values from PyArray strides. </p>
-<p>Note that PyArray stride values are in bytes, while <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> stride values in elements. Thus, PyArray stride values will be divided by datatype size before passing to <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> stride values.</p>
-<p>n int64 elements are copied from the strides array to indicate the per-dimension stride of the tensor, where n is the rank of the tensor.</p>
-<p>The strides array is copied without being freed, so caller is expected to manage the strides array oneself.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">tensor</td><td>pointer to the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> </td></tr>
-    <tr><td class="paramname">strides</td><td>tensor strides array to be set.</td></tr>
-  </table>
-  </dd>
-</dl>
-<p>Set the data strides array of the <a class="el" href="#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> to the values in the input array. </p>
 
 </div>
 </div>
