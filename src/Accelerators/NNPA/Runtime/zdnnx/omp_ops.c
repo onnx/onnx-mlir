@@ -15,7 +15,6 @@
 
 #ifdef ZDNNX_WITH_OMP
 
-#include <assert.h>
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
@@ -247,9 +246,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
         zdnnx_set_tile(&si_y, &ty, NULL, bs, 0, m, n);
 
         /* Operation */
-        zdnn_status status = zdnnx_seq_matmul(&ta.data, &tb.data, &tc.data,
-            transpose_a, transpose_b, op_type, &ty.data, is_bcast);
-        assert(status == ZDNN_OK);
+        zdnnx_seq_matmul(&ta.data, &tb.data, &tc.data, transpose_a, transpose_b,
+            op_type, &ty.data, is_bcast);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */
         zdnnx_copy_data_to_full(&ty);
@@ -347,10 +345,9 @@ zdnn_status zdnnx_omp_quantized_matmul(const zdnn_ztensor *input_a,
 
         /* Operation */
         // TODO: could we reuse work_area in the parallel scenario?
-        zdnn_status status = zdnn_quantized_matmul_op(&ta.data, &tb.data,
-            &tc.data, op_type, clip_min, clip_max, disable_clipping, dequantize,
-            pre_computed, NULL, &ty.data);
-        assert(status == ZDNN_OK);
+        zdnn_quantized_matmul_op(&ta.data, &tb.data, &tc.data, op_type,
+            clip_min, clip_max, disable_clipping, dequantize, pre_computed,
+            NULL, &ty.data);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */
         zdnnx_copy_data_to_full(&ty);
@@ -643,9 +640,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
       zdnnx_set_tile(&si_y, &ty, NULL, e4, 0, e2, 0);
 
       zdnnx_copy_data_to_tile(&tx);
-      zdnn_status status =
-          zdnnx_seq_softmax(&tx.data, NULL, act_func, &ty.data);
-      assert(status == ZDNN_OK);
+      zdnnx_seq_softmax(&tx.data, NULL, act_func, &ty.data);
       zdnnx_copy_data_to_full(&ty);
 
       // Free buffers.
@@ -694,9 +689,8 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     zdnnx_copy_data_to_tile(&tv);
 
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
-    zdnn_status status = zdnnx_seq_sdpa_3d(
+    zdnnx_seq_sdpa_3d(
         &tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt, &tout.data);
-    assert(status == ZDNN_OK);
     /* Copy if reuse is off. */
     zdnnx_copy_data_to_full(&tout);
   }
