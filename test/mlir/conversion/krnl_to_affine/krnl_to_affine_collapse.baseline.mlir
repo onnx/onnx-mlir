@@ -436,3 +436,160 @@ func.func @collapse_nested_iterate_both_then_parallel(%arg0: memref<4x5x6x7xf32>
   }
   return %alloc : memref<4x5x6x7xf32>
 }
+
+// -----
+
+func.func @collapse_after_block_of_inner_loop(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
+  %ii, %jj, %kk = krnl.define_loops 3
+  krnl.iterate(%ii, %jj, %kk) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6) {
+    %a, %b, %c = krnl.get_induction_var_value(%ii, %jj, %kk) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c] : memref<4x5x6xf32>
+    %c5 = arith.constant 5 : index
+    %c6 = arith.constant 6 : index
+    %t0 = arith.muli %a, %c5 : index
+    %t1 = arith.addi %t0, %b : index
+    %t2 = arith.muli %t1, %c6 : index
+    %lin = arith.addi %t2, %c : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c] : memref<4x5x6xf32>
+  }
+  return %alloc : memref<4x5x6xf32>
+}
+
+// -----
+
+func.func @collapse_two_groups_inner_first(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
+  %ii, %jj, %kk, %ll = krnl.define_loops 4
+  krnl.iterate(%ii, %jj, %kk, %ll) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6, %ll -> %l = 0 to 7) {
+    %a, %b, %c, %d = krnl.get_induction_var_value(%ii, %jj, %kk, %ll) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c, %d] : memref<4x5x6x7xf32>
+    %c5 = arith.constant 5 : index
+    %c6 = arith.constant 6 : index
+    %c7 = arith.constant 7 : index
+    %t0 = arith.muli %a, %c5 : index
+    %t1 = arith.addi %t0, %b : index
+    %t2 = arith.muli %t1, %c6 : index
+    %t3 = arith.addi %t2, %c : index
+    %t4 = arith.muli %t3, %c7 : index
+    %lin = arith.addi %t4, %d : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c, %d] : memref<4x5x6x7xf32>
+  }
+  return %alloc : memref<4x5x6x7xf32>
+}
+
+// -----
+
+func.func @collapse_tile_loop_last(%arg0: memref<10x?xf32> {onnx.name = "x"}) -> (memref<10x?xf32> {onnx.name = "y"}) {
+  %c1 = arith.constant 1 : index
+  %d1 = memref.dim %arg0, %c1 : memref<10x?xf32>
+  %alloc = memref.alloc(%d1) alignment = 16 : memref<10x?xf32>
+  %ii, %jj = krnl.define_loops 2
+  krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to %d1) {
+    %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %v = krnl.load %arg0[%a, %b] : memref<10x?xf32>
+    // The tile start, computed directly: (b floordiv 4) * 4.
+    %c4 = arith.constant 4 : index
+    %q = arith.divui %b, %c4 : index
+    %t = arith.muli %q, %c4 : index
+    %c1000 = arith.constant 1000 : index
+    %c100 = arith.constant 100 : index
+    %t0 = arith.muli %a, %c1000 : index
+    %t1 = arith.muli %t, %c100 : index
+    %t2 = arith.addi %t0, %t1 : index
+    %lin = arith.addi %t2, %b : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b] : memref<10x?xf32>
+  }
+  return %alloc : memref<10x?xf32>
+}
+
+// -----
+
+func.func @collapse_tile_loop_first(%arg0: memref<10x6xf32> {onnx.name = "x"}) -> (memref<10x6xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<10x6xf32>
+  %ii, %jj = krnl.define_loops 2
+  krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 6) {
+    %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %v = krnl.load %arg0[%a, %b] : memref<10x6xf32>
+    %c4 = arith.constant 4 : index
+    %q = arith.divui %a, %c4 : index
+    %t = arith.muli %q, %c4 : index
+    %c1000 = arith.constant 1000 : index
+    %c100 = arith.constant 100 : index
+    %t0 = arith.muli %a, %c100 : index
+    %t1 = arith.muli %t, %c1000 : index
+    %t2 = arith.addi %t0, %t1 : index
+    %lin = arith.addi %t2, %b : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b] : memref<10x6xf32>
+  }
+  return %alloc : memref<10x6xf32>
+}
+
+// -----
+
+func.func @collapse_two_tile_loops(%arg0: memref<10x7x5xf32> {onnx.name = "x"}) -> (memref<10x7x5xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<10x7x5xf32>
+  %ii, %jj, %kk = krnl.define_loops 3
+  krnl.iterate(%ii, %jj, %kk) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 7, %kk -> %k = 0 to 5) {
+    %a, %b, %c = krnl.get_induction_var_value(%ii, %jj, %kk) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+    %v = krnl.load %arg0[%a, %b, %c] : memref<10x7x5xf32>
+    %c2 = arith.constant 2 : index
+    %c3 = arith.constant 3 : index
+    %c4 = arith.constant 4 : index
+    %qi = arith.divui %a, %c4 : index
+    %ti = arith.muli %qi, %c4 : index
+    %qj = arith.divui %b, %c2 : index
+    %tj = arith.muli %qj, %c2 : index
+    %qk = arith.divui %c, %c3 : index
+    %tk = arith.muli %qk, %c3 : index
+    %c7 = arith.constant 7 : index
+    %c5 = arith.constant 5 : index
+    %c1000 = arith.constant 1000 : index
+    %c100 = arith.constant 100 : index
+    %s0 = arith.muli %a, %c7 : index
+    %s1 = arith.addi %s0, %b : index
+    %s2 = arith.muli %s1, %c5 : index
+    %lin = arith.addi %s2, %c : index
+    %u0 = arith.muli %ti, %c100 : index
+    %u1 = arith.muli %tj, %c1000 : index
+    %u2 = arith.addi %u0, %u1 : index
+    %u3 = arith.addi %u2, %tk : index
+    %all = arith.addi %lin, %u3 : index
+    %linI = arith.index_cast %all : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b, %c] : memref<10x7x5xf32>
+  }
+  return %alloc : memref<10x7x5xf32>
+}
+
+// -----
+
+func.func @collapse_after_permute(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
+  %ii, %jj = krnl.define_loops 2
+  krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+    %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %v = krnl.load %arg0[%a, %b] : memref<10x20xf32>
+    %c20 = arith.constant 20 : index
+    %row = arith.muli %a, %c20 : index
+    %lin = arith.addi %row, %b : index
+    %linI = arith.index_cast %lin : index to i64
+    %linF = arith.sitofp %linI : i64 to f32
+    %w = arith.addf %v, %linF : f32
+    krnl.store %w, %alloc[%a, %b] : memref<10x20xf32>
+  }
+  return %alloc : memref<10x20xf32>
+}
