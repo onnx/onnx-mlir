@@ -397,9 +397,9 @@ static void markLoopBodyAsMovable(
 // collapsed loop nest from its fused index, same algorithm as
 // affine::coalesceLoops:
 //   iv_i = floordiv(iv_fused, product of the trip counts nested in i) mod tc_i
-// built from the innermost dimension outwards. A dimension fused with a step
-// other than 1 counted tiles in the fused space, so its index is then scaled
-// back by that step to the element index its loop had before being fused.
+// built from the innermost dimension outwards. A tile dimension's index is
+// then scaled back by its step to an element index; see Collapse Example in
+// resolveCollapseOp.
 //
 // Degenerates correctly at rank 1: no op is emitted and the fused index is
 // returned as is, since a single dimension's index *is* the fused index.
@@ -604,14 +604,50 @@ static LogicalResult recordCollapseOps(KrnlIterateOp &iterateOp,
 // Called from interpretOperation when it reaches the collapse in the IR. Every
 // krnl.block and krnl.permute preceding the collapse has then been applied, and
 // none that follows it has, so the collapse fuses the loops as they stand at
-// that point. A tile loop of a krnl.block, which runs from 0 by steps of the
-// tile size, is normalized to count tiles before being fused, and its index is
-// scaled back to an element index wherever it is used. No body op is in the
+// that point. A tile loop of a krnl.block is normalized to count tiles before
+// being fused; see the Collapse Example below. No body op is in the
 // loops yet: the iterate bodies stay parked in krnl.movable ops until all
 // recipes have been applied, and the krnl.get_induction_var_value queries that
 // recover the collapsed indices are lowered after that too. The loops hold at
 // most the trip counts of a collapse nested inside this one and resolved before
 // it.
+//
+// Collapse Example: a plain loop collapsed with a tile loop of step B = 4 (the
+// krnl_to_affine_collapse.mlir test @collapse_tile_loop_last, with N = 18):
+//
+//   %jb, %jl = krnl.block %jj 4
+//   %ff = krnl.collapse(%ii, %jb)
+//   krnl.iterate(%ff, %jl) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 18)
+//
+// 1) As lowered so far, the tile loop steps through element indices:
+//
+//   affine.for %i = 0 to 10 {
+//     affine.for %jb = 0 to 18 step 4 {
+//       affine.for %jl = %jb to min(%jb + 4, 18) { body }
+//
+// 2) The tile loop is normalized to count tiles, 0 to 18 ceildiv 4 = 5, step
+//    1. Its uses inside the band still expect an element index, so they read
+//    %t * 4, from one apply at the top of the innermost fused loop's body:
+//
+//   affine.for %i = 0 to 10 {
+//     affine.for %t = 0 to 5 {
+//       %jb = affine.apply (d0 * 4)(%t)
+//       affine.for %jl = %jb to min(%jb + 4, 18) { body }
+//
+// 3) coalesceLoops fuses the now unit-step band as usual: trip count 10 * 5 =
+//    50, %t recovered as %f mod 5 and %i as %f floordiv 5. The recovered tile
+//    index is multiplied by 4 again, giving back the element index of the
+//    tile's first element:
+//
+//   affine.for %f = 0 to 50 {
+//     %jb = affine.apply ((d0 mod 5) * 4)(%f)
+//     affine.for %jl = %jb to min(%jb + 4, 18) { body }
+//
+// The tile counts and steps are recorded in collapseTripCounts, so a
+// krnl.get_induction_var_value on %ff yields (%f floordiv 5, (%f mod 5) * 4),
+// through emitCollapsedIndices, which applies the same scaling. A partial last
+// tile is handled as before: tile 4 starts at element 16, and the intra-tile
+// loop's min bound stops it at 18.
 static LogicalResult resolveCollapseOp(KrnlCollapseOp collapseOp,
     llvm::SmallDenseMap<Value, Operation *, 4> &loopRefToOp,
     CollapseTripCounts &collapseTripCounts) {
@@ -719,17 +755,11 @@ static LogicalResult resolveCollapseOp(KrnlCollapseOp collapseOp,
             "query krnl.get_induction_var_value on the collapse result "
             "instead");
 
-  // Normalize each loop with a step other than 1, the tile loop of a
-  // krnl.block: from `0 to U step B` to `0 to U ceildiv B`, counting tiles. Its
-  // index is still used as an element index, by the bounds of the intra-tile
-  // loop nested inside the band, so those uses read it scaled by B instead.
-  // The checks above guarantee every such use is inside the innermost fused
-  // loop: no fused loop's bounds read it, and nothing outside the band does.
-  // So one scaling op at the start of that loop's body dominates them all, and
-  // coalesceLoops then rewrites its operand to the recovered tile index. A
-  // different placement, such as upstream normalizeAffineFor's at the start of
-  // the tile loop's own body, would sit between two fused loops and break the
-  // perfect band.
+  // Step 2 of Collapse Example: normalize each loop with a step other than 1.
+  // The checks above guarantee every use of its index is inside the innermost
+  // fused loop, so one scaling op at the start of that loop's body dominates
+  // them all. Upstream normalizeAffineFor's placement, at the start of the tile
+  // loop's own body, would sit between two fused loops and break the band.
   MLIRContext *ctx = collapseOp.getContext();
   SmallVector<int64_t, 4> steps;
   for (AffineForOp forOp : band) {
@@ -790,6 +820,7 @@ static LogicalResult resolveCollapseOp(KrnlCollapseOp collapseOp,
     for (Operation &op : *forOp.getBody())
       preexisting.insert(&op);
 
+  // Step 3 of Collapse Example: fuse the now unit-step band.
   if (failed(coalesceLoops(band)))
     return collapseOp.emitOpError("failed to collapse the loop nest");
 
@@ -819,6 +850,8 @@ static LogicalResult resolveCollapseOp(KrnlCollapseOp collapseOp,
   // erases the rest, so the outermost's induction variable is the fused
   // index. It stays valid across a later krnl.parallel too: AffineParallelOp
   // takes over the body region, so that block argument object is unchanged.
+  // The steps let emitCollapsedIndices rescale tile indices (end of Collapse
+  // Example).
   collapseTripCounts[outermost.getInductionVar()] = {tripCounts, steps};
 
   // The fused loop stands for the collapse result from now on. The fused refs
