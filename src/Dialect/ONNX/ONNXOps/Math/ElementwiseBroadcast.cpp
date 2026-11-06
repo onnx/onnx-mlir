@@ -109,6 +109,33 @@ static LogicalResult inferShapeForBroadcastingOps(
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
+template <typename OpTy>
+static LogicalResult reifyBroadcastResultShapes(OpTy op, OpBuilder &builder,
+    ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
+  auto rankedOutTy = dyn_cast<RankedTensorType>(op.getResult().getType());
+  if (!rankedOutTy)
+    return failure();
+
+  Location loc = op.getLoc();
+  DialectBuilder db(builder, loc);
+  ReifyIndexExprValueProvider valueProvider(db);
+  IndexExprBuilderWithProvider createIE(db, valueProvider);
+  IndexExprScope scope(&builder, loc);
+  ONNXBroadcastOpShapeHelper shapeHelper(
+      op.getOperation(), op.getOperands(), &createIE, &scope);
+  if (failed(shapeHelper.computeShape()))
+    return failure();
+
+  SmallVector<OpFoldResult, 4> foldedDims;
+  IndexExpr::getOpOrFoldResults(shapeHelper.getOutputDims(0), foldedDims);
+  if (foldedDims.size() != static_cast<size_t>(rankedOutTy.getRank()))
+    return failure();
+
+  reifiedReturnShapes.clear();
+  reifiedReturnShapes.emplace_back(std::move(foldedDims));
+  return success();
+}
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -126,28 +153,7 @@ LogicalResult ONNXAddOp::inferShapes(
 
 LogicalResult ONNXAddOp::reifyResultShapes(
     OpBuilder &builder, ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
-  auto rankedOutTy = dyn_cast<RankedTensorType>(getResult().getType());
-  if (!rankedOutTy)
-    return failure();
-
-  Location loc = getLoc();
-  DialectBuilder db(builder, loc);
-  ReifyIndexExprValueProvider valueProvider(db);
-  IndexExprBuilderWithProvider createIE(db, valueProvider);
-  IndexExprScope scope(&builder, loc);
-  ONNXBroadcastOpShapeHelper shapeHelper(
-      getOperation(), getOperands(), &createIE, &scope);
-  if (failed(shapeHelper.computeShape()))
-    return failure();
-
-  SmallVector<OpFoldResult, 4> foldedDims;
-  IndexExpr::getOpOrFoldResults(shapeHelper.getOutputDims(0), foldedDims);
-  if (foldedDims.size() != static_cast<size_t>(rankedOutTy.getRank()))
-    return failure();
-
-  reifiedReturnShapes.clear();
-  reifiedReturnShapes.emplace_back(std::move(foldedDims));
-  return success();
+  return reifyBroadcastResultShapes(*this, builder, reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -226,6 +232,11 @@ LogicalResult ONNXDivOp::verify() {
 LogicalResult ONNXDivOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXDivOp>(*this);
+}
+
+LogicalResult ONNXDivOp::reifyResultShapes(
+    OpBuilder &builder, ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
+  return reifyBroadcastResultShapes(*this, builder, reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -389,6 +400,11 @@ LogicalResult ONNXMulOp::inferShapes(
   return inferShapeForBroadcastingOps<ONNXMulOp>(*this);
 }
 
+LogicalResult ONNXMulOp::reifyResultShapes(
+    OpBuilder &builder, ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
+  return reifyBroadcastResultShapes(*this, builder, reifiedReturnShapes);
+}
+
 //===----------------------------------------------------------------------===//
 // OrOp
 //===----------------------------------------------------------------------===//
@@ -464,6 +480,11 @@ LogicalResult ONNXSubOp::verify() {
 LogicalResult ONNXSubOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXSubOp>(*this);
+}
+
+LogicalResult ONNXSubOp::reifyResultShapes(
+    OpBuilder &builder, ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
+  return reifyBroadcastResultShapes(*this, builder, reifiedReturnShapes);
 }
 
 //===----------------------------------------------------------------------===//
