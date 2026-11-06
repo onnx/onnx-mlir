@@ -4,7 +4,7 @@
 
 //===-------------- OMUnique.c - OMUnique C Implementation ----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //

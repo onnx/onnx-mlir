@@ -27,6 +27,7 @@ SUPPRESS_WARNINGS_PUSH
 SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSessionBase.hpp"
+#include "src/Runtime/OMTensorInternal.h"
 
 #define OM_DRIVER_TIMING 1 /* 1 for timing, 0 for no timing/overheads */
 #include "src/Runtime/OMInstrumentHelper.h"
