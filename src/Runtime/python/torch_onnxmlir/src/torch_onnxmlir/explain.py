@@ -13,6 +13,7 @@
 
 import json
 import os
+from datetime import datetime
 from typing import Optional, Dict, List, Literal
 from . import metrics, config
 
@@ -167,6 +168,7 @@ def _format_as_table(
     total_inferences = sum(m.inference_count for m in all_metrics.values())
     total_cache_hits = sum(m.cache_hits for m in all_metrics.values())
 
+    out.append(f"Timestamp: {datetime.now().isoformat()}")
     out.append(f"Cache Directory: {sessioncache.cache_dir()}")
     out.append(f"Unique Graphs: {len(all_metrics)}")
     out.append(f"Total Inference Calls: {total_inferences}")
@@ -312,6 +314,7 @@ def _format_as_table(
 
     # Profiling data section.
     profiling_data = metrics.global_metrics_collector.get_profiling_data()
+    input_shapes_map = metrics.global_metrics_collector.get_input_shapes()
     if profiling_data:
         from . import profiling as profiling_mod
 
@@ -322,6 +325,14 @@ def _format_as_table(
             mid = cache_key[:16] + "..." if len(cache_key) > 16 else cache_key
             out.append("")
             out.append(f"Graph: {mid}")
+            shapes_list = input_shapes_map.get(cache_key, [])
+            if shapes_list:
+                unique = []
+                for s in shapes_list:
+                    if s not in unique:
+                        unique.append(s)
+                for s in unique:
+                    out.append(f"  Input shapes: {s}")
             out.append(
                 profiling_mod.format_profiling_table(
                     prof_result, detail_level=profiling_detail
@@ -344,6 +355,7 @@ def _format_as_dict(
     """Format metrics as a dictionary."""
     result = {
         "summary": {
+            "timestamp": datetime.now().isoformat(),
             "unique_graphs": len(all_metrics),
             "total_inference_calls": sum(
                 m.inference_count for m in all_metrics.values()
@@ -401,6 +413,7 @@ def _format_as_dict(
 
     # Profiling data.
     profiling_data = metrics.global_metrics_collector.get_profiling_data()
+    input_shapes_map = metrics.global_metrics_collector.get_input_shapes()
     if profiling_data:
         result["profiling"] = {}
         for cache_key, prof_result in profiling_data.items():
@@ -458,6 +471,8 @@ def _format_as_dict(
                 "reporting_mode": prof_result.reporting_mode,
                 "ops": ops_list,
             }
+            if cache_key in input_shapes_map:
+                entry["input_shapes"] = input_shapes_map[cache_key]
             if prof_result.cpu_time is not None:
                 entry["cpu_time"] = prof_result.cpu_time
             if prof_result.accel_time is not None:

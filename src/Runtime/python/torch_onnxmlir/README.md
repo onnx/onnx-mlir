@@ -281,6 +281,10 @@ ctx.data["profiling"][cache_key] = {
     "total_time": ...,
     "num_measurements": ...,
     "reporting_mode": "all",
+    "input_shapes": [             # model-level input shapes per call
+        [[2, 3], [2, 3]],        # shapes from first inference call
+        [[2, 3], [2, 3]],        # shapes from second call (may differ)
+    ],
     "ops": [
         {
             "op_name": "onnx.Conv",

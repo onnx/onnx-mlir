@@ -669,6 +669,11 @@ class TorchONNXMLIR:
             metrics.global_metrics_collector.record_inference(
                 self.cache_key, inference_time, is_cache_hit
             )
+            if config._get_profiling_enabled():
+                metrics.global_metrics_collector.record_input_shapes(
+                    self.cache_key,
+                    [list(arg.shape) for arg in example_inputs],
+                )
 
         # Generate test_data_set if required.
         if config.regenerate_test_data_set or (

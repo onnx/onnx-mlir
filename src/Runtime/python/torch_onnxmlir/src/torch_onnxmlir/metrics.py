@@ -73,6 +73,7 @@ class MetricsCollector:
         self.total_eager_fallbacks: int = 0
         self._call_counter: int = 0
         self._profiling_data: Dict[str, object] = {}
+        self._input_shapes: Dict[str, list] = {}
 
     def record_compilation(self, cache_key: str, compilation_time: float):
         """Record compilation metrics."""
@@ -132,6 +133,16 @@ class MetricsCollector:
         """Get all eager fallback information."""
         return dict(self.eager_fallbacks)
 
+    def record_input_shapes(self, cache_key: str, shapes: list):
+        """Record model-level input tensor shapes for a profiling call."""
+        if not explain._enable_explain:
+            return
+        self._input_shapes.setdefault(cache_key, []).append(shapes)
+
+    def get_input_shapes(self) -> Dict[str, list]:
+        """Get all recorded input shapes."""
+        return dict(self._input_shapes)
+
     def record_profiling(self, cache_key: str, profiling_result):
         """Record profiling data for a graph."""
         if not explain._enable_explain:
@@ -149,6 +160,7 @@ class MetricsCollector:
         self.total_eager_fallbacks = 0
         self._call_counter = 0
         self._profiling_data.clear()
+        self._input_shapes.clear()
 
 
 # Global metrics collector instance
