@@ -356,8 +356,10 @@ def _format_as_dict(
         "sort_by": sort_by,
     }
 
+    from . import sessioncache
+
     for key, m in _sort_models(all_metrics, sort_by):
-        result["graphs"][key] = {
+        graph_entry = {
             "call_order": m.call_order,
             "compilation_time": m.compilation_time,
             "inference_count": m.inference_count,
@@ -367,6 +369,21 @@ def _format_as_dict(
             "total_inference_time": m.total_inference_time,
             "total_time": m.total_time,
         }
+        config_path = os.path.join(
+            sessioncache.cache_dir(), key, sessioncache.OM_BACKEND_CONFIG_FILE
+        )
+        try:
+            with open(config_path, "r") as f:
+                disk_cfg = json.load(f)
+            for cfg_key in ("compilation_info", "input_signature", "output_signature"):
+                raw = disk_cfg.get(cfg_key, "")
+                try:
+                    graph_entry[cfg_key] = json.loads(raw) if raw else raw
+                except (json.JSONDecodeError, TypeError):
+                    graph_entry[cfg_key] = raw
+        except (OSError, json.JSONDecodeError):
+            pass
+        result["graphs"][key] = graph_entry
 
     sorted_fb = sorted(
         eager_fallbacks.items(),
