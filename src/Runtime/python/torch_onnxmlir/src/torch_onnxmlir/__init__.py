@@ -11,7 +11,7 @@
 
 from .register import *
 from .explain import explain_context
-from .profiling import parse_profiling_output, ProfilingResult, NodeTiming
+from .profiling import parse_profiling_output, ProfilingResult, OpTiming, NodeTiming
 from importlib.metadata import version, PackageNotFoundError
 
 try:
@@ -24,5 +24,6 @@ __all__ = [
     "explain_context",
     "parse_profiling_output",
     "ProfilingResult",
+    "OpTiming",
     "NodeTiming",
 ]

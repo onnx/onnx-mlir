@@ -89,15 +89,15 @@ class TestProfilingIntegration(TorchOMTestCase):
         """Test that profiling state is properly restored after context."""
         from torch_onnxmlir import config
 
-        self.assertFalse(config._profiling_enabled)
+        self.assertFalse(config._get_profiling_enabled())
 
         compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
         with torch_onnxmlir.explain_context(profiling=True) as ctx:
-            self.assertTrue(config._profiling_enabled)
+            self.assertTrue(config._get_profiling_enabled())
             x = torch.randn(2, 3)
             output = compiled_model(x)
 
-        self.assertFalse(config._profiling_enabled)
+        self.assertFalse(config._get_profiling_enabled())
 
     def test_profiling_multiple_inferences(self):
         """Test profiling with multiple inference calls."""
@@ -253,17 +253,17 @@ class TestProfilingIntegration(TorchOMTestCase):
         """Test that profiling state is restored after dict config context."""
         from torch_onnxmlir import config
 
-        self.assertFalse(config._profiling_enabled)
+        self.assertFalse(config._get_profiling_enabled())
 
         compiled_model = torch.compile(model, backend="onnxmlir", options=OM_OPTIONS)
         with torch_onnxmlir.explain_context(
             profiling={"detail": 2, "warmup": 1, "reporting": "sum"}
         ) as ctx:
-            self.assertTrue(config._profiling_enabled)
+            self.assertTrue(config._get_profiling_enabled())
             x = torch.randn(2, 3)
             output = compiled_model(x)
 
-        self.assertFalse(config._profiling_enabled)
+        self.assertFalse(config._get_profiling_enabled())
 
 
 if __name__ == "__main__":

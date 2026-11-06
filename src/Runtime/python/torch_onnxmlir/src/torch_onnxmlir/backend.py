@@ -94,26 +94,28 @@ global_session_cache = None
 global_uncompilable_graphs = set()
 
 
-def _has_maccel_nnpa(compile_options: str) -> bool:
-    """Check if -maccel=NNPA is set, either directly or inside a --config-file."""
-    if _re.search(r"-{1,2}maccel[=\s]+NNPA", compile_options, _re.IGNORECASE):
-        return True
-    m = _re.search(r"--config-file[=\s]+(\S+)", compile_options)
+def _get_accelerator(compile_options: str):
+    """Return the accelerator name from compile options, or None for CPU."""
+    m = _re.search(r"-{1,2}maccel[=\s]+(\w+)", compile_options)
     if m:
+        return m.group(1)
+    cfg_m = _re.search(r"--config-file[=\s]+(\S+)", compile_options)
+    if cfg_m:
         import json
 
-        config_path = m.group(1)
+        config_path = cfg_m.group(1)
         try:
             with open(config_path, "r") as f:
                 cfg = json.load(f)
             opts = cfg.get("compile_options", [])
             if isinstance(opts, list):
                 for opt in opts:
-                    if _re.search(r"-{1,2}maccel[=\s]+NNPA", opt, _re.IGNORECASE):
-                        return True
+                    m2 = _re.search(r"-{1,2}maccel[=\s]+(\w+)", opt)
+                    if m2:
+                        return m2.group(1)
         except (OSError, json.JSONDecodeError, TypeError):
             pass
-    return False
+    return None
 
 
 # Check if the graph has no inputs or outputs or not.
@@ -417,7 +419,7 @@ def generate_hash_key(
         details = OMFxGraphHashDetails(gm, compile_options)
         key = pickler.get_hash(details)
 
-    key = ("_om_profile_" if config._profiling_enabled else "_om_") + key
+    key = ("_om_profile_" if config._get_profiling_enabled() else "_om_") + key
     logger.info(
         f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}"
     )
@@ -438,19 +440,18 @@ class TorchONNXMLIR:
         # When profiling is enabled, inject --profile-ir-with-sig into
         # compile_options before cache key generation so profiling-compiled
         # models get a separate cache key from non-profiling ones.
-        if config._profiling_enabled and kwargs.get("options") is not None:
+        if config._get_profiling_enabled() and kwargs.get("options") is not None:
             co = kwargs["options"].get("compile_options", "")
             if "--profile-ir" not in co:
                 kwargs = dict(kwargs)
                 kwargs["options"] = dict(kwargs["options"])
-                if _has_maccel_nnpa(co):
-                    kwargs["options"]["compile_options"] = (
-                        co + " --profile-ir-with-sig=ZHigh"
-                    )
-                else:
-                    kwargs["options"]["compile_options"] = (
-                        co + " --profile-ir-with-sig=Onnx"
-                    )
+                profile_ir = config.profiling_profile_ir
+                if profile_ir is None:
+                    accel = _get_accelerator(co)
+                    profile_ir = "ZHigh" if accel == "NNPA" else "Onnx"
+                kwargs["options"]["compile_options"] = (
+                    co + " --profile-ir-with-sig=" + profile_ir
+                )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
@@ -642,7 +643,7 @@ class TorchONNXMLIR:
 
         if logger.isEnabledFor(logging.INFO):
             start = time.perf_counter()
-        if config._profiling_enabled:
+        if config._get_profiling_enabled():
             from . import sessioncache
 
             prof_path = os.path.join(

@@ -419,13 +419,12 @@ def _format_as_dict(
                 }
                 op_nodes = nodes_by_op.get(op.op_name, [])
                 if profiling_detail >= 1 and op_nodes:
-                    sig_groups: dict = {}
-                    for nt in op_nodes:
-                        sig_groups.setdefault(nt.signature, []).append(nt)
+                    from . import profiling as profiling_mod
+
+                    sig_items = profiling_mod._group_by_signature(op_nodes)
                     op_total = op.total_time if op.total_time > 0 else 1.0
                     sig_list = []
-                    for sig_key, nts in sig_groups.items():
-                        sig_total = sum(n.time for n in nts)
+                    for sig_key, nts, sig_total in sig_items:
                         count = len(nts)
                         sig_pct = sig_total / op_total * 100
                         sig_entry = {
@@ -450,7 +449,6 @@ def _format_as_dict(
                                 )
                             sig_entry["nodes"] = node_list
                         sig_list.append(sig_entry)
-                    sig_list.sort(key=lambda x: x["total_time"], reverse=True)
                     op_entry["signatures"] = sig_list
                 ops_list.append(op_entry)
 
@@ -516,6 +514,10 @@ class ExplainContext:
                         "all" -- average across all runs (default).
                         "quartile" -- discard top/bottom 25%, average the rest.
                         "sum" -- cumulative time, not averaged.
+                    "profile_ir": override --profile-ir-with-sig level
+                        (e.g. "Onnx", "ZHigh", "Krnl"). None = auto-detect.
+                    "keep_profiles": if True, keep profile.prof files after
+                        collection (default False).
         """
         self.format = format
         self.sort_by = sort_by
@@ -528,16 +530,26 @@ class ExplainContext:
             self.profiling_reporting = profiling.get(
                 "reporting", config.profiling_reporting
             )
+            self.profiling_profile_ir = profiling.get(
+                "profile_ir", config.profiling_profile_ir
+            )
+            self.profiling_keep_profiles = profiling.get(
+                "keep_profiles", config.profiling_keep_profiles
+            )
         elif profiling:
             self.profiling = True
             self.profiling_detail = config.profiling_detail
             self.profiling_warmup = config.profiling_warmup
             self.profiling_reporting = config.profiling_reporting
+            self.profiling_profile_ir = config.profiling_profile_ir
+            self.profiling_keep_profiles = config.profiling_keep_profiles
         else:
             self.profiling = False
             self.profiling_detail = config.profiling_detail
             self.profiling_warmup = config.profiling_warmup
             self.profiling_reporting = config.profiling_reporting
+            self.profiling_profile_ir = config.profiling_profile_ir
+            self.profiling_keep_profiles = config.profiling_keep_profiles
 
         self.metrics = None
         self._previous_enable_state = None
@@ -548,7 +560,8 @@ class ExplainContext:
         """Enable metrics collection and clear existing metrics."""
         # Save previous state.
         self._previous_enable_state = _enable_explain
-        self._previous_profiling_state = config._profiling_enabled
+        self._previous_profiling_state = config._get_profiling_enabled()
+        self._previous_profile_ir = config.profiling_profile_ir
 
         # Enable metrics collection using internal setter.
         _set_enable_explain(True)
@@ -558,11 +571,15 @@ class ExplainContext:
 
         # Set up profiling if requested.
         if self.profiling:
-            import torch._dynamo
-
-            config._profiling_enabled = True
+            config._set_profiling_enabled(True)
+            config.profiling_profile_ir = self.profiling_profile_ir
             self._previous_instrument_file = os.environ.get("ONNX_MLIR_INSTRUMENT_FILE")
-            torch._dynamo.reset()
+            try:
+                import torch._dynamo
+
+                torch._dynamo.reset()
+            except (ImportError, AttributeError):
+                pass
 
         return self
 
@@ -589,12 +606,16 @@ class ExplainContext:
 
         # Restore previous state using internal setter.
         _set_enable_explain(self._previous_enable_state)
-        config._profiling_enabled = self._previous_profiling_state
+        config._set_profiling_enabled(self._previous_profiling_state)
+        config.profiling_profile_ir = self._previous_profile_ir
 
         if self.profiling:
-            import torch._dynamo
+            try:
+                import torch._dynamo
 
-            torch._dynamo.reset()
+                torch._dynamo.reset()
+            except (ImportError, AttributeError):
+                pass
 
         # Don't suppress exceptions.
         return False
@@ -620,10 +641,11 @@ class ExplainContext:
                 metrics.global_metrics_collector.record_profiling(
                     cache_key, prof_result
                 )
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            if not self.profiling_keep_profiles:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     def _export_metrics(self):
         """Export metrics to file."""
@@ -695,6 +717,10 @@ def explain_context(format="table", sort_by="time", export_to=None, profiling=Fa
                     "all" -- average time per node across all runs (default).
                     "quartile" -- discard top/bottom 25% of runs, average the rest.
                     "sum" -- cumulative time per node across all runs.
+                "profile_ir": override --profile-ir-with-sig level
+                    (e.g. "Onnx", "ZHigh", "Krnl"). None = auto-detect.
+                "keep_profiles": if True, keep profile.prof files after
+                    collection (default False).
 
     Returns:
         ExplainContext: Context manager instance.

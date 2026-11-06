@@ -83,7 +83,7 @@ def _get_node_name_from_timing_key(timing_key: str) -> str:
 
 
 def _parse_perf_lines(
-    lines, warmup_num: int = 0, reporting: str = "quartile"
+    lines, warmup_num: int = 0, reporting: str = "all"
 ) -> Tuple[Dict[str, float], float, Dict[str, List[float]]]:
     """Parse ==PERF-REPORT== lines.
 
@@ -303,7 +303,7 @@ def parse_profiling_output(
     file_path: str = None,
     text: str = None,
     warmup_num: int = 0,
-    reporting: str = "quartile",
+    reporting: str = "all",
 ) -> Optional[ProfilingResult]:
     """Parse onnx-mlir profiling output and return structured results.
 
@@ -373,6 +373,25 @@ def parse_profiling_output(
     )
 
 
+def _group_by_signature(
+    nodes: List[NodeTiming],
+) -> List[Tuple[Optional[str], List[NodeTiming], float]]:
+    """Group NodeTiming objects by signature.
+
+    Returns a list of (signature, nodes, total_time) tuples sorted by
+    total_time descending.  Used by both table and dict formatters.
+    """
+    sig_groups: Dict[Optional[str], List[NodeTiming]] = {}
+    for nt in nodes:
+        sig_groups.setdefault(nt.signature, []).append(nt)
+    items: List[Tuple[Optional[str], List[NodeTiming], float]] = []
+    for sig_key, nts in sig_groups.items():
+        total = sum(n.time for n in nts)
+        items.append((sig_key, nts, total))
+    items.sort(key=lambda x: x[2], reverse=True)
+    return items
+
+
 def format_profiling_table(
     result: ProfilingResult, time_unit: str = "ms", detail_level: int = 0
 ) -> str:
@@ -418,14 +437,7 @@ def format_profiling_table(
         op_nodes = nodes_by_op.get(op.op_name, [])
         if not op_nodes:
             return []
-        sig_groups: Dict[str, List[NodeTiming]] = {}
-        for nt in op_nodes:
-            sig_groups.setdefault(nt.signature, []).append(nt)
-        sig_items = []
-        for sig_key, nts in sig_groups.items():
-            total = sum(n.time for n in nts)
-            sig_items.append((sig_key, nts, total))
-        sig_items.sort(key=lambda x: x[2], reverse=True)
+        sig_items = _group_by_signature(op_nodes)
 
         tree = []
         for si, (sig_key, nts, sig_total) in enumerate(sig_items):

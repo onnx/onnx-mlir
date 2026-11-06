@@ -180,7 +180,13 @@ with torch_onnxmlir.explain_context(profiling=True) as ctx:
 
 # Full control via dict.
 with torch_onnxmlir.explain_context(
-    profiling={"detail": 2, "warmup": 1, "reporting": "all"},
+    profiling={
+        "detail": 2,
+        "warmup": 1,
+        "reporting": "all",
+        "profile_ir": "Onnx",       # or "ZHigh", "Krnl"; None = auto-detect
+        "keep_profiles": False,      # True to keep profile.prof files
+    },
     format="dict",
 ) as ctx:
     for _ in range(5):
@@ -195,6 +201,8 @@ with torch_onnxmlir.explain_context(
 | `detail` | 0, 1, 2 | 0 | Detail level (see below). |
 | `warmup` | int >= 0 | 0 | Number of initial runs to skip before collecting. |
 | `reporting` | `"all"`, `"quartile"`, `"sum"` | `"all"` | How per-node times are aggregated across runs. |
+| `profile_ir` | `"Onnx"`, `"ZHigh"`, `"Krnl"`, ... | `None` | Override the `--profile-ir-with-sig` level. `None` auto-detects from compile options (`"ZHigh"` when `-maccel=NNPA` is set, `"Onnx"` otherwise). |
+| `keep_profiles` | `True` / `False` | `False` | When `True`, keep `profile.prof` files in the cache directory after collection instead of deleting them. Useful for post-hoc analysis. |
 
 Defaults can also be set globally via `torch_onnxmlir.config`:
 
@@ -202,6 +210,8 @@ Defaults can also be set globally via `torch_onnxmlir.config`:
 torch_onnxmlir.config.profiling_detail = 0
 torch_onnxmlir.config.profiling_warmup = 0
 torch_onnxmlir.config.profiling_reporting = "all"
+torch_onnxmlir.config.profiling_profile_ir = None   # None = auto-detect
+torch_onnxmlir.config.profiling_keep_profiles = False
 ```
 
 ### Detail levels
