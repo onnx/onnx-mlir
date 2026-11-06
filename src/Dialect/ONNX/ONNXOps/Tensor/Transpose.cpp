@@ -91,6 +91,8 @@ LogicalResult ONNXTransposeOp::verify() {
     return emitOpError() << "Transpose op perm attribute has "
                          << ArrayAttrSize(permAttr) << " elements but rank is "
                          << rank;
+
+  SmallVector<bool> seenAxes(rank, false);
   for (int64_t i = 0; i < rank; ++i) {
     int64_t p = ArrayAttrIntVal(permAttr, i);
     if (p < 0)
@@ -101,6 +103,9 @@ LogicalResult ONNXTransposeOp::verify() {
     if (p >= rank)
       return emitOpError() << "Transpose op with too high a permute value ("
                            << p << " at index " << i << ")";
+    if (seenAxes[p])
+      return emitOpError() << "perm attribute contains repeated axis " << p;
+    seenAxes[p] = true;
   }
   return success();
 }
