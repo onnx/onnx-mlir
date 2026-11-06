@@ -18,7 +18,7 @@
 #define ONNX_MLIR_COMPILER_MACROS_H
 
 /// OM_EXTERNAL_VISIBILITY - classes, functions, and variables marked with this
-/// keywork will be made public and visible outside of any shared library they
+/// keyword will be made public and visible outside of any shared library they
 /// are linked in to.
 #if defined(_WIN32)
 #define OM_EXTERNAL_VISIBILITY __declspec(dllexport)

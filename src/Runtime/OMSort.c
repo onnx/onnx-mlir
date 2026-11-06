@@ -4,7 +4,7 @@
 
 //===-- OMSort.c - OMSort C Implementation --------------------------------===//
 //
-// Copyright 2023-2025 The IBM Research Authors.
+// Copyright 2023-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -25,6 +25,7 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
+#include "src/Runtime/OMTensorInternal.h"
 
 #include "src/Support/SmallFPConversion.h"
 
