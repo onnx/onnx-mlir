@@ -2339,12 +2339,14 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     : public OpConversionPattern<ZHighExtendedLayoutTransformOp> {
   using OpAdaptor = typename ZHighExtendedLayoutTransformOp::Adaptor;
   bool enableParallel = false;
+  bool enableCollapse = false;
   bool disableSaturation = false;
 
   ZHighToZLowExtendedLayoutTransformLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
       : OpConversionPattern<ZHighExtendedLayoutTransformOp>(typeConverter, ctx),
-        disableSaturation(disableSaturation) {
+        enableCollapse(enableCollapse), disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2425,10 +2427,30 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     // Inner dim is tiled by innerTile; guaranteed to be full tile.
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(innerTile);
 
-    // Handle parallelism here.
-    int maxId = std::min(loopRank - 1, (int64_t)2);
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
+    // Handle parallelism here. Each (split) source position maps to exactly one
+    // output position through the split, the transpose permutation and the
+    // merge, so distinct iterations write disjoint innerTile-wide slices and
+    // any run of outer levels may be collapsed. The per-iteration stick
+    // pointers (beforeStickLoop) and offsets are computed inside the body, so
+    // each thread has its own.
+    //
+    // The tiled innermost level stays out of both windows: it is the SIMD
+    // span (sticks of innerTile elements) and is kept sequential.
+    //
+    // Both windows stop at the top two levels. A group reaching deeper fuses
+    // a dynamic level (e.g. seq) with the levels below it, and recovering the
+    // indices then costs several divides by that dynamic extent per iteration,
+    // against a body of a single stick. Capped at two, the group is at most
+    // batch x seq (one dynamic divide), and the remaining levels run as a
+    // sequential loop inside each fused iteration.
+    //
+    // bodyCost: one innermost iteration converts or copies one stick of
+    // innerTile elements.
+    int64_t parLevels = std::min(loopRank - 1, (int64_t)2);
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
+        /*collapseLastExclusiveDim=*/parLevels,
+        {.minTripCountForParallel = 4, .bodyCost = innerTile});
     if (enableParallel) {
       plan.tryCreateParallel(
           create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
@@ -2548,11 +2570,14 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
   using Base = FusedOpKindLowering<ExtLayoutTransformFusionHelper>;
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
   bool enableParallel = false;
+  bool enableCollapse = false;
   bool disableSaturation = false;
 
   ZHighToZLowFusedExtLayoutTransformLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
-      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
+      : Base(typeConverter, ctx), enableCollapse(enableCollapse),
+        disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2675,9 +2700,13 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     assert((int64_t)ubs.size() == loopRank && "missing ubs values");
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(innerTile);
 
-    int maxId = std::min(loopRank - 1, (int64_t)2);
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
+    // Same nest, collapse argument and windows as the unfused
+    // ZHighToZLowExtendedLayoutTransformLowering above.
+    int64_t parLevels = std::min(loopRank - 1, (int64_t)2);
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
+        /*collapseLastExclusiveDim=*/parLevels,
+        {.minTripCountForParallel = 4, .bodyCost = innerTile});
     if (enableParallel) {
       plan.tryCreateParallel(
           create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
@@ -3857,11 +3886,11 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowQuantizedMatMulOpLowering>(typeConverter, ctx);
   // Extended transpose
   patterns.insert<ZHighToZLowExtendedLayoutTransformLowering>(
-      typeConverter, ctx, enableParallel, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   // FusedOp: one pattern per zhigh.* kind.  The benefit-0 FusedOpInlineFallback
   // catch-all for unregistered kinds is in populateONNXToKrnlConversionPattern.
   patterns.insert<ZHighToZLowFusedExtLayoutTransformLowering>(
-      typeConverter, ctx, enableParallel, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   patterns.insert<ZHighToZLowFusedExpandMulStickLowering>(
       typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   patterns.insert<ZHighToZLowFusedConcatExpandStickLowering>(
