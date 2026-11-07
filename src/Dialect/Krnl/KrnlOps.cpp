@@ -4,7 +4,7 @@
 
 //===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -754,12 +754,17 @@ void KrnlCollapseOp::build(::OpBuilder &odsBuilder,
 LogicalResult KrnlCollapseOp::verify() {
   if (getLoops().size() < 2)
     return emitOpError("expects 2 or more loops to collapse");
-  // Restrictions of the first version: neither blocked nor already-collapsed
-  // loops may be collapsed. Both are meaningful extensions, but they need the
-  // trip counts of operands that are not plain original loop dimensions.
+  // The tile loop of a krnl.block (its first result) may be collapsed: it runs
+  // from 0 by steps of the tile size, and the lowering fuses it as a count of
+  // tiles. The intra-tile loop (its second result) may not, as its bounds
+  // depend on the tile loop's index. Nor may an already-collapsed loop be
+  // collapsed again; the variadic form already covers that need.
   for (Value loop : getLoops()) {
-    if (loop.getDefiningOp<KrnlBlockOp>())
-      return emitOpError("cannot collapse a loop produced by krnl.block");
+    if (auto blockOp = loop.getDefiningOp<KrnlBlockOp>())
+      if (loop == blockOp.getLoopLocal())
+        return emitOpError("cannot collapse the intra-tile loop produced by "
+                           "krnl.block (its second result); only its tile loop "
+                           "(its first result) may be collapsed");
     if (loop.getDefiningOp<KrnlCollapseOp>())
       return emitOpError("cannot collapse a loop produced by krnl.collapse");
   }

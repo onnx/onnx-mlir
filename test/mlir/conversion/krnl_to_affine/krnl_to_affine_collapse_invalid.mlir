@@ -99,8 +99,9 @@ func.func @lower_bound_dynamic(%arg0: memref<10x20xf32>, %lb: index) -> memref<1
 
 // -----
 
-// permute is likewise rejected in v1: it is interpreted after the collapse has
-// already fused (and erased) the loops it would reorder.
+// A permute following the collapse is rejected: it would be interpreted after
+// the collapse has already fused (and erased) the loops it would reorder. A
+// permute preceding the collapse is accepted.
 func.func @permute_shares_operand_with_collapse() {
   %ii, %jj, %kk = krnl.define_loops 3
   // expected-error @+1 {{collapses a loop reference that is also used by 'krnl.permute'}}
@@ -147,4 +148,35 @@ func.func @parallel_on_unused_loop_ref(%arg0: memref<10xf32>) -> memref<10xf32> 
     krnl.store %v, %alloc[%i] : memref<10xf32>
   }
   return %alloc : memref<10xf32>
+}
+
+// -----
+
+// The intra-tile loop of a krnl.block is left between the two collapsed loops,
+// so they are not perfectly nested: it must be nested inside them.
+func.func @intra_tile_loop_between_collapsed_loops(%arg0: memref<10x20xf32>) -> memref<10x20xf32> {
+  %alloc = memref.alloc() : memref<10x20xf32>
+  %ii, %jj = krnl.define_loops 2
+  %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  // expected-error @+1 {{collapses loops that are not perfectly nested, adjacent, and listed outer-to-inner}}
+  %ff = krnl.collapse(%ib, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  krnl.iterate(%ff, %il) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+    %t, %b, %a = krnl.get_induction_var_value(%ff, %il) : (!krnl.loop, !krnl.loop) -> (index, index, index)
+    %v = krnl.load %arg0[%a, %b] : memref<10x20xf32>
+    krnl.store %v, %alloc[%a, %b] : memref<10x20xf32>
+  }
+  return %alloc : memref<10x20xf32>
+}
+
+// -----
+
+// Once permuted, the loops are listed inner-to-outer.
+func.func @collapse_in_permuted_wrong_order() {
+  %ii, %jj = krnl.define_loops 2
+  krnl.permute(%ii, %jj) [1, 0] : !krnl.loop, !krnl.loop
+  // expected-error @+1 {{collapses loops that are not perfectly nested, adjacent, and listed outer-to-inner}}
+  %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  krnl.iterate(%ff) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+  }
+  return
 }
