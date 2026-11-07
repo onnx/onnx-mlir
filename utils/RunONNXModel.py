@@ -1380,10 +1380,17 @@ class InferenceSession:
             perf_results += [elapsed]
             print("  {} iteration, {}, seconds".format(ordinal(i + 1), elapsed))
             self.print_instrumentation()
+            # With --verify, check every iteration, not only the last one, to
+            # catch nondeterministic results (e.g. races in parallel code).
+            # Verification is outside the timed section; perf runs typically
+            # don't verify anyway.
+            if args.verify:
+                self.process_outputs(outs)
 
         # Print performance results and verify output.
         self.process_perf_results(perf_results)
-        self.process_outputs(outs)
+        if not args.verify:
+            self.process_outputs(outs)
         if output_name:
             res = {output_name[i]: outs[i] for i in range(len(outs))}
             return res

@@ -422,37 +422,98 @@ func.func @test_collapse_gather_group_below_level_0(%arg0: tensor<8x2x2x?xf32>, 
 
 // Gather on an all-static shape, where the flag changes which level carries the
 // region rather than widening one. Flag off, the search takes the first level
-// wide enough and lands on level 2 (64), entered 2 x 2 = 4 times. Flag on, STEP 1
+// wide enough and lands on level 2 (4), entered 2 x 2 = 4 times. Flag on, STEP 1
 // refuses it because that prefix is above maxForkCount, and STEP 2 fuses {0,1}
 // into a guaranteed 4 entered once. Narrower but entered once, which is the
 // trade maxForkCount encodes -- worth pinning because it is the clearest case of
 // the flag *moving* a region instead of growing one.
-// GROUND-THIS: --shape-info=0:2x2x64,1:2 --lower-bound=int64:0 --upper-bound=int64:1
-func.func @test_collapse_gather_static_moves_region(%arg0: tensor<2x2x64xf32>, %arg1: tensor<2xi64>) -> tensor<2x2x64xf32> {
-  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<2x2x64xf32>, tensor<2xi64>) -> tensor<2x2x64xf32>
-  return %0 : tensor<2x2x64xf32>
+// The slice is kept at 4 floats so that the nest stays element-wise: a
+// contiguous slice of 64 bytes or more takes the row-copy path instead.
+// GROUND-THIS: --shape-info=0:2x2x4,1:2 --lower-bound=int64:0 --upper-bound=int64:1
+func.func @test_collapse_gather_static_moves_region(%arg0: tensor<2x2x4xf32>, %arg1: tensor<2xi64>) -> tensor<2x2x4xf32> {
+  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<2x2x4xf32>, tensor<2xi64>) -> tensor<2x2x4xf32>
+  return %0 : tensor<2x2x4xf32>
+
 
 // CHECK-LABEL:  func.func @test_collapse_gather_static_moves_region
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2x64xf32>, [[PARAM_1_:%.+]]: memref<2xi64>) -> memref<2x2x64xf32> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2x4xf32>, [[PARAM_1_:%.+]]: memref<2xi64>) -> memref<2x2x4xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2x64xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() alignment = 16 : memref<2x2x4xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
 // CHECK:           krnl.parallel([[VAR_1_]]) : !krnl.loop
-// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 64){
+// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 4){
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[VAR_1_]], [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]]#0] : memref<2xi64>
 // CHECK:             [[VAR_4_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[CST_0_]] : index
 // CHECK-DAG:         [[VAR_6_:%.+]] = arith.addi [[VAR_4_]], [[CST_2_]] : index
 // CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_7_]], [[VAR_2_]]#1, [[VAR_2_]]#2] : memref<2x2x64xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2] : memref<2x2x64xf32>
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_7_]], [[VAR_2_]]#1, [[VAR_2_]]#2] : memref<2x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2] : memref<2x2x4xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<2x2x64xf32>
+// CHECK:           return [[RES_]] : memref<2x2x4xf32>
 // CHECK:         }
 
+
+}
+
+// -----
+
+// Gather of embedding rows, the BERT word-embedding shape scaled down: the
+// slice after the axis is 64 contiguous floats, so the lowering iterates only
+// over the [batch, seq] index levels and copies each row with one krnl.memcpy.
+// Flag on, both dynamic levels fuse into one region; flag off, the region sits
+// on the batch level. Before the row-copy path, the element-wise nest put the
+// region on the 64-wide slice level, so one region was entered per row.
+// GROUND-THIS: --shape-info=0:100x64,1:3x37 --lower-bound=int64:0 --upper-bound=int64:99
+func.func @test_collapse_gather_rows(%arg0: tensor<100x64xf32>, %arg1: tensor<?x?xi64>) -> tensor<?x?x64xf32> {
+  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<100x64xf32>, tensor<?x?xi64>) -> tensor<?x?x64xf32>
+  return %0 : tensor<?x?x64xf32>
+
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d1)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d0)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> (d0 * 64)>
+// CHECK-LABEL:  func.func @test_collapse_gather_rows
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<100x64xf32>, [[PARAM_1_:%.+]]: memref<?x?xi64>) -> memref<?x?x64xf32> {
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
+// CHECK-DAG:       [[CST_64_1_:%.+]] = arith.constant 64 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x?xi64>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_1_]], [[CST_1_]] : memref<?x?xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_0_]]) alignment = 16 : memref<?x?x64xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_0_]]{{.}}
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           [[VAR_2_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_2_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[VAR_2_]]) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_0_]], [[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_0_]], [[VAR_dim_]])){
+// CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[VAR_2_]]) : (!krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<?x?xi64>
+// CHECK:             [[VAR_5_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.cmpi slt, [[VAR_5_]], [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.addi [[VAR_5_]], [[CST_100_]] : index
+// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_6_]], [[VAR_7_]], [[VAR_5_]] : index
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.muli [[VAR_8_]], [[CST_64_1_]] : index
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.muli [[VAR_3_]]#0, [[VAR_0_]] : index
+// CHECK-DAG:         [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_3_]]#1)
+// CHECK:             [[VAR_12_:%.+]] = arith.addi [[VAR_10_]], [[VAR_11_]] : index
+// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_12_]], [[VAR_9_]]) : (memref<?x?x64xf32>, memref<100x64xf32>, i64, index, index) -> ()
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x?x64xf32>
+// CHECK:         }
+
+// NOCOLLAPSE-LABEL:  func.func @test_collapse_gather_rows
+// NOCOLLAPSE-NOT:      krnl.collapse
+// NOCOLLAPSE:          krnl.parallel([[LOOP_OFF_:%.+]]#0) : !krnl.loop
+// NOCOLLAPSE:          krnl.iterate([[LOOP_OFF_]]#0, [[LOOP_OFF_]]#1)
+// NOCOLLAPSE:            "krnl.memcpy"
 
 }
 
