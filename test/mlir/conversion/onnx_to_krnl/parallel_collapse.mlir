@@ -569,6 +569,191 @@ func.func @test_collapse_gather_rows(%arg0: tensor<100x64xf32>, %arg1: tensor<?x
 
 // -----
 
+// Elementwise, SIMD path (outer loop of a partially flattened nest): the 768
+// innermost elements are one flattened SIMD loop, and the outer [batch, seq]
+// levels fuse into one region instead of sitting on the dynamic batch alone,
+// which is 1 at inference. As in BERT's embedding Adds.
+// GROUND-THIS: --shape-info=0:3x37x768,1:3x37x768
+func.func @test_collapse_elementwise_simd(%arg0: tensor<?x?x768xf32>, %arg1: tensor<?x?x768xf32>) -> tensor<?x?x768xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x?x768xf32>, tensor<?x?x768xf32>) -> tensor<?x?x768xf32>
+  return %0 : tensor<?x?x768xf32>
+
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1, s0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2, d3, d4) -> (d4)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2, d3, d4, d5) -> (d5)>
+// CHECK-LABEL:  func.func @test_collapse_elementwise_simd
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x768xf32>, [[PARAM_1_:%.+]]: memref<?x?x768xf32>) -> memref<?x?x768xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x768xf32>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_]] : memref<?x?x768xf32>
+// CHECK-DAG:       [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x?x768xf32>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_1_]], [[CST_1_]] : memref<?x?x768xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_0_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_]], [[VAR_dim_1_]]{{.}}
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_0_]], [[VAR_dim_2_]]{{.}}
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]], [[VAR_1_]]) alignment = 16 : memref<?x?x768xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           [[VAR_3_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_3_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[VAR_3_]], [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_1_]], [[VAR_dim_0_]], [[VAR_dim_2_]], [[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_]], [[VAR_dim_1_]], [[VAR_dim_0_]], [[VAR_dim_2_]], [[VAR_0_]], [[VAR_1_]]), [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 768){
+// CHECK-DAG:         [[VAR_4_:%.+]]:3 = krnl.get_induction_var_value([[VAR_3_]], [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi sgt, [[VAR_dim_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[VAR_4_]]#0, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.cmpi sgt, [[VAR_dim_0_]], [[CST_1_]] : index
+// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[VAR_4_]]#1, [[CST_0_]] : index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_6_]], [[VAR_8_]], [[VAR_4_]]#2] : memref<?x?x768xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpi sgt, [[VAR_dim_1_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_4_]]#0, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpi sgt, [[VAR_dim_2_]], [[CST_1_]] : index
+// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_4_]]#1, [[CST_0_]] : index
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_11_]], [[VAR_13_]], [[VAR_4_]]#2] : memref<?x?x768xf32>
+// CHECK:             [[VAR_15_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_15_]], [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1, [[VAR_4_]]#2] : memref<?x?x768xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x?x768xf32>
+// CHECK:         }
+
+// NOCOLLAPSE-LABEL:  func.func @test_collapse_elementwise_simd
+// NOCOLLAPSE-NOT:      krnl.collapse
+// NOCOLLAPSE:          krnl.parallel([[LOOP_OFF_:%.+]]#0) : !krnl.loop
+
+}
+
+// -----
+
+// Elementwise, scalar path (a broadcast the SIMD path rules out), as in an
+// attention-mask Add [batch, 12, seq, seq] + [batch, 1, seq, seq]. The top two
+// levels fuse; the collapse window stops there and never reaches the
+// innermost level, so indices are recovered once per row, not per element.
+// GROUND-THIS: --shape-info=0:2x12x33x33,1:2x1x33x33
+func.func @test_collapse_elementwise_bcast(%arg0: tensor<?x12x?x?xf32>, %arg1: tensor<?x1x?x?xf32>) -> tensor<?x12x?x?xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x12x?x?xf32>, tensor<?x1x?x?xf32>) -> tensor<?x12x?x?xf32>
+  return %0 : tensor<?x12x?x?xf32>
+
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1, s0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6) -> (d6)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7) -> (d7)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7, d8) -> (d8)>
+// CHECK-LABEL:  func.func @test_collapse_elementwise_bcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x12x?x?xf32>, [[PARAM_1_:%.+]]: memref<?x1x?x?xf32>) -> memref<?x12x?x?xf32> {
+// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x12x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<?x12x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_3_]] : memref<?x12x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x1x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_1_]], [[CST_2_]] : memref<?x1x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_4_:%.+]] = memref.dim [[PARAM_1_]], [[CST_3_]] : memref<?x1x?x?xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_0_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_]], [[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_0_]], [[VAR_dim_3_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_1_]], [[VAR_dim_4_]]{{.}}
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) alignment = 16 : memref<?x12x?x?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+// CHECK:           [[VAR_4_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_4_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[VAR_4_]], [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_2_]], [[VAR_dim_0_]], [[VAR_dim_3_]], [[VAR_dim_1_]], [[VAR_dim_4_]], [[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 12, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_]], [[VAR_dim_2_]], [[VAR_dim_0_]], [[VAR_dim_3_]], [[VAR_dim_1_]], [[VAR_dim_4_]], [[VAR_0_]], [[VAR_1_]]), [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_3_]]([[VAR_dim_]], [[VAR_dim_2_]], [[VAR_dim_0_]], [[VAR_dim_3_]], [[VAR_dim_1_]], [[VAR_dim_4_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]])){
+// CHECK-DAG:         [[VAR_5_:%.+]]:4 = krnl.get_induction_var_value([[VAR_4_]], [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.cmpi sgt, [[VAR_dim_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[VAR_5_]]#0, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_8_:%.+]] = arith.cmpi sgt, [[VAR_dim_0_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.select [[VAR_8_]], [[VAR_5_]]#2, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpi sgt, [[VAR_dim_1_]], [[CST_1_]] : index
+// CHECK:             [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_5_]]#3, [[CST_0_]] : index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_7_]], [[VAR_5_]]#1, [[VAR_9_]], [[VAR_11_]]{{.}} : memref<?x12x?x?xf32>
+// CHECK-DAG:         [[VAR_13_:%.+]] = arith.cmpi sgt, [[VAR_dim_2_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_5_]]#0, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_15_:%.+]] = arith.cmpi sgt, [[VAR_dim_3_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[VAR_5_]]#2, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_17_:%.+]] = arith.cmpi sgt, [[VAR_dim_4_]], [[CST_1_]] : index
+// CHECK:             [[VAR_18_:%.+]] = arith.select [[VAR_17_]], [[VAR_5_]]#3, [[CST_0_]] : index
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_14_]], [[CST_0_]], [[VAR_16_]], [[VAR_18_]]{{.}} : memref<?x1x?x?xf32>
+// CHECK:             [[VAR_20_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_20_]], [[RES_]]{{.}}[[VAR_5_]]#0, [[VAR_5_]]#1, [[VAR_5_]]#2, [[VAR_5_]]#3] : memref<?x12x?x?xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x12x?x?xf32>
+// CHECK:         }
+
+// NOCOLLAPSE-LABEL:  func.func @test_collapse_elementwise_bcast
+// NOCOLLAPSE-NOT:      krnl.collapse
+// NOCOLLAPSE:          krnl.parallel([[LOOP_OFF_:%.+]]#0) : !krnl.loop
+
+}
+
+// -----
+
+// Where, scalar path, under the same rule as the other elementwise nests.
+// GROUND-THIS: --shape-info=0:3x1x41,1:3x7x41,2:1
+func.func @test_collapse_where(%arg0: tensor<?x1x?xi1>, %arg1: tensor<?x7x?xf32>, %arg2: tensor<1xf32>) -> tensor<?x7x?xf32> {
+  %0 = "onnx.Where"(%arg0, %arg1, %arg2) : (tensor<?x1x?xi1>, tensor<?x7x?xf32>, tensor<1xf32>) -> tensor<?x7x?xf32>
+  return %0 : tensor<?x7x?xf32>
+
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1, s0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2, d3, d4) -> (d4)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2, d3, d4, d5) -> (d5)>
+// CHECK-LABEL:  func.func @test_collapse_where
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x?xi1>, [[PARAM_1_:%.+]]: memref<?x7x?xf32>, [[PARAM_2_:%.+]]: memref<1xf32>) -> memref<?x7x?xf32> {
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x1x?xi1>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<?x1x?xi1>
+// CHECK-DAG:       [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x7x?xf32>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_1_]], [[CST_2_]] : memref<?x7x?xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_0_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_]], [[VAR_dim_1_]]{{.}}
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_0_]], [[VAR_dim_2_]]{{.}}
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]], [[VAR_1_]]) alignment = 16 : memref<?x7x?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           [[VAR_3_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_3_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[VAR_3_]], [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_1_]], [[VAR_dim_0_]], [[VAR_dim_2_]], [[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 7, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_]], [[VAR_dim_1_]], [[VAR_dim_0_]], [[VAR_dim_2_]], [[VAR_0_]], [[VAR_1_]])){
+// CHECK-DAG:         [[VAR_4_:%.+]]:3 = krnl.get_induction_var_value([[VAR_3_]], [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi sgt, [[VAR_dim_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[VAR_4_]]#0, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.cmpi sgt, [[VAR_dim_0_]], [[CST_1_]] : index
+// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[VAR_4_]]#2, [[CST_0_]] : index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_6_]], [[CST_0_]], [[VAR_8_]]{{.}} : memref<?x1x?xi1>
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpi sgt, [[VAR_dim_1_]], [[CST_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_4_]]#0, [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpi sgt, [[VAR_dim_2_]], [[CST_1_]] : index
+// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_4_]]#2, [[CST_0_]] : index
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_11_]], [[VAR_4_]]#1, [[VAR_13_]]{{.}} : memref<?x7x?xf32>
+// CHECK-DAG:         [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[CST_0_]]{{.}} : memref<1xf32>
+// CHECK:             [[VAR_16_:%.+]] = arith.select [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]], [[LOAD_PARAM_2_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_16_]], [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1, [[VAR_4_]]#2] : memref<?x7x?xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x7x?xf32>
+// CHECK:         }
+
+// NOCOLLAPSE-LABEL:  func.func @test_collapse_where
+// NOCOLLAPSE-NOT:      krnl.collapse
+// NOCOLLAPSE:          krnl.parallel([[LOOP_OFF_:%.+]]#0) : !krnl.loop
+
+}
+
+// -----
+
 // A rank-0 nest: Gather declares its whole window collapse-eligible, but a
 // scalar output defines no loop at all, so there is nothing to fuse. The plan
 // must degrade to a no-collapse plan rather than assert (it used to abort with
