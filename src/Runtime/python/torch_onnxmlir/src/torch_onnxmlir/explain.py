@@ -12,6 +12,8 @@
 ################################################################################
 
 import json
+import os
+from datetime import datetime
 from typing import Optional, Dict, List, Literal
 from . import metrics, config
 
@@ -59,6 +61,7 @@ def _explain(
     format: str = "table",
     detailed: bool = False,
     sort_by: Literal["time", "order", "calls"] = "time",
+    profiling_detail: int = 0,
 ) -> Optional[str]:
     """
     Internal function to format and return performance metrics.
@@ -70,6 +73,7 @@ def _explain(
         format: "table", "json", or "dict"
         detailed: Not used (reserved for future)
         sort_by: "time" (default), "order", or "calls"
+        profiling_detail: 0 = op summary, 1 = + signatures, 2 = + nodes.
 
     Returns:
         Formatted string or dict
@@ -88,18 +92,30 @@ def _explain(
 
     if format == "dict":
         return _format_as_dict(
-            all_metrics, eager_fallbacks, total_eager_fallbacks, sort_by
+            all_metrics,
+            eager_fallbacks,
+            total_eager_fallbacks,
+            sort_by,
+            profiling_detail,
         )
     elif format == "json":
         return json.dumps(
             _format_as_dict(
-                all_metrics, eager_fallbacks, total_eager_fallbacks, sort_by
+                all_metrics,
+                eager_fallbacks,
+                total_eager_fallbacks,
+                sort_by,
+                profiling_detail,
             ),
             indent=2,
         )
     else:
         return _format_as_table(
-            all_metrics, eager_fallbacks, total_eager_fallbacks, sort_by
+            all_metrics,
+            eager_fallbacks,
+            total_eager_fallbacks,
+            sort_by,
+            profiling_detail,
         )
 
 
@@ -137,7 +153,11 @@ def _format_table_simple(headers: List[str], rows: List[List[str]]) -> str:
 
 
 def _format_as_table(
-    all_metrics: Dict, eager_fallbacks: Dict, total_eager_fallbacks: int, sort_by: str
+    all_metrics: Dict,
+    eager_fallbacks: Dict,
+    total_eager_fallbacks: int,
+    sort_by: str,
+    profiling_detail: int = 0,
 ) -> str:
     """Format metrics as a table."""
     from . import sessioncache
@@ -148,6 +168,7 @@ def _format_as_table(
     total_inferences = sum(m.inference_count for m in all_metrics.values())
     total_cache_hits = sum(m.cache_hits for m in all_metrics.values())
 
+    out.append(f"Timestamp: {datetime.now().isoformat()}")
     out.append(f"Cache Directory: {sessioncache.cache_dir()}")
     out.append(f"Unique Graphs: {len(all_metrics)}")
     out.append(f"Total Inference Calls: {total_inferences}")
@@ -291,6 +312,33 @@ def _format_as_table(
                 )
             out.append("")
 
+    # Profiling data section.
+    profiling_data = metrics.global_metrics_collector.get_profiling_data()
+    input_shapes_map = metrics.global_metrics_collector.get_input_shapes()
+    if profiling_data:
+        from . import profiling as profiling_mod
+
+        out.append("=" * 80)
+        out.append("PER-OP PROFILING DATA")
+        out.append("=" * 80)
+        for cache_key, prof_result in profiling_data.items():
+            mid = cache_key[:16] + "..." if len(cache_key) > 16 else cache_key
+            out.append("")
+            out.append(f"Graph: {mid}")
+            shapes_list = input_shapes_map.get(cache_key, [])
+            if shapes_list:
+                unique = []
+                for s in shapes_list:
+                    if s not in unique:
+                        unique.append(s)
+                for s in unique:
+                    out.append(f"  Input shapes: {s}")
+            out.append(
+                profiling_mod.format_profiling_table(
+                    prof_result, detail_level=profiling_detail
+                )
+            )
+
     if not HAS_TABULATE:
         out.append("Tip: pip install tabulate")
 
@@ -298,11 +346,16 @@ def _format_as_table(
 
 
 def _format_as_dict(
-    all_metrics: Dict, eager_fallbacks: Dict, total_eager_fallbacks: int, sort_by: str
+    all_metrics: Dict,
+    eager_fallbacks: Dict,
+    total_eager_fallbacks: int,
+    sort_by: str,
+    profiling_detail: int = 0,
 ) -> dict:
     """Format metrics as a dictionary."""
     result = {
         "summary": {
+            "timestamp": datetime.now().isoformat(),
             "unique_graphs": len(all_metrics),
             "total_inference_calls": sum(
                 m.inference_count for m in all_metrics.values()
@@ -315,8 +368,10 @@ def _format_as_dict(
         "sort_by": sort_by,
     }
 
+    from . import sessioncache
+
     for key, m in _sort_models(all_metrics, sort_by):
-        result["graphs"][key] = {
+        graph_entry = {
             "call_order": m.call_order,
             "compilation_time": m.compilation_time,
             "inference_count": m.inference_count,
@@ -326,6 +381,21 @@ def _format_as_dict(
             "total_inference_time": m.total_inference_time,
             "total_time": m.total_time,
         }
+        config_path = os.path.join(
+            sessioncache.cache_dir(), key, sessioncache.OM_BACKEND_CONFIG_FILE
+        )
+        try:
+            with open(config_path, "r") as f:
+                disk_cfg = json.load(f)
+            for cfg_key in ("compilation_info", "input_signature", "output_signature"):
+                raw = disk_cfg.get(cfg_key, "")
+                try:
+                    graph_entry[cfg_key] = json.loads(raw) if raw else raw
+                except (json.JSONDecodeError, TypeError):
+                    graph_entry[cfg_key] = raw
+        except (OSError, json.JSONDecodeError):
+            pass
+        result["graphs"][key] = graph_entry
 
     sorted_fb = sorted(
         eager_fallbacks.items(),
@@ -340,6 +410,74 @@ def _format_as_dict(
         }
         if info.cache_key:
             result["eager_fallbacks"][key]["cache_key"] = info.cache_key
+
+    # Profiling data.
+    profiling_data = metrics.global_metrics_collector.get_profiling_data()
+    input_shapes_map = metrics.global_metrics_collector.get_input_shapes()
+    if profiling_data:
+        result["profiling"] = {}
+        for cache_key, prof_result in profiling_data.items():
+            nodes_by_op: dict = {}
+            for nt in prof_result.node_timings:
+                nodes_by_op.setdefault(nt.op_name, []).append(nt)
+
+            ops_list = []
+            for op in prof_result.op_timings:
+                op_entry = {
+                    "op_name": op.op_name,
+                    "count": op.count,
+                    "avg_time": op.avg_time,
+                    "total_time": op.total_time,
+                    "percentage": op.percentage,
+                }
+                op_nodes = nodes_by_op.get(op.op_name, [])
+                if profiling_detail >= 1 and op_nodes:
+                    from . import profiling as profiling_mod
+
+                    sig_items = profiling_mod._group_by_signature(op_nodes)
+                    op_total = op.total_time if op.total_time > 0 else 1.0
+                    sig_list = []
+                    for sig_key, nts, sig_total in sig_items:
+                        count = len(nts)
+                        sig_pct = sig_total / op_total * 100
+                        sig_entry = {
+                            "signature": sig_key,
+                            "count": count,
+                            "avg_time": sig_total / count if count else 0.0,
+                            "total_time": sig_total,
+                            "percentage": sig_pct,
+                        }
+                        if profiling_detail >= 2:
+                            node_list = []
+                            for nt in sorted(nts, key=lambda x: x.time, reverse=True):
+                                node_pct = (
+                                    nt.time / sig_total * 100 if sig_total > 0 else 0.0
+                                )
+                                node_list.append(
+                                    {
+                                        "node_name": nt.node_name,
+                                        "time": nt.time,
+                                        "percentage": node_pct,
+                                    }
+                                )
+                            sig_entry["nodes"] = node_list
+                        sig_list.append(sig_entry)
+                    op_entry["signatures"] = sig_list
+                ops_list.append(op_entry)
+
+            entry = {
+                "total_time": prof_result.total_time,
+                "num_measurements": prof_result.num_measurements,
+                "reporting_mode": prof_result.reporting_mode,
+                "ops": ops_list,
+            }
+            if cache_key in input_shapes_map:
+                entry["input_shapes"] = input_shapes_map[cache_key]
+            if prof_result.cpu_time is not None:
+                entry["cpu_time"] = prof_result.cpu_time
+            if prof_result.accel_time is not None:
+                entry["accel_time"] = prof_result.accel_time
+            result["profiling"][cache_key] = entry
 
     return result
 
@@ -367,7 +505,13 @@ class ExplainContext:
         data = ctx.data
     """
 
-    def __init__(self, format="table", sort_by="time", export_to=None):
+    def __init__(
+        self,
+        format="table",
+        sort_by="time",
+        export_to=None,
+        profiling=False,
+    ):
         """
         Initialize context manager.
 
@@ -375,17 +519,64 @@ class ExplainContext:
             format: Output format ('table', 'dict', 'json'). Default: 'table'.
             sort_by: Sort order ('time', 'calls', 'order'). Default: 'time'.
             export_to: Optional file path to automatically export metrics on exit.
+            profiling: Enable per-op profiling. Accepts:
+                - False/None: disabled (default).
+                - True: enabled with defaults from config.
+                - dict: enabled with overrides, keys:
+                    "detail": 0 (op summary), 1 (+ signatures), 2 (+ nodes).
+                    "warmup": number of initial runs to skip before collecting.
+                    "reporting": how per-node times aggregate across runs:
+                        "all" -- average across all runs (default).
+                        "quartile" -- discard top/bottom 25%, average the rest.
+                        "sum" -- cumulative time, not averaged.
+                    "profile_ir": override --profile-ir-with-sig level
+                        (e.g. "Onnx", "ZHigh", "Krnl"). None = auto-detect.
+                    "keep_profiles": if True, keep profile.prof files after
+                        collection (default False).
         """
         self.format = format
         self.sort_by = sort_by
         self.export_to = export_to
+
+        if isinstance(profiling, dict):
+            self.profiling = True
+            self.profiling_detail = profiling.get("detail", config.profiling_detail)
+            self.profiling_warmup = profiling.get("warmup", config.profiling_warmup)
+            self.profiling_reporting = profiling.get(
+                "reporting", config.profiling_reporting
+            )
+            self.profiling_profile_ir = profiling.get(
+                "profile_ir", config.profiling_profile_ir
+            )
+            self.profiling_keep_profiles = profiling.get(
+                "keep_profiles", config.profiling_keep_profiles
+            )
+        elif profiling:
+            self.profiling = True
+            self.profiling_detail = config.profiling_detail
+            self.profiling_warmup = config.profiling_warmup
+            self.profiling_reporting = config.profiling_reporting
+            self.profiling_profile_ir = config.profiling_profile_ir
+            self.profiling_keep_profiles = config.profiling_keep_profiles
+        else:
+            self.profiling = False
+            self.profiling_detail = config.profiling_detail
+            self.profiling_warmup = config.profiling_warmup
+            self.profiling_reporting = config.profiling_reporting
+            self.profiling_profile_ir = config.profiling_profile_ir
+            self.profiling_keep_profiles = config.profiling_keep_profiles
+
         self.metrics = None
         self._previous_enable_state = None
+        self._previous_profiling_state = None
+        self._previous_instrument_file = None
 
     def __enter__(self):
         """Enable metrics collection and clear existing metrics."""
         # Save previous state.
         self._previous_enable_state = _enable_explain
+        self._previous_profiling_state = config._get_profiling_enabled()
+        self._previous_profile_ir = config.profiling_profile_ir
 
         # Enable metrics collection using internal setter.
         _set_enable_explain(True)
@@ -393,12 +584,36 @@ class ExplainContext:
         # Clear any existing metrics.
         _clear_metrics()
 
+        # Set up profiling if requested.
+        if self.profiling:
+            config._set_profiling_enabled(True)
+            config.profiling_profile_ir = self.profiling_profile_ir
+            self._previous_instrument_file = os.environ.get("ONNX_MLIR_INSTRUMENT_FILE")
+            try:
+                import torch._dynamo
+
+                torch._dynamo.reset()
+            except (ImportError, AttributeError):
+                pass
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Capture metrics and restore previous state."""
+        # Parse profiling output if profiling was active.
+        if self.profiling:
+            if self._previous_instrument_file is not None:
+                os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = self._previous_instrument_file
+            else:
+                os.environ.pop("ONNX_MLIR_INSTRUMENT_FILE", None)
+            self._collect_profiling_data()
+
         # Capture metrics before disabling.
-        self.metrics = _explain(format=self.format, sort_by=self.sort_by)
+        self.metrics = _explain(
+            format=self.format,
+            sort_by=self.sort_by,
+            profiling_detail=self.profiling_detail,
+        )
 
         # Export to file if specified.
         if self.export_to is not None:
@@ -406,9 +621,46 @@ class ExplainContext:
 
         # Restore previous state using internal setter.
         _set_enable_explain(self._previous_enable_state)
+        config._set_profiling_enabled(self._previous_profiling_state)
+        config.profiling_profile_ir = self._previous_profile_ir
+
+        if self.profiling:
+            try:
+                import torch._dynamo
+
+                torch._dynamo.reset()
+            except (ImportError, AttributeError):
+                pass
 
         # Don't suppress exceptions.
         return False
+
+    def _collect_profiling_data(self):
+        """Parse per-graph profiling files from cache dir and record results."""
+        import glob
+
+        from . import profiling as profiling_mod
+        from . import sessioncache
+
+        pattern = os.path.join(sessioncache.cache_dir(), "*", "profile.prof")
+        for path in glob.glob(pattern):
+            if os.path.getsize(path) == 0:
+                continue
+            cache_key = os.path.basename(os.path.dirname(path))
+            prof_result = profiling_mod.parse_profiling_output(
+                file_path=path,
+                warmup_num=self.profiling_warmup,
+                reporting=self.profiling_reporting,
+            )
+            if prof_result is not None:
+                metrics.global_metrics_collector.record_profiling(
+                    cache_key, prof_result
+                )
+            if not self.profiling_keep_profiles:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     def _export_metrics(self):
         """Export metrics to file."""
@@ -446,7 +698,10 @@ class ExplainContext:
 
     def __repr__(self):
         """Return representation of context manager."""
-        return f"ExplainContext(format={self.format!r}, sort_by={self.sort_by!r})"
+        return (
+            f"ExplainContext(format={self.format!r}, sort_by={self.sort_by!r}"
+            f", profiling={self.profiling!r})"
+        )
 
     @property
     def data(self):
@@ -459,38 +714,54 @@ class ExplainContext:
         return self.metrics
 
 
-def explain_context(format="table", sort_by="time", export_to=None):
+def explain_context(format="table", sort_by="time", export_to=None, profiling=False):
     """
     Create a context manager for automatic metrics collection.
-
-    This context manager automatically enables metrics collection on entry,
-    captures metrics on exit, and provides access to the metrics.
 
     Args:
         format: Output format - 'table', 'dict', or 'json' (default: 'table').
         sort_by: Sort order - 'time', 'calls', or 'order' (default: 'time').
-        export_to: Optional file path to automatically export metrics on exit (default: None).
+        export_to: Optional file path to automatically export metrics on exit.
+        profiling: Enable per-op profiling. Accepts:
+            - False/None: disabled (default).
+            - True: enabled with defaults from config.
+            - dict: enabled with overrides, keys:
+                "detail": 0 (op summary), 1 (+ signatures), 2 (+ nodes).
+                "warmup": number of initial runs to skip before collecting data.
+                "reporting": how per-node times are aggregated across runs:
+                    "all" -- average time per node across all runs (default).
+                    "quartile" -- discard top/bottom 25% of runs, average the rest.
+                    "sum" -- cumulative time per node across all runs.
+                "profile_ir": override --profile-ir-with-sig level
+                    (e.g. "Onnx", "ZHigh", "Krnl"). None = auto-detect.
+                "keep_profiles": if True, keep profile.prof files after
+                    collection (default False).
 
     Returns:
         ExplainContext: Context manager instance.
 
     Example:
         Basic usage:
-        >>> with torch_onnxmlir.explain_context() as metrics:
+        >>> with torch_onnxmlir.explain_context() as ctx:
         ...     output = compiled_model(input)
-        ...     print(metrics)
+        ...     print(ctx)
 
-        Access metrics data:
-        >>> with torch_onnxmlir.explain_context(format="dict") as metrics:
+        With profiling (defaults):
+        >>> with torch_onnxmlir.explain_context(profiling=True) as ctx:
         ...     output = compiled_model(input)
-        ...     cache_hits = metrics.data['summary']['total_cache_hits']
 
-        Automatic export:
-        >>> with torch_onnxmlir.explain_context(export_to="metrics.json") as metrics:
-        ...     output = compiled_model(input)
-        ...     # Metrics automatically saved to metrics.json on exit.
+        With profiling config dict:
+        >>> with torch_onnxmlir.explain_context(
+        ...     profiling={"detail": 2, "warmup": 1, "reporting": "all"},
+        ...     format="dict",
+        ... ) as ctx:
+        ...     for _ in range(5):
+        ...         output = compiled_model(input)
+        ...     print(ctx.data["profiling"])
     """
-    return ExplainContext(format=format, sort_by=sort_by, export_to=export_to)
+    return ExplainContext(
+        format=format, sort_by=sort_by, export_to=export_to, profiling=profiling
+    )
 
 
 def _clear_metrics():

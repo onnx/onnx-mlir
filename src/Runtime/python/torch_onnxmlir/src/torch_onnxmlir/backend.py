@@ -13,6 +13,7 @@
 import hashlib
 import io
 import os
+import re as _re
 import sys
 import tempfile
 import time
@@ -91,6 +92,30 @@ logger = logging.getLogger(__name__)
 global_session_cache = None
 
 global_uncompilable_graphs = set()
+
+
+def _get_accelerator(compile_options: str):
+    """Return the accelerator name from compile options, or None for CPU."""
+    m = _re.search(r"-{1,2}maccel[=\s]+(\w+)", compile_options)
+    if m:
+        return m.group(1)
+    cfg_m = _re.search(r"--config-file[=\s]+(\S+)", compile_options)
+    if cfg_m:
+        import json
+
+        config_path = cfg_m.group(1)
+        try:
+            with open(config_path, "r") as f:
+                cfg = json.load(f)
+            opts = cfg.get("compile_options", [])
+            if isinstance(opts, list):
+                for opt in opts:
+                    m2 = _re.search(r"-{1,2}maccel[=\s]+(\w+)", opt)
+                    if m2:
+                        return m2.group(1)
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    return None
 
 
 # Check if the graph has no inputs or outputs or not.
@@ -394,7 +419,7 @@ def generate_hash_key(
         details = OMFxGraphHashDetails(gm, compile_options)
         key = pickler.get_hash(details)
 
-    key = "_om_" + key
+    key = ("_om_profile_" if config._get_profiling_enabled() else "_om_") + key
     logger.info(
         f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}"
     )
@@ -411,6 +436,22 @@ class TorchONNXMLIR:
 
         # Indice of the actual example inputs if the graph's signature is changed.
         self.example_inputs_indices = None
+
+        # When profiling is enabled, inject --profile-ir-with-sig into
+        # compile_options before cache key generation so profiling-compiled
+        # models get a separate cache key from non-profiling ones.
+        if config._get_profiling_enabled() and kwargs.get("options") is not None:
+            co = kwargs["options"].get("compile_options", "")
+            if "--profile-ir" not in co:
+                kwargs = dict(kwargs)
+                kwargs["options"] = dict(kwargs["options"])
+                profile_ir = config.profiling_profile_ir
+                if profile_ir is None:
+                    accel = _get_accelerator(co)
+                    profile_ir = "ZHigh" if accel == "NNPA" else "Onnx"
+                kwargs["options"]["compile_options"] = (
+                    co + " --profile-ir-with-sig=" + profile_ir
+                )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
@@ -602,7 +643,23 @@ class TorchONNXMLIR:
 
         if logger.isEnabledFor(logging.INFO):
             start = time.perf_counter()
-        om_outputs = sess.run(om_inputs)
+        if config._get_profiling_enabled():
+            from . import sessioncache
+
+            prof_path = os.path.join(
+                sessioncache.cache_dir(), self.cache_key, "profile.prof"
+            )
+            _prev_env = os.environ.get("ONNX_MLIR_INSTRUMENT_FILE")
+            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = prof_path
+            try:
+                om_outputs = sess.run(om_inputs)
+            finally:
+                if _prev_env is not None:
+                    os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = _prev_env
+                else:
+                    os.environ.pop("ONNX_MLIR_INSTRUMENT_FILE", None)
+        else:
+            om_outputs = sess.run(om_inputs)
         if logger.isEnabledFor(logging.INFO):
             logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
 
@@ -612,6 +669,11 @@ class TorchONNXMLIR:
             metrics.global_metrics_collector.record_inference(
                 self.cache_key, inference_time, is_cache_hit
             )
+            if config._get_profiling_enabled():
+                metrics.global_metrics_collector.record_input_shapes(
+                    self.cache_key,
+                    [list(arg.shape) for arg in example_inputs],
+                )
 
         # Generate test_data_set if required.
         if config.regenerate_test_data_set or (
