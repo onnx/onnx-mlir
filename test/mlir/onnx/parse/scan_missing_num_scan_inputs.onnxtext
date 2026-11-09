@@ -1,0 +1,20 @@
+// RUN: not onnx-mlir --EmitONNXBasic --printIR %s 2>&1 | FileCheck %s
+
+// Tests that a Scan node without the required num_scan_inputs attribute is
+// rejected with a clear diagnostic. ONNX's Scan shape inference dereferences
+// the attribute without a null check, so the model would otherwise crash the
+// compiler during shape inference.
+
+<
+ir_version: 8,
+opset_import: [ "" : 16 ]
+>
+agraph (float[2] init, float[3,2] xs) => (float[2] y, float[3,2] ys)
+{
+    y, ys = Scan <body = scan_body (float[2] s, float[2] x) => (float[2] so, float[2] xo) {
+        so = Add (s, x)
+        xo = Identity (so)
+    }> (init, xs)
+}
+
+// CHECK: Scan node is missing the required 'num_scan_inputs' attribute

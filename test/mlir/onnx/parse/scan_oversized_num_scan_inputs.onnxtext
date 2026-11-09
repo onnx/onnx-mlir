@@ -1,0 +1,20 @@
+// RUN: not onnx-mlir --EmitONNXBasic --printIR %s 2>&1 | FileCheck %s
+
+// Tests that a Scan node whose num_scan_inputs exceeds its number of inputs is
+// rejected with a clear diagnostic. The unsigned subtraction
+// (num_inputs - num_scan_inputs) in ONNX's Scan shape inference would wrap
+// around and reach an oversized allocation.
+
+<
+ir_version: 8,
+opset_import: [ "" : 16 ]
+>
+agraph (float[2] init, float[3,2] xs) => (float[2] y, float[3,2] ys)
+{
+    y, ys = Scan <num_scan_inputs = 5, body = scan_body (float[2] s, float[2] x) => (float[2] so, float[2] xo) {
+        so = Add (s, x)
+        xo = Identity (so)
+    }> (init, xs)
+}
+
+// CHECK: Scan node has 'num_scan_inputs' = 5, which is outside the range [0, 2] of its input count
