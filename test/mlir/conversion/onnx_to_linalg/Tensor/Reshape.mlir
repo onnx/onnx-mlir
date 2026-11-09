@@ -106,13 +106,13 @@ func.func @reshape_runtime_shape(%arg0: tensor<2x3x4xf32>,
 // ENABLED-NOT: separator of consecutive DAGs
 // ENABLED-DAG:       [[VAR_11_:%.+]] = arith.index_cast [[VAR_extracted_1_]] : i64 to index
 // ENABLED-DAG:       [[VAR_12_:%.+]] = arith.floordivsi [[CST_24_]], [[VAR_10_]] : index
-// ENABLED:           [[VAR_13_:%.+]] = arith.cmpi eq, [[VAR_11_]], [[CST_minus_1_]] : index
-// ENABLED-DAG:       [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_12_]], [[VAR_2_]] : index
+// ENABLED-DAG:       [[VAR_13_:%.+]] = arith.cmpi eq, [[VAR_11_]], [[CST_minus_1_]] : index
+// ENABLED:           [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_12_]], [[VAR_2_]] : index
 // ENABLED-DAG:       [[VAR_extracted_2_:%.+]] = tensor.extract [[PARAM_1_]]{{.}}[[CST_1_]]{{.}} : tensor<2xi64>
 // ENABLED-NOT: separator of consecutive DAGs
 // ENABLED-DAG:       [[VAR_15_:%.+]] = arith.index_cast [[VAR_extracted_2_]] : i64 to index
 // ENABLED-DAG:       [[VAR_16_:%.+]] = arith.floordivsi [[CST_24_]], [[VAR_10_]] : index
-// ENABLED:           [[VAR_17_:%.+]] = arith.cmpi eq, [[VAR_15_]], [[CST_minus_1_]] : index
+// ENABLED-DAG:       [[VAR_17_:%.+]] = arith.cmpi eq, [[VAR_15_]], [[CST_minus_1_]] : index
 // ENABLED:           [[VAR_18_:%.+]] = arith.select [[VAR_17_]], [[VAR_16_]], [[VAR_7_]] : index
 // ENABLED:           [[VAR_from_elements_:%.+]] = tensor.from_elements [[VAR_14_]], [[VAR_18_]] : tensor<2xindex>
 // ENABLED:           [[VAR_reshape_:%.+]] = tensor.reshape [[PARAM_0_]]([[VAR_from_elements_]]) : (tensor<2x3x4xf32>, tensor<2xindex>) -> tensor<?x?xf32>
@@ -133,7 +133,7 @@ func.func @reshape_mixed_constant_runtime_shape(
       : (tensor<?x4xf32>, tensor<2xi64>) -> tensor<4x?xf32>
   return %0 : tensor<4x?xf32>
 
-// ENABLED-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 * 4)>
+// ENABLED-DAG:   [[$MAP_0_:#.+]] = affine_map<(d0) -> (d0 * 4)>
 // ENABLED-LABEL:  func.func @reshape_mixed_constant_runtime_shape
 // ENABLED-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4xf32>) -> tensor<4x?xf32> {
 // ENABLED-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
@@ -146,7 +146,7 @@ func.func @reshape_mixed_constant_runtime_shape(
 // ENABLED-DAG:       [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // ENABLED-DAG:       [[VAR_dim_:%.+]] = tensor.dim [[PARAM_0_]], [[CST_0_]] : tensor<?x4xf32>
 // ENABLED-NOT: separator of consecutive DAGs
-// ENABLED-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_0_]]([[VAR_dim_]])
+// ENABLED-DAG:       [[VAR_3_:%.+]] = affine.apply [[$MAP_0_]]([[VAR_dim_]])
 // ENABLED-DAG:       [[VAR_extracted_:%.+]] = tensor.extract [[VAR_2_]]{{.}}[[CST_1_]]{{.}} : tensor<2xi64>
 // ENABLED:           [[VAR_4_:%.+]] = arith.index_cast [[VAR_extracted_]] : i64 to index
 // ENABLED:           [[VAR_5_:%.+]] = arith.cmpi eq, [[VAR_4_]], [[CST_0_]] : index
