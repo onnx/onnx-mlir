@@ -147,6 +147,17 @@ public:
                                     std::string matchString, int detail,
                                     std::string displayName = "") -> bool {
             if (pattern.isEnabled(matchString)) {
+              // Collect operands and results, skipping NoneType values.
+              llvm::SmallVector<Value, 6> operAndRes;
+              for (Value v : op->getOperands())
+                if (!mlir::isa<NoneType>(v.getType()))
+                  operAndRes.emplace_back(v);
+              for (Value v : op->getResults())
+                if (!mlir::isa<NoneType>(v.getType()))
+                  operAndRes.emplace_back(v);
+              // Skip ops with no tensor operands or results.
+              if (operAndRes.empty())
+                return false;
               // Add signature printing op.
               OpBuilder builder(op);
               if (displayName.empty())
@@ -154,10 +165,6 @@ public:
               std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
               std::string fullName = displayName + ", " + nodeName;
               StringAttr fullNameAttr = builder.getStringAttr(fullName);
-              // Enqueue all input operands, and then the results.
-              llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
-              for (Value res : op->getResults())
-                operAndRes.emplace_back(res);
               // Since we may use the result of an operation, we must insert the
               // print operation after the operation.
               builder.setInsertionPointAfter(op);
