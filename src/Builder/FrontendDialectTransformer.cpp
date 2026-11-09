@@ -1732,10 +1732,10 @@ static bool findInvalidScanNode(
         return true;
       }
       if (numScanInputs->i() < 0 || numScanInputs->i() > node.input_size()) {
-        reason = "has 'num_scan_inputs' = " +
-                 std::to_string(numScanInputs->i()) +
-                 ", which is outside the range [0, " +
-                 std::to_string(node.input_size()) + "] of its input count";
+        reason =
+            "has 'num_scan_inputs' = " + std::to_string(numScanInputs->i()) +
+            ", which is outside the range [0, " +
+            std::to_string(node.input_size()) + "] of its input count";
         return true;
       }
     }
