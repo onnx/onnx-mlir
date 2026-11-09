@@ -553,7 +553,7 @@ void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
 // src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
 void populateLoweringONNXFusedSplitOpGatherOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
-    bool enableParallel);
+    bool enableParallel, bool enableCollapse);
 void populateLoweringONNXSqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(
