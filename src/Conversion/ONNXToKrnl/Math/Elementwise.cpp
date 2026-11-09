@@ -1511,7 +1511,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
     MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
     int64_t VL, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
-    bool isUnaryOp, bool simdOnly, bool enableParallel) {
+    bool isUnaryOp, bool simdOnly, bool enableParallel, bool enableCollapse) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
   LLVM_DEBUG(llvm::dbgs() << "  partial SIMD code for elementwise op "
@@ -1575,8 +1575,21 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   DimsExpr ubs = flattenedOutputDims;
   IndexExpr simdUb = ubs.pop_back_val(); // Remove flattened ub.
   bool useParallelInSimdLoop = false;
-  auto plan =
-      KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
+  // Each outer iteration computes its own slice of the flattened output from
+  // operands only, so any run of outer levels may be collapsed. The SIMD loop
+  // is not among these refs (forLoopIE defines it in the body), so a group
+  // never reaches it. Both windows stop at the top two levels, as in the other
+  // migrated sites, which keeps index recovery to a single divide.
+  //
+  // bodyCost: one outer iteration runs the whole flattened SIMD loop, so its
+  // trip count when literal. When it is dynamic, assume one vector: the least
+  // the loop does, so a group is never grown on the strength of a guess.
+  int64_t parLevels = std::min(outerLoopRank, (int64_t)2);
+  KrnlParallelPlan plan(loopDef, enableCollapse,
+      /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
+      /*collapseLastExclusiveDim=*/parLevels,
+      {.minTripCountForParallel = 4,
+          .bodyCost = simdUb.isLiteral() ? simdUb.getLiteral() : VL});
   if (enableParallel) {
     if (outerLoopRank > 1) {
       // Outer loop parallelism.
@@ -2086,11 +2099,14 @@ struct ONNXElementwiseUnaryOpLowering
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
+      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel,
+      bool enableCollapse)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableCollapse(enableCollapse) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2168,7 +2184,7 @@ struct ONNXElementwiseUnaryOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, /*ruleOutBroadcast*/ true,
-            /*unary*/ true, simdOnly, enableParallel);
+            /*unary*/ true, simdOnly, enableParallel, enableCollapse);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in unary because could not find beneficial VL");
@@ -2195,8 +2211,14 @@ struct ONNXElementwiseUnaryOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
-      auto plan =
-          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
+      // Each iteration writes its own output element from operands only, so
+      // the nest may be collapsed. The collapse window stops at the top two
+      // levels and never includes the innermost one: a group there would
+      // recover indices with a divide per element.
+      KrnlParallelPlan plan(loopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+          /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
+          {.minTripCountForParallel = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise unary not simdized", lbs, ubs);
@@ -2265,12 +2287,14 @@ struct ONNXElementwiseBinaryOpLowering
   bool enableSIMD = false;
   bool isUniBroadcasting = false;
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
-      bool enableParallel)
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableCollapse(enableCollapse) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2350,7 +2374,7 @@ struct ONNXElementwiseBinaryOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false, simdOnly, enableParallel);
+            /*unary*/ false, simdOnly, enableParallel, enableCollapse);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in binary because no beneficial VL");
@@ -2376,9 +2400,14 @@ struct ONNXElementwiseBinaryOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
-      // TODO adjust in the future
-      auto plan =
-          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
+      // Each iteration writes its own output element from operands only, so
+      // the nest may be collapsed. The collapse window stops at the top two
+      // levels and never includes the innermost one: a group there would
+      // recover indices with a divide per element.
+      KrnlParallelPlan plan(loopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+          /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
+          {.minTripCountForParallel = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise binary not simdized", lbs, ubs);
@@ -2442,12 +2471,14 @@ struct ONNXElementwiseVariadicOpLowering
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   ONNXElementwiseVariadicOpLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
-      bool enableParallel)
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableCollapse(enableCollapse) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2522,7 +2553,7 @@ struct ONNXElementwiseVariadicOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false, simdOnly, enableParallel);
+            /*unary*/ false, simdOnly, enableParallel, enableCollapse);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in variadic because no beneficial VL");
@@ -2549,8 +2580,14 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
-      auto plan =
-          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
+      // Each iteration writes its own output element from operands only, so
+      // the nest may be collapsed. The collapse window stops at the top two
+      // levels and never includes the innermost one: a group there would
+      // recover indices with a divide per element.
+      KrnlParallelPlan plan(loopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+          /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
+          {.minTripCountForParallel = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise variable not simdized", lbs, ubs);
@@ -2623,12 +2660,15 @@ struct ONNXWhereOpLowering : public ConversionPattern {
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   ONNXWhereOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
+      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel,
+      bool enableCollapse)
       : ConversionPattern(
             typeConverter, ONNXWhereOp::getOperationName(), 1, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableCollapse(enableCollapse) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2666,8 +2706,14 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
-      auto plan =
-          KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
+      // Each iteration writes its own output element from operands only, so
+      // the nest may be collapsed. The collapse window stops at the top two
+      // levels and never includes the innermost one: a group there would
+      // recover indices with a divide per element.
+      KrnlParallelPlan plan(loopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+          /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
+          {.minTripCountForParallel = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "where op not simdized", lbs, ubs);
@@ -2736,23 +2782,23 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
 void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
-    bool enableSIMD, bool enableParallel) {
+    bool enableSIMD, bool enableParallel, bool enableCollapse) {
 // Insert pattern for all the binary, unary, and variadic operations supported
 // here. List comes from Elementwise.hpp.
 #define ELEMENTWISE_BINARY(_OP_TYPE)                                           \
-  patterns.insert<ONNXElementwiseBinaryOpLowering<_OP_TYPE>>(                  \
-      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  patterns.insert<ONNXElementwiseBinaryOpLowering<_OP_TYPE>>(typeConverter,    \
+      ctx, dimAnalysis, enableSIMD, enableParallel, enableCollapse);
 #define ELEMENTWISE_UNARY(_OP_TYPE)                                            \
-  patterns.insert<ONNXElementwiseUnaryOpLowering<_OP_TYPE>>(                   \
-      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  patterns.insert<ONNXElementwiseUnaryOpLowering<_OP_TYPE>>(typeConverter,     \
+      ctx, dimAnalysis, enableSIMD, enableParallel, enableCollapse);
 #define ELEMENTWISE_VARIADIC(_OP_TYPE)                                         \
-  patterns.insert<ONNXElementwiseVariadicOpLowering<_OP_TYPE>>(                \
-      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  patterns.insert<ONNXElementwiseVariadicOpLowering<_OP_TYPE>>(typeConverter,  \
+      ctx, dimAnalysis, enableSIMD, enableParallel, enableCollapse);
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 
   // Insert non standard pattern here.
-  patterns.insert<ONNXWhereOpLowering>(
-      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  patterns.insert<ONNXWhereOpLowering>(typeConverter, ctx, dimAnalysis,
+      enableSIMD, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

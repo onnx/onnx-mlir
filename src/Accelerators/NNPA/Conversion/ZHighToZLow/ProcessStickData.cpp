@@ -4,7 +4,7 @@
 
 //====---------- ProcessStickData.cpp - Process Stick data ----------------===//
 //
-// Copyright 2024-2025 The IBM Research Authors.
+// Copyright 2024-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -678,6 +678,8 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
         /*collapseLastExclusiveDim=*/outerRank,
         {.minTripCountForParallel = 4, .bodyCost = B * E1.getLiteral()});
     if (enableParallel) {
+      // LBs and UBs are here only used to determine when/where parallelism is
+      // good; not used in the actual LB/UB of the actual loops.
       DimsExpr parLbs(outerRank, LitIE(0));
       DimsExpr parUbs(ubs);
       parUbs[outerRank - 1] = parUbs[outerRank - 1].ceilDiv(B);

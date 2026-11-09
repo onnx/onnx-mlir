@@ -239,6 +239,25 @@ forwarded.add_argument(
     "--atol", type=str, default="", help="Absolute tolerance for verification."
 )
 
+
+def _positive_int(name, value):
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError("{} must be at least 1".format(name))
+    return n
+
+
+own.add_argument(
+    "-n",
+    "--n-iteration",
+    metavar="N",
+    type=lambda v: _positive_int("--n-iteration", v),
+    default=1,
+    help="Run the test model N times on the same inputs and verify the outputs "
+    "of every run against the reference, stopping at the first mismatch. "
+    "Catches nondeterministic results, e.g. races in parallel code. The "
+    "reference runs once. Default: 1.",
+)
 own.add_argument(
     "--cache-ref-model",
     metavar="PATH",
@@ -415,6 +434,8 @@ def main():
     # How to verify.
     test_cmd += ["--verify=ref"]
     test_cmd += ["--verify-every-value"]
+    if args.n_iteration > 1:
+        test_cmd += ["-n", str(args.n_iteration)]
     if args.atol:
         test_cmd += ["--atol=" + args.atol]
     if args.rtol:

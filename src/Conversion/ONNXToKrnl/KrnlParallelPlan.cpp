@@ -454,6 +454,14 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
       cand.firstDim = d;
       cand.numDims = g - d;
       cand.tripCountVerdict = atLeast(work, tripCountTarget);
+      // One unknown level may well be 1 at run time, but two or more fused
+      // together are unlikely to all be small at once: rate such a group as
+      // wide enough, on par with a literal trip count meeting the target. Ties
+      // with such a literal level are then broken by the entry-count gate,
+      // which favors the group whenever it absorbs the dynamic levels that
+      // would otherwise re-enter the region.
+      if (cand.tripCountVerdict == AtLeast::MAYBE && work.dyn >= 2)
+        cand.tripCountVerdict = AtLeast::YES;
       cand.dynTripCounts = work.dyn;
       cand.hasDynamicForkCount = forkCount.dyn > 0;
       cand.rematOverhead = (100 * rematerializationInCycles) /
