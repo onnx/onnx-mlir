@@ -297,17 +297,25 @@ only the outermost dimension.
 Restrictions in this first version:
 
 * Every collapsed dimension must have a **lower bound of compile-time
-  constant 0** and a **step of 1**. A literal `0 to N` qualifies, and so
-  does a bound spelled as a constant SSA value such as `%c0 to N`, which is
-  folded before being checked. A non-zero bound (`5 to N`) or a bound that
-  is only known at run time (`%lb to N`) is rejected: the trip count of a
-  collapsed dimension is taken to be its upper bound, and recovering the
-  per-dimension indices would additionally have to add each dimension's
-  offset back in, which the recovery does not do.
+  constant 0**. A literal `0 to N` qualifies, and so does a bound spelled
+  as a constant SSA value such as `%c0 to N`, which is folded before being
+  checked. A non-zero bound (`5 to N`) or a bound that is only known at run
+  time (`%lb to N`) is rejected: the trip count of a collapsed dimension is
+  taken to be its upper bound, and recovering the per-dimension indices
+  would additionally have to add each dimension's offset back in, which the
+  recovery does not do.
 * The enclosing `krnl.iterate` must have no reduction `iterArgs`.
-* The operands may not themselves be results of `krnl.block` or
-  `krnl.collapse`. Conversely, the result may not be fed to `krnl.block` or
-  `krnl.unroll`.
+* An operand may be the **tile loop** of a `krnl.block` (its first result),
+  anywhere in the group and in any number. It is fused as a count of tiles,
+  and its recovered index is still an element index, a multiple of the tile
+  size, exactly as when querying the tile loop without collapsing. The
+  **intra-tile loop** (the second result) may not be collapsed, and may not
+  end up between two collapsed loops: it must stay nested inside them.
+* An operand may not itself be the result of a `krnl.collapse`. Conversely,
+  the result may not be fed to `krnl.block` or `krnl.unroll`.
+* The collapsed loops must be adjacent and listed outer-to-inner in the
+  order they have once every preceding `krnl.permute` is applied. A
+  `krnl.permute` may name an operand only if it precedes the collapse.
 * An **operand** loop reference is consumed by the collapse: after fusing it
   no longer refers to a loop of its own, so nothing else may use it. In
   particular `krnl.get_induction_var_value(%ii)` on a collapsed-away operand
