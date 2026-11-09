@@ -1,5 +1,5 @@
-// RUN: onnx-mlir --march=z17 --maccel=NNPA --EmitZLowIR --parallel --printIR %s | FileCheck %s
-// RUN: onnx-mlir --march=z17 --maccel=NNPA --EmitZLowIR --parallel --disable-collapse --printIR %s | FileCheck --check-prefix=NOCOLLAPSE %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --parallel --printIR %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --parallel --disable-collapse --printIR %s | FileCheck --check-prefix=NOCOLLAPSE %s
 
 // Parallel region placement for the LayerNorm lowered directly to a stickified
 // zTensor (FuzedStickUnstickGenericLayerNormaOpLowering). Its outer loops are

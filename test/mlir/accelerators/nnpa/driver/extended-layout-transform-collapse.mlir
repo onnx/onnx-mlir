@@ -1,5 +1,5 @@
-// RUN: onnx-mlir --march=z17 --maccel=NNPA --EmitZLowIR --parallel --printIR %s | FileCheck %s
-// RUN: onnx-mlir --march=z17 --maccel=NNPA --EmitZLowIR --parallel --disable-collapse --printIR %s | FileCheck --check-prefix=NOCOLLAPSE %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --parallel --printIR %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --parallel --disable-collapse --printIR %s | FileCheck --check-prefix=NOCOLLAPSE %s
 
 // Parallel region placement for zhigh.ExtendedLayoutTransform, the split +
 // transpose (+ merge) + dlf16/f32 conversion used around attention. Its loop
