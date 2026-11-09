@@ -43,3 +43,33 @@ generate_test_data_set = False
 # Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
 # This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging.
 regenerate_test_data_set = False
+
+import threading
+
+_profiling_state = threading.local()
+
+
+def _get_profiling_enabled() -> bool:
+    return getattr(_profiling_state, "enabled", False)
+
+
+def _set_profiling_enabled(value: bool):
+    _profiling_state.enabled = value
+
+
+# Number of warmup runs to skip when computing profiling statistics.
+profiling_warmup = 0
+
+# Profiling reporting mode: "all", "quartile", or "sum".
+profiling_reporting = "all"
+
+# Profiling detail level for table output:
+#   0 = op summary only, 1 = + signature breakdown, 2 = + individual nodes.
+profiling_detail = 0
+
+# Override the --profile-ir-with-sig level.
+# None = auto-detect from compile_options (Onnx or ZHigh).
+profiling_profile_ir: str = None
+
+# When True, keep profile.prof files after collection instead of deleting them.
+profiling_keep_profiles = False

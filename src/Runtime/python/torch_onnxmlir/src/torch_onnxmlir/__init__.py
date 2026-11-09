@@ -11,6 +11,7 @@
 
 from .register import *
 from .explain import explain_context
+from .profiling import parse_profiling_output, ProfilingResult, OpTiming, NodeTiming
 from importlib.metadata import version, PackageNotFoundError
 
 try:
@@ -18,4 +19,11 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0+unknown"
 
-__all__ = ["onnxmlir_backend", "explain_context"]
+__all__ = [
+    "onnxmlir_backend",
+    "explain_context",
+    "parse_profiling_output",
+    "ProfilingResult",
+    "OpTiming",
+    "NodeTiming",
+]
