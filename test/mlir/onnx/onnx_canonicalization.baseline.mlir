@@ -197,3 +197,128 @@ func.func @test_sink_expand_two_expands_same_shape(%arg0: tensor<?x1x?xf32> {onn
   onnx.Return %r : tensor<?x5x?xf32>
 }
 // CHECK-LABEL: func.func @test_sink_expand_two_expands_same_shape
+
+// -----
+
+func.func @test_sink_expand_float_ops(%arg0: tensor<?x1x7xi64> {onnx.name = "x"}) -> (tensor<?x16x7xf32> {onnx.name = "p"}, tensor<?x16x7xi1> {onnx.name = "gt"}, tensor<?x16x7xi1> {onnx.name = "eq"}, tensor<?x16x7xi1> {onnx.name = "ge"}, tensor<?x16x7xi1> {onnx.name = "lt"}) {
+  %zero = onnx.Constant dense<0> : tensor<i64>
+  %two = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %half = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %kgt = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %k = onnx.Constant dense<[1.200000e+00]> : tensor<1xf32>
+  %c167 = onnx.Constant dense<[16, 7]> : tensor<2xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x7xi64>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c167) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+  %z = "onnx.Expand"(%zero, %s) : (tensor<i64>, tensor<3xi64>) -> tensor<?x16x7xi64>
+  %e = "onnx.Add"(%arg0, %z) : (tensor<?x1x7xi64>, tensor<?x16x7xi64>) -> tensor<?x16x7xi64>
+  %f = "onnx.Cast"(%e) {saturate = 1 : si64, to = f32} : (tensor<?x16x7xi64>) -> tensor<?x16x7xf32>
+  %d = "onnx.Div"(%f, %two) : (tensor<?x16x7xf32>, tensor<f32>) -> tensor<?x16x7xf32>
+  %p = "onnx.Pow"(%d, %half) : (tensor<?x16x7xf32>, tensor<f32>) -> tensor<?x16x7xf32>
+  %gt = "onnx.Greater"(%p, %kgt) : (tensor<?x16x7xf32>, tensor<f32>) -> tensor<?x16x7xi1>
+  %eq = "onnx.Equal"(%p, %one) : (tensor<?x16x7xf32>, tensor<f32>) -> tensor<?x16x7xi1>
+  %ge = "onnx.GreaterOrEqual"(%p, %k) : (tensor<?x16x7xf32>, tensor<1xf32>) -> tensor<?x16x7xi1>
+  %lt = "onnx.Less"(%k, %p) : (tensor<1xf32>, tensor<?x16x7xf32>) -> tensor<?x16x7xi1>
+  onnx.Return %p, %gt, %eq, %ge, %lt : tensor<?x16x7xf32>, tensor<?x16x7xi1>, tensor<?x16x7xi1>, tensor<?x16x7xi1>, tensor<?x16x7xi1>
+}
+// CHECK-LABEL: func.func @test_sink_expand_float_ops
+
+// -----
+
+// For i1 data, Expand(x, s) is written as Or(x, Expand(false, s)).
+func.func @test_sink_expand_bool_ops(%arg0: tensor<?x1x?xi1> {onnx.name = "x"}, %arg1: tensor<i1> {onnx.name = "a"}, %arg2: tensor<1xi1> {onnx.name = "b"}) -> (tensor<?x5x?xf32> {onnx.name = "y"}) {
+  %false = onnx.Constant dense<false> : tensor<i1>
+  %true = onnx.Constant dense<true> : tensor<i1>
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xi1>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xi1>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %z = "onnx.Expand"(%false, %s) : (tensor<i1>, tensor<3xi64>) -> tensor<?x5x?xi1>
+  %e = "onnx.Or"(%arg0, %z) : (tensor<?x1x?xi1>, tensor<?x5x?xi1>) -> tensor<?x5x?xi1>
+  %and = "onnx.And"(%e, %arg1) : (tensor<?x5x?xi1>, tensor<i1>) -> tensor<?x5x?xi1>
+  %or = "onnx.Or"(%arg2, %and) : (tensor<1xi1>, tensor<?x5x?xi1>) -> tensor<?x5x?xi1>
+  %xor = "onnx.Xor"(%or, %true) : (tensor<?x5x?xi1>, tensor<i1>) -> tensor<?x5x?xi1>
+  %r = "onnx.Cast"(%xor) {saturate = 1 : si64, to = f32} : (tensor<?x5x?xi1>) -> tensor<?x5x?xf32>
+  onnx.Return %r : tensor<?x5x?xf32>
+}
+// CHECK-LABEL: func.func @test_sink_expand_bool_ops
+
+// -----
+
+// Negative case: the equivalent sunk form, Expand(Mul(x, k)).
+func.func @test_not_sink_expand_scalar_raises_rank(%arg0: tensor<f32> {onnx.name = "x"}, %arg1: tensor<1xf32> {onnx.name = "k"}, %arg2: tensor<?x5xf32> {onnx.name = "y"}) -> (tensor<?x5xf32> {onnx.name = "z"}) {
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg2) {axis = 0 : si64} : (tensor<?x5xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %m = "onnx.Mul"(%arg0, %arg1) : (tensor<f32>, tensor<1xf32>) -> tensor<1xf32>
+  %r = "onnx.Expand"(%m, %s) : (tensor<1xf32>, tensor<2xi64>) -> tensor<?x5xf32>
+  onnx.Return %r : tensor<?x5xf32>
+}
+// CHECK-LABEL: func.func @test_not_sink_expand_scalar_raises_rank
+
+// -----
+
+func.func @test_sink_expand_adds_rank(%arg0: tensor<?xf32> {onnx.name = "x"}) -> (tensor<2x1x?x?xf32> {onnx.name = "y"}) {
+  %zero = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %three = onnx.Constant dense<3.000000e+00> : tensor<f32>
+  %c21 = onnx.Constant dense<[2, 1]> : tensor<2xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%c21, %d0, %d0) {axis = 0 : si64} : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %z = "onnx.Expand"(%zero, %s) : (tensor<f32>, tensor<4xi64>) -> tensor<2x1x?x?xf32>
+  %e = "onnx.Add"(%arg0, %z) : (tensor<?xf32>, tensor<2x1x?x?xf32>) -> tensor<2x1x?x?xf32>
+  %r = "onnx.Mul"(%e, %three) : (tensor<2x1x?x?xf32>, tensor<f32>) -> tensor<2x1x?x?xf32>
+  onnx.Return %r : tensor<2x1x?x?xf32>
+}
+// CHECK-LABEL: func.func @test_sink_expand_adds_rank
+
+// -----
+
+// Negative case: the equivalent sunk form, one Expand per output.
+func.func @test_not_sink_shared_expand_adds_rank(%arg0: tensor<?xf32> {onnx.name = "x"}) -> (tensor<2x1x?x?xf32> {onnx.name = "y"}, tensor<2x1x?x?xf32> {onnx.name = "z"}) {
+  %three = onnx.Constant dense<3.000000e+00> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %c21 = onnx.Constant dense<[2, 1]> : tensor<2xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%c21, %d0, %d0) {axis = 0 : si64} : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %m = "onnx.Mul"(%arg0, %three) : (tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
+  %u = "onnx.Sub"(%arg0, %one) : (tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
+  %r0 = "onnx.Expand"(%m, %s) : (tensor<?xf32>, tensor<4xi64>) -> tensor<2x1x?x?xf32>
+  %r1 = "onnx.Expand"(%u, %s) : (tensor<?xf32>, tensor<4xi64>) -> tensor<2x1x?x?xf32>
+  onnx.Return %r0, %r1 : tensor<2x1x?x?xf32>, tensor<2x1x?x?xf32>
+}
+// CHECK-LABEL: func.func @test_not_sink_shared_expand_adds_rank
+
+// -----
+
+// Negative case: the equivalent sunk form, one Expand per output.
+func.func @test_not_sink_shared_expand_dynamic_no_growth(%arg0: tensor<?x1x?xf32> {onnx.name = "x"}) -> (tensor<?x4x?xf32> {onnx.name = "y"}, tensor<?x4x?xf32> {onnx.name = "z"}) {
+  %two = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %c4 = onnx.Constant dense<4> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c4, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %m = "onnx.Mul"(%arg0, %two) : (tensor<?x1x?xf32>, tensor<f32>) -> tensor<?x1x?xf32>
+  %u = "onnx.Sub"(%arg0, %one) : (tensor<?x1x?xf32>, tensor<f32>) -> tensor<?x1x?xf32>
+  %r0 = "onnx.Expand"(%m, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x4x?xf32>
+  %r1 = "onnx.Expand"(%u, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x4x?xf32>
+  onnx.Return %r0, %r1 : tensor<?x4x?xf32>, tensor<?x4x?xf32>
+}
+// CHECK-LABEL: func.func @test_not_sink_shared_expand_dynamic_no_growth
+
+// -----
+
+func.func @test_sink_expand_stops_at_reshape(%arg0: tensor<?x1x7xi64> {onnx.name = "x"}) -> (tensor<?x35xi32> {onnx.name = "y"}) {
+  %zero = onnx.Constant dense<0> : tensor<i64>
+  %c57 = onnx.Constant dense<[5, 7]> : tensor<2xi64>
+  %rs = onnx.Constant dense<[-1, 35]> : tensor<2xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x7xi64>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c57) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+  %z = "onnx.Expand"(%zero, %s) : (tensor<i64>, tensor<3xi64>) -> tensor<?x5x7xi64>
+  %e = "onnx.Add"(%arg0, %z) : (tensor<?x1x7xi64>, tensor<?x5x7xi64>) -> tensor<?x5x7xi64>
+  %f = "onnx.Cast"(%e) {saturate = 1 : si64, to = f32} : (tensor<?x5x7xi64>) -> tensor<?x5x7xf32>
+  %r = "onnx.Reshape"(%f, %rs) {allowzero = 0 : si64} : (tensor<?x5x7xf32>, tensor<2xi64>) -> tensor<?x35xf32>
+  %c = "onnx.Cast"(%r) {saturate = 1 : si64, to = i32} : (tensor<?x35xf32>) -> tensor<?x35xi32>
+  onnx.Return %c : tensor<?x35xi32>
+}
+// CHECK-LABEL: func.func @test_sink_expand_stops_at_reshape

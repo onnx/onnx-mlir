@@ -651,6 +651,19 @@ public:
 // `make OMONNXOpsIncTranslation`. Today it is registered on every elementwise
 // op that already had a canonicalizer: Cast; Add, Sub, Mul, Div, Pow, And,
 // Or, Xor, Equal, Greater, GreaterOrEqual, Less, LessOrEqual; Where.
+//
+// Only register it on elementwise ops. The template keeps the Expand's shape
+// operand `s` as is, which is only correct when the op computes each output
+// element from the same position of its inputs. It does NOT adapt `s` to an op
+// that moves, merges or drops elements, so it must not be registered on
+// layout- or shape-changing ops such as Reshape, Flatten, Transpose,
+// Squeeze/Unsqueeze, Slice, Split, Concat, Gather, Pad, DepthToSpace /
+// SpaceToDepth, reductions, LayoutTransform, or zhigh.Stick / Unstick. Sinking
+// an Expand below one of those needs its own pattern that recomputes the
+// shape and checks which axes were expanded (see e.g.
+// ReplaceSliceOfExpandRewritePattern and
+// ReplaceUnsqueezeOfExpandRewritePattern, which handle only an Expand of a
+// scalar).
 //===----------------------------------------------------------------------===//
 
 namespace {
