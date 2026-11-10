@@ -157,7 +157,7 @@ func.func @reshape_mixed_constant_runtime_shape(
 // ENABLED-NOT: separator of consecutive DAGs
 // ENABLED-DAG:       [[VAR_9_:%.+]] = arith.index_cast [[VAR_extracted_0_]] : i64 to index
 // ENABLED-DAG:       [[VAR_10_:%.+]] = arith.floordivsi [[VAR_3_]], [[VAR_8_]] : index
-// ENABLED:           [[VAR_11_:%.+]] = arith.cmpi eq, [[VAR_9_]], [[CST_minus_1_]] : index
+// ENABLED-DAG:       [[VAR_11_:%.+]] = arith.cmpi eq, [[VAR_9_]], [[CST_minus_1_]] : index
 // ENABLED:           [[VAR_12_:%.+]] = arith.select [[VAR_11_]], [[VAR_10_]], [[VAR_6_]] : index
 // ENABLED:           [[VAR_from_elements_:%.+]] = tensor.from_elements [[CST_4_]], [[VAR_12_]] : tensor<2xindex>
 // ENABLED:           [[VAR_reshape_:%.+]] = tensor.reshape [[PARAM_0_]]([[VAR_from_elements_]]) : (tensor<?x4xf32>, tensor<2xindex>) -> tensor<4x?xf32>
