@@ -2435,6 +2435,89 @@ func.func @test_remove_where_equal_3(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
 
 // -----
 
+// Where(Not(c), x, y) -> Where(c, y, x): the Not goes away. As in
+// granite-embedding-97m-multilingual-r2's sliding-window mask, with a scalar x
+// and a broadcast y.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:1x1x5x7,2:3x1x5x7
+func.func @test_where_not_cond_swap(%arg0: tensor<1x1x?x?xi1> {onnx.name = "c"}, %arg1: tensor<f32> {onnx.name = "x"}, %arg2: tensor<?x1x?x?xf32> {onnx.name = "y"}) -> (tensor<?x1x?x?xf32> {onnx.name = "z"}) {
+  %0 = "onnx.Not"(%arg0) : (tensor<1x1x?x?xi1>) -> tensor<1x1x?x?xi1>
+  %1 = "onnx.Where"(%0, %arg1, %arg2) : (tensor<1x1x?x?xi1>, tensor<f32>, tensor<?x1x?x?xf32>) -> tensor<?x1x?x?xf32>
+  onnx.Return %1 : tensor<?x1x?x?xf32>
+
+// CHECK-LABEL:  func.func @test_where_not_cond_swap
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x?x?xi1> {onnx.name = "c"}, [[PARAM_1_:%.+]]: tensor<f32> {onnx.name = "x"}, [[PARAM_2_:%.+]]: tensor<?x1x?x?xf32> {onnx.name = "y"}) -> (tensor<?x1x?x?xf32> {onnx.name = "z"}) {
+// CHECK-NOT:       onnx.Not
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Where"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_1_]]) : (tensor<1x1x?x?xi1>, tensor<?x1x?x?xf32>, tensor<f32>) -> tensor<?x1x?x?xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x1x?x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// The Not has another user: the Where is still swapped, the Not stays.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:4x6,1:4x6,2:4x6
+func.func @test_where_not_cond_swap_multi_use(%arg0: tensor<?x?xi1> {onnx.name = "c"}, %arg1: tensor<?x?xf32> {onnx.name = "x"}, %arg2: tensor<?x?xf32> {onnx.name = "y"}) -> (tensor<?x?xf32> {onnx.name = "z"}, tensor<?x?xi1> {onnx.name = "w"}) {
+  %0 = "onnx.Not"(%arg0) : (tensor<?x?xi1>) -> tensor<?x?xi1>
+  %1 = "onnx.Where"(%0, %arg1, %arg2) : (tensor<?x?xi1>, tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  %2 = "onnx.And"(%0, %arg0) : (tensor<?x?xi1>, tensor<?x?xi1>) -> tensor<?x?xi1>
+  onnx.Return %1, %2 : tensor<?x?xf32>, tensor<?x?xi1>
+
+// CHECK-LABEL:  func.func @test_where_not_cond_swap_multi_use
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi1> {onnx.name = "c"}, [[PARAM_1_:%.+]]: tensor<?x?xf32> {onnx.name = "x"}, [[PARAM_2_:%.+]]: tensor<?x?xf32> {onnx.name = "y"}) -> (tensor<?x?xf32> {onnx.name = "z"}, tensor<?x?xi1> {onnx.name = "w"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Not"([[PARAM_0_]]) : (tensor<?x?xi1>) -> tensor<?x?xi1>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Where"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_1_]]) : (tensor<?x?xi1>, tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.And"([[VAR_0_]], [[PARAM_0_]]) : (tensor<?x?xi1>, tensor<?x?xi1>) -> tensor<?x?xi1>
+// CHECK:           onnx.Return [[VAR_1_]], [[VAR_2_]] : tensor<?x?xf32>, tensor<?x?xi1>
+// CHECK:         }
+
+}
+
+// -----
+
+// Two Wheres on the same Not(c): both are swapped and the Not goes away.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6
+func.func @test_where_not_cond_swap_two_wheres(%arg0: tensor<3x5xi1> {onnx.name = "c"}, %arg1: tensor<3x5xf32> {onnx.name = "x"}, %arg2: tensor<3x5xf32> {onnx.name = "y"}) -> (tensor<3x5xf32> {onnx.name = "z"}, tensor<3x5xf32> {onnx.name = "w"}) {
+  %0 = "onnx.Not"(%arg0) : (tensor<3x5xi1>) -> tensor<3x5xi1>
+  %1 = "onnx.Where"(%0, %arg1, %arg2) : (tensor<3x5xi1>, tensor<3x5xf32>, tensor<3x5xf32>) -> tensor<3x5xf32>
+  %2 = "onnx.Where"(%0, %arg2, %arg1) : (tensor<3x5xi1>, tensor<3x5xf32>, tensor<3x5xf32>) -> tensor<3x5xf32>
+  onnx.Return %1, %2 : tensor<3x5xf32>, tensor<3x5xf32>
+
+// CHECK-LABEL:  func.func @test_where_not_cond_swap_two_wheres
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x5xi1> {onnx.name = "c"}, [[PARAM_1_:%.+]]: tensor<3x5xf32> {onnx.name = "x"}, [[PARAM_2_:%.+]]: tensor<3x5xf32> {onnx.name = "y"}) -> (tensor<3x5xf32> {onnx.name = "z"}, tensor<3x5xf32> {onnx.name = "w"}) {
+// CHECK-NOT:       onnx.Not
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Where"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_1_]]) : (tensor<3x5xi1>, tensor<3x5xf32>, tensor<3x5xf32>) -> tensor<3x5xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Where"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) : (tensor<3x5xi1>, tensor<3x5xf32>, tensor<3x5xf32>) -> tensor<3x5xf32>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<3x5xf32>, tensor<3x5xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// Scope: a Not that reaches the Where through another op (here Unsqueeze) is
+// not rewritten.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:4x6,1:1x4x6,2:1x4x6
+func.func @test_where_not_cond_swap_through_unsqueeze(%arg0: tensor<?x?xi1> {onnx.name = "c"}, %arg1: tensor<1x?x?xf32> {onnx.name = "x"}, %arg2: tensor<1x?x?xf32> {onnx.name = "y"}) -> (tensor<1x?x?xf32> {onnx.name = "z"}) {
+  %axes = onnx.Constant dense<0> : tensor<1xi64>
+  %0 = "onnx.Not"(%arg0) : (tensor<?x?xi1>) -> tensor<?x?xi1>
+  %1 = "onnx.Unsqueeze"(%0, %axes) : (tensor<?x?xi1>, tensor<1xi64>) -> tensor<1x?x?xi1>
+  %2 = "onnx.Where"(%1, %arg1, %arg2) : (tensor<1x?x?xi1>, tensor<1x?x?xf32>, tensor<1x?x?xf32>) -> tensor<1x?x?xf32>
+  onnx.Return %2 : tensor<1x?x?xf32>
+
+// CHECK-LABEL:  func.func @test_where_not_cond_swap_through_unsqueeze
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi1> {onnx.name = "c"}, [[PARAM_1_:%.+]]: tensor<1x?x?xf32> {onnx.name = "x"}, [[PARAM_2_:%.+]]: tensor<1x?x?xf32> {onnx.name = "y"}) -> (tensor<1x?x?xf32> {onnx.name = "z"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Not"([[PARAM_0_]]) : (tensor<?x?xi1>) -> tensor<?x?xi1>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Unsqueeze"([[VAR_1_]], [[VAR_0_]]) : (tensor<?x?xi1>, tensor<1xi64>) -> tensor<1x?x?xi1>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Where"([[VAR_2_]], [[PARAM_1_]], [[PARAM_2_]]) : (tensor<1x?x?xi1>, tensor<1x?x?xf32>, tensor<1x?x?xf32>) -> tensor<1x?x?xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x?x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
 // Not rewriting since the constant in second operand of EqualOp is not negative value.
 func.func @test_remove_where_equal_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
     %0 = onnx.Constant dense<[2, -1]> : tensor<2xi64>

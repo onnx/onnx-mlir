@@ -3415,6 +3415,7 @@ void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
   result.insert<RemoveWhereEqualPattern>(context);
+  result.insert<WhereNotConditionSwapPattern>(context);
 }
 
 // on the ONNXDequantizeLinearOp.
