@@ -1715,9 +1715,17 @@ static bool checkAndInferShapes(onnx::ModelProto &model) {
 static bool findInvalidScanNode(
     const google::protobuf::RepeatedPtrField<onnx::NodeProto> &nodes,
     std::string &reason) {
+  // Takes a node list rather than a GraphProto because a node list is the one
+  // thing shared by everything that can contain nodes: the main graph, the body
+  // of a model-local function (a FunctionProto has no GraphProto), and the
+  // subgraphs nested in node attributes. One function therefore covers all
+  // three without copying.
   for (const onnx::NodeProto &node : nodes) {
     if (node.op_type() == "Scan" &&
         (node.domain().empty() || node.domain() == "ai.onnx")) {
+      // Search for the attribute instead of just reading its value: protobuf
+      // returns 0 for an unset int, which cannot be told apart from a real 0,
+      // and "missing" is exactly the case that crashes ONNX.
       const onnx::AttributeProto *numScanInputs = nullptr;
       for (const onnx::AttributeProto &attr : node.attribute())
         if (attr.name() == "num_scan_inputs")
@@ -1726,11 +1734,22 @@ static bool findInvalidScanNode(
         reason = "is missing the required 'num_scan_inputs' attribute";
         return true;
       }
+      // In a model-local function body the value can be a reference to a
+      // function attribute (ref_attr_name). The stored int is then a
+      // meaningless 0, and the real value only exists after a caller
+      // substitutes it (replaceAttrRefs), which happens after this check. It
+      // cannot be validated here, so reject it instead of letting an unchecked
+      // value reach ONNX shape inference.
       if (!numScanInputs->ref_attr_name().empty()) {
         reason = "takes 'num_scan_inputs' from a function attribute "
                  "reference, which onnx-mlir does not support";
         return true;
       }
+      // ONNX computes num_inputs - num_scan_inputs in size_t, so both a
+      // negative value and one above the input count wrap around. For opset 8
+      // the input list also holds the extra sequence_lens input, so this upper
+      // bound is slightly loose there. That is safe: it never rejects a valid
+      // model, it only misses some invalid ones.
       if (numScanInputs->i() < 0 || numScanInputs->i() > node.input_size()) {
         reason =
             "has 'num_scan_inputs' = " + std::to_string(numScanInputs->i()) +
@@ -1739,6 +1758,9 @@ static bool findInvalidScanNode(
         return true;
       }
     }
+    // Control-flow operators (If, Loop, Scan) carry their bodies as graph
+    // attributes, and ONNX shape inference descends into them as well, so an
+    // invalid Scan nested in a body crashes it just like a top-level one.
     for (const onnx::AttributeProto &attr : node.attribute()) {
       if (attr.has_g() && findInvalidScanNode(attr.g().node(), reason))
         return true;
