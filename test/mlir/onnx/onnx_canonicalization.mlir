@@ -2032,6 +2032,306 @@ func.func @test_not_replace_sub_by_expand_two_expands(%arg0: tensor<?xi64>) -> t
 
 // -----
 
+// COM: SinkExpandBelowElementwiseOpPattern on Cast: Cast of a single-use Expand casts the small
+// COM: input and expands the result.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7 --input-value=0:min-100max100
+func.func @test_sink_expand_below_cast(%arg0: tensor<?x1x7xi64> {onnx.name = "x"}) -> (tensor<?x5x7xf32> {onnx.name = "y"}) {
+  %c57 = onnx.Constant dense<[5, 7]> : tensor<2xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x7xi64>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c57) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+  %e = "onnx.Expand"(%arg0, %s) : (tensor<?x1x7xi64>, tensor<3xi64>) -> tensor<?x5x7xi64>
+  %r = "onnx.Cast"(%e) {saturate = 1 : si64, to = f32} : (tensor<?x5x7xi64>) -> tensor<?x5x7xf32>
+  onnx.Return %r : tensor<?x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_sink_expand_below_cast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x7xi64> {onnx.name = "x"}) -> (tensor<?x5x7xf32> {onnx.name = "y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[5, 7]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x1x7xi64>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = f32}> : (tensor<?x1x7xi64>) -> tensor<?x1x7xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Expand"([[VAR_3_]], [[VAR_2_]]) : (tensor<?x1x7xf32>, tensor<3xi64>) -> tensor<?x5x7xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<?x5x7xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: SinkExpandBelowElementwiseOpPattern, Expand on the right of a scalar
+// COM: constant: Sub(1.0, Expand(x, s)) -> Expand(Sub(1.0, x), s).
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7
+func.func @test_sink_expand_below_sub_rhs(%arg0: tensor<?x1x?xf32> {onnx.name = "x"}) -> (tensor<?x5x?xf32> {onnx.name = "y"}) {
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %e = "onnx.Expand"(%arg0, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+  %r = "onnx.Sub"(%one, %e) : (tensor<f32>, tensor<?x5x?xf32>) -> tensor<?x5x?xf32>
+  onnx.Return %r : tensor<?x5x?xf32>
+
+// CHECK-LABEL:  func.func @test_sink_expand_below_sub_rhs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xf32> {onnx.name = "x"}) -> (tensor<?x5x?xf32> {onnx.name = "y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<5> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_3_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Sub"([[VAR_0_]], [[PARAM_0_]]) : (tensor<f32>, tensor<?x1x?xf32>) -> tensor<?x1x?xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Expand"([[VAR_5_]], [[VAR_4_]]) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<?x5x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: SinkExpandBelowElementwiseOpPattern, Expand on the left of a non-constant
+// COM: single-element operand: Mul(Expand(x, s), k) -> Expand(Mul(x, k), s).
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7
+func.func @test_sink_expand_below_mul_lhs(%arg0: tensor<?x1x?xf32> {onnx.name = "x"}, %arg1: tensor<1xf32> {onnx.name = "k"}) -> (tensor<?x5x?xf32> {onnx.name = "y"}) {
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %e = "onnx.Expand"(%arg0, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+  %r = "onnx.Mul"(%e, %arg1) : (tensor<?x5x?xf32>, tensor<1xf32>) -> tensor<?x5x?xf32>
+  onnx.Return %r : tensor<?x5x?xf32>
+
+// CHECK-LABEL:  func.func @test_sink_expand_below_mul_lhs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<1xf32> {onnx.name = "k"}) -> (tensor<?x5x?xf32> {onnx.name = "y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<5> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x1x?xf32>, tensor<1xf32>) -> tensor<?x1x?xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Expand"([[VAR_4_]], [[VAR_3_]]) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<?x5x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: SinkExpandBelowElementwiseOpPattern on a comparison, whose result type (i1)
+// COM: differs from its input type (i64).
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7 --input-value=0:min0max10
+func.func @test_sink_expand_below_less_or_equal(%arg0: tensor<?x1x?xi64> {onnx.name = "x"}) -> (tensor<?x5x?xi1> {onnx.name = "y"}) {
+  %k = onnx.Constant dense<5> : tensor<i64>
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xi64>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xi64>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %e = "onnx.Expand"(%arg0, %s) : (tensor<?x1x?xi64>, tensor<3xi64>) -> tensor<?x5x?xi64>
+  %r = "onnx.LessOrEqual"(%e, %k) : (tensor<?x5x?xi64>, tensor<i64>) -> tensor<?x5x?xi1>
+  onnx.Return %r : tensor<?x5x?xi1>
+
+// CHECK-LABEL:  func.func @test_sink_expand_below_less_or_equal
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xi64> {onnx.name = "x"}) -> (tensor<?x5x?xi1> {onnx.name = "y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<5> : tensor<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<5> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x1x?xi64>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x1x?xi64>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_3_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.LessOrEqual"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x1x?xi64>, tensor<i64>) -> tensor<?x1x?xi1>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Expand"([[VAR_5_]], [[VAR_4_]]) : (tensor<?x1x?xi1>, tensor<3xi64>) -> tensor<?x5x?xi1>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<?x5x?xi1>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: The HuggingFace attention-mask chain (see the comment above
+// COM: SinkExpandBelowElementwiseOpPattern): Cast, Sub, Cast and Where all end
+// COM: up on the [B, 1, 1, S] mask and a single Expand to [B, 1, S, S]
+// COM: remains. %inv is used by both the second Cast and the Where, so this
+// COM: also exercises sinking a shared Expand that grows the tensor along a
+// COM: dynamic axis.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x7 --input-value=0:soz-1
+func.func @test_sink_expand_attention_mask(%arg0: tensor<?x?xi64> {onnx.name = "mask"}) -> (tensor<?x1x?x?xf32> {onnx.name = "bias"}) {
+  %a1 = onnx.Constant dense<1> : tensor<1xi64>
+  %a2 = onnx.Constant dense<2> : tensor<1xi64>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %min = onnx.Constant dense<-3.40282347E+38> : tensor<f32>
+  %u1 = "onnx.Unsqueeze"(%arg0, %a1) : (tensor<?x?xi64>, tensor<1xi64>) -> tensor<?x1x?xi64>
+  %u2 = "onnx.Unsqueeze"(%u1, %a2) : (tensor<?x1x?xi64>, tensor<1xi64>) -> tensor<?x1x1x?xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+  %d1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %a1, %d1, %d1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %e = "onnx.Expand"(%u2, %s) : (tensor<?x1x1x?xi64>, tensor<4xi64>) -> tensor<?x1x?x?xi64>
+  %f = "onnx.Cast"(%e) {saturate = 1 : si64, to = f32} : (tensor<?x1x?x?xi64>) -> tensor<?x1x?x?xf32>
+  %inv = "onnx.Sub"(%one, %f) : (tensor<f32>, tensor<?x1x?x?xf32>) -> tensor<?x1x?x?xf32>
+  %c = "onnx.Cast"(%inv) {saturate = 1 : si64, to = i1} : (tensor<?x1x?x?xf32>) -> tensor<?x1x?x?xi1>
+  %r = "onnx.Where"(%c, %min, %inv) : (tensor<?x1x?x?xi1>, tensor<f32>, tensor<?x1x?x?xf32>) -> tensor<?x1x?x?xf32>
+  onnx.Return %r : tensor<?x1x?x?xf32>
+
+// CHECK-LABEL:  func.func @test_sink_expand_attention_mask
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64> {onnx.name = "mask"}) -> (tensor<?x1x?x?xf32> {onnx.name = "bias"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<-3.40282347E+38> : tensor<f32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Unsqueeze"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?xi64>, tensor<1xi64>) -> tensor<?x1x?xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Unsqueeze"([[VAR_4_]], [[VAR_1_]]) : (tensor<?x1x?xi64>, tensor<1xi64>) -> tensor<?x1x1x?xi64>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 1 : si64}> : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Concat"([[VAR_6_]], [[VAR_0_]], [[VAR_7_]], [[VAR_7_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Cast"([[VAR_5_]]) <{saturate = 1 : si64, to = f32}> : (tensor<?x1x1x?xi64>) -> tensor<?x1x1x?xf32>
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Sub"([[VAR_2_]], [[VAR_9_]]) : (tensor<f32>, tensor<?x1x1x?xf32>) -> tensor<?x1x1x?xf32>
+// CHECK:           [[VAR_11_:%.+]] = "onnx.Cast"([[VAR_10_]]) <{saturate = 1 : si64, to = i1}> : (tensor<?x1x1x?xf32>) -> tensor<?x1x1x?xi1>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Where"([[VAR_11_]], [[VAR_3_]], [[VAR_10_]]) : (tensor<?x1x1x?xi1>, tensor<f32>, tensor<?x1x1x?xf32>) -> tensor<?x1x1x?xf32>
+// CHECK:           [[VAR_13_:%.+]] = "onnx.Expand"([[VAR_12_]], [[VAR_8_]]) : (tensor<?x1x1x?xf32>, tensor<4xi64>) -> tensor<?x1x?x?xf32>
+// CHECK:           onnx.Return [[VAR_13_]] : tensor<?x1x?x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: Negative: a shared Expand that only doubles the tensor (4x1x8 ->
+// COM: 4x2x8, below the 8x growth threshold) is not sunk below its users.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --input-value=0:min-100max100
+func.func @test_not_sink_shared_expand_small_growth(%arg0: tensor<4x1x8xi64> {onnx.name = "x"}) -> (tensor<4x2x8xf32> {onnx.name = "y"}, tensor<4x2x8xi32> {onnx.name = "z"}) {
+  %s = onnx.Constant dense<[4, 2, 8]> : tensor<3xi64>
+  %e = "onnx.Expand"(%arg0, %s) : (tensor<4x1x8xi64>, tensor<3xi64>) -> tensor<4x2x8xi64>
+  %r0 = "onnx.Cast"(%e) {saturate = 1 : si64, to = f32} : (tensor<4x2x8xi64>) -> tensor<4x2x8xf32>
+  %r1 = "onnx.Cast"(%e) {saturate = 1 : si64, to = i32} : (tensor<4x2x8xi64>) -> tensor<4x2x8xi32>
+  onnx.Return %r0, %r1 : tensor<4x2x8xf32>, tensor<4x2x8xi32>
+
+// CHECK-LABEL:  func.func @test_not_sink_shared_expand_small_growth
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x1x8xi64> {onnx.name = "x"}) -> (tensor<4x2x8xf32> {onnx.name = "y"}, tensor<4x2x8xi32> {onnx.name = "z"}) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[4, 2, 8]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Expand"([[PARAM_0_]], [[VAR_0_]]) : (tensor<4x1x8xi64>, tensor<3xi64>) -> tensor<4x2x8xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[VAR_1_]]) <{saturate = 1 : si64, to = f32}> : (tensor<4x2x8xi64>) -> tensor<4x2x8xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Cast"([[VAR_1_]]) <{saturate = 1 : si64, to = i32}> : (tensor<4x2x8xi64>) -> tensor<4x2x8xi32>
+// CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]] : tensor<4x2x8xf32>, tensor<4x2x8xi32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: Negative: the side operand of the Add is full-sized, not a single
+// COM: element, so the Expand is not sunk.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7,1:3x5x7
+func.func @test_not_sink_expand_non_scalar_operand(%arg0: tensor<?x1x?xf32> {onnx.name = "x"}, %arg1: tensor<?x5x?xf32> {onnx.name = "y"}) -> (tensor<?x5x?xf32> {onnx.name = "z"}) {
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %e = "onnx.Expand"(%arg0, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+  %r = "onnx.Add"(%e, %arg1) : (tensor<?x5x?xf32>, tensor<?x5x?xf32>) -> tensor<?x5x?xf32>
+  onnx.Return %r : tensor<?x5x?xf32>
+
+// CHECK-LABEL:  func.func @test_not_sink_expand_non_scalar_operand
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<?x5x?xf32> {onnx.name = "y"}) -> (tensor<?x5x?xf32> {onnx.name = "z"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<5> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Expand"([[PARAM_0_]], [[VAR_3_]]) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Add"([[VAR_4_]], [[PARAM_1_]]) : (tensor<?x5x?xf32>, tensor<?x5x?xf32>) -> tensor<?x5x?xf32>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<?x5x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: Negative: the Where's two data operands are Expands by different shape
+// COM: values, so there is no single Expand to sink below the Where.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7,1:3x1x7,2:3x5x1
+func.func @test_not_sink_expand_where_different_shapes(%arg0: tensor<?x1x7xi1> {onnx.name = "c"}, %arg1: tensor<?x1x7xf32> {onnx.name = "a"}, %arg2: tensor<?x5x1xf32> {onnx.name = "b"}) -> (tensor<?x5x7xf32> {onnx.name = "z"}) {
+  %s1 = onnx.Constant dense<[1, 5, 1]> : tensor<3xi64>
+  %s2 = onnx.Constant dense<[1, 1, 7]> : tensor<3xi64>
+  %ec = "onnx.Expand"(%arg0, %s1) : (tensor<?x1x7xi1>, tensor<3xi64>) -> tensor<?x5x7xi1>
+  %ea = "onnx.Expand"(%arg1, %s1) : (tensor<?x1x7xf32>, tensor<3xi64>) -> tensor<?x5x7xf32>
+  %eb = "onnx.Expand"(%arg2, %s2) : (tensor<?x5x1xf32>, tensor<3xi64>) -> tensor<?x5x7xf32>
+  %r = "onnx.Where"(%ec, %ea, %eb) : (tensor<?x5x7xi1>, tensor<?x5x7xf32>, tensor<?x5x7xf32>) -> tensor<?x5x7xf32>
+  onnx.Return %r : tensor<?x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_not_sink_expand_where_different_shapes
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x7xi1> {onnx.name = "c"}, [[PARAM_1_:%.+]]: tensor<?x1x7xf32> {onnx.name = "a"}, [[PARAM_2_:%.+]]: tensor<?x5x1xf32> {onnx.name = "b"}) -> (tensor<?x5x7xf32> {onnx.name = "z"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1, 5, 1]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 1, 7]> : tensor<3xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Expand"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x1x7xi1>, tensor<3xi64>) -> tensor<?x5x7xi1>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Expand"([[PARAM_1_]], [[VAR_0_]]) : (tensor<?x1x7xf32>, tensor<3xi64>) -> tensor<?x5x7xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Expand"([[PARAM_2_]], [[VAR_1_]]) : (tensor<?x5x1xf32>, tensor<3xi64>) -> tensor<?x5x7xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Where"([[VAR_2_]], [[VAR_3_]], [[VAR_4_]]) : (tensor<?x5x7xi1>, tensor<?x5x7xf32>, tensor<?x5x7xf32>) -> tensor<?x5x7xf32>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<?x5x7xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: No regression: when the Expand's input is a constant, the sink pattern
+// COM: declines and PropagateScalarConstantExpandPattern still moves it, so
+// COM: the Mul of the two constants folds.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:6
+func.func @test_sink_expand_two_constants_still_fold(%arg0: tensor<?xi64> {onnx.name = "x"}) -> (tensor<2x?xf32> {onnx.name = "y"}) {
+  %c2 = onnx.Constant dense<2> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%c2, %d0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %k2 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %k3 = onnx.Constant dense<3.000000e+00> : tensor<f32>
+  %e = "onnx.Expand"(%k3, %s) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
+  %r = "onnx.Mul"(%e, %k2) : (tensor<2x?xf32>, tensor<f32>) -> tensor<2x?xf32>
+  onnx.Return %r : tensor<2x?xf32>
+
+// CHECK-LABEL:  func.func @test_sink_expand_two_constants_still_fold
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64> {onnx.name = "x"}) -> (tensor<2x?xf32> {onnx.name = "y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?xi64>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_0_]], [[VAR_1_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Expand"([[VAR_5_]], [[VAR_4_]]) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<2x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
+// COM: SinkExpandBelowElementwiseOpPattern with two Expands by the same shape:
+// COM: Add(Expand(x, s), Expand(y, s)) adds the small inputs, then expands once.
+// GROUND-THIS: --rtol=1e-6 --atol=1e-6 --shape-info=0:3x1x7,1:3x1x7
+func.func @test_sink_expand_two_expands_same_shape(%arg0: tensor<?x1x?xf32> {onnx.name = "x"}, %arg1: tensor<?x1x?xf32> {onnx.name = "y"}) -> (tensor<?x5x?xf32> {onnx.name = "z"}) {
+  %c5 = onnx.Constant dense<5> : tensor<1xi64>
+  %d0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %d2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x1x?xf32>) -> tensor<1xi64>
+  %s = "onnx.Concat"(%d0, %c5, %d2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %ex = "onnx.Expand"(%arg0, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+  %ey = "onnx.Expand"(%arg1, %s) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+  %r = "onnx.Add"(%ex, %ey) : (tensor<?x5x?xf32>, tensor<?x5x?xf32>) -> tensor<?x5x?xf32>
+  onnx.Return %r : tensor<?x5x?xf32>
+
+// CHECK-LABEL:  func.func @test_sink_expand_two_expands_same_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<?x1x?xf32> {onnx.name = "y"}) -> (tensor<?x5x?xf32> {onnx.name = "z"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<5> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x1x?xf32>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x1x?xf32>, tensor<?x1x?xf32>) -> tensor<?x1x?xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Expand"([[VAR_4_]], [[VAR_3_]]) : (tensor<?x1x?xf32>, tensor<3xi64>) -> tensor<?x5x?xf32>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<?x5x?xf32>
+// CHECK:         }
+
+}
+
+// -----
+
 // COM: Optimize the scalar div in self-attention layer.
 func.func @test_div_in_attention(%arg0: tensor<?x?x768xf32>, %arg1: tensor<?x?x768xf32>) -> tensor<?x12x?x?xf32> {
   %0 = onnx.Constant dense<1.280000e+02> : tensor<768xf32>

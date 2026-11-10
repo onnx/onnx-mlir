@@ -839,13 +839,13 @@ using FusedPatternsForExtendedLayoutTransform =
         ExtLayoutTransformFusionHelper>;
 
 // Anchors on ONNXUnsqueezeOp (head of the chain); ExpandMulStickFusionHelper
-// walks forward through Expand -> Mul -> Reshape -> ZHighStickOp.
+// walks forward through Mul? -> Expand -> Reshape -> ZHighStickOp.
 using FusedPatternsForExpandMulStick =
     FusedPatternForOpKind<ONNXUnsqueezeOp, ExpandMulStickFusionHelper>;
 
 // Anchors on ONNXConcatOp (head of the chain); ConcatExpandStickFusionHelper
 // walks forward through Unsqueeze -> F32ToDLF16 -> Expand -> Reshape ->
-// LayoutTransform.
+// LayoutTransform, or Unsqueeze -> Mul? -> Expand -> Reshape -> ZHighStickOp.
 using FusedPatternsForConcatExpandStick =
     FusedPatternForOpKind<ONNXConcatOp, ConcatExpandStickFusionHelper>;
 
@@ -906,7 +906,7 @@ struct FusionOpStickUnstick
 
     // Phase ordering. ConcatExpandStickFusionHelper's chain (anchored on
     // ONNXConcatOp) can subsume ExpandMulStickFusionHelper's chain entirely
-    // (a Concat heading the same Unsqueeze->Expand->Mul->Reshape->Stick
+    // (a Concat heading the same Unsqueeze->Mul?->Expand->Reshape->Stick
     // tail that ExpandMulStickFusionHelper matches on its own). The two
     // anchor on different op types, so mlir::PatternBenefit cannot express
     // this precedence: PatternApplicator only ranks patterns that already

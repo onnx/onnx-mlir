@@ -160,8 +160,8 @@ static bool detectMergeReshape(
 
 //===----------------------------------------------------------------------===//
 // Scalar-Mul helpers -- shared by ExtLayoutTransformFusionHelper's optional
-// trailing Mul and by the optional Mul of the Expand -> Mul? -> Reshape ->
-// Stick tails.
+// trailing Mul and by the optional Mul of the Unsqueeze -> Mul? -> Expand ->
+// Reshape -> Stick chains.
 //===----------------------------------------------------------------------===//
 
 /// Return the scalar factor of \p mulOp when its operand other than
@@ -616,9 +616,9 @@ static bool detectUpperCollapse(ONNXReshapeOp reshapeOp, int64_t P,
 
 //===----------------------------------------------------------------------===//
 // Shared tail-matching helpers -- used by both ExpandMulStickFusionHelper's
-// own tail (Expand -> Mul? -> Reshape -> Stick) and
+// own tail (Unsqueeze -> Mul? -> Expand -> Reshape -> Stick) and
 // ConcatExpandStickFusionHelper's 1-step stick tail, which is structurally
-// identical from Expand onward.
+// identical from Unsqueeze onward.
 //===----------------------------------------------------------------------===//
 
 /// If `current`'s single user is a ZHighStickOp targeting a supported layout
@@ -695,7 +695,23 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   Value current = unsqOut;
   unsqueezedPosition = P;
 
-  // ---- Step 2: Expand -----------------------------------------------------
+  // ---- Step 2: Mul (optional) ----------------------------------------------
+  // The scalar Mul sits between Unsqueeze and Expand: the Expand-sinking
+  // canonicalization (SinkExpandBelowElementwiseOpPattern in
+  // ONNXOps/Canonicalize.cpp) rewrites Mul(Expand(x), k) into
+  // Expand(Mul(x, k)) for any scalar k, and it runs before this pass, so a
+  // Mul after the Expand no longer reaches here. A scalar Mul does not change
+  // the shape, so the innermost-dim check above holds for its result too. If
+  // the unsqueeze output's single user is not a viable scalar Mul, skip this
+  // step and leave mulScalar at its neutral default (1.f); `current` still
+  // points at the unsqueeze output, so Step 3 matches the expand directly
+  // against it.
+  if (auto mulOp = detectOptionalScalarMul(current, mulScalar)) {
+    ops.push_back(mulOp.getOperation());
+    current = mulOp.getC();
+  }
+
+  // ---- Step 3: Expand -----------------------------------------------------
   auto expandOp = singleUserOfOpType<ONNXExpandOp>(current);
   if (!expandOp)
     return returnFailure("expand: not single user of type ONNXExpandOp");
@@ -705,16 +721,6 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   expansionN = N;
   ops.push_back(expandOp.getOperation());
   current = expandOp.getOutput();
-
-  // ---- Step 3: Mul (optional) ----------------------------------------------
-  // If the expand output's single user is not a viable scalar Mul, skip this
-  // step and leave mulScalar at its neutral default (1.f); `current` still
-  // points at the expand output, so Step 4 matches the reshape directly
-  // against it.
-  if (auto mulOp = detectOptionalScalarMul(current, mulScalar)) {
-    ops.push_back(mulOp.getOperation());
-    current = mulOp.getC();
-  }
 
   // ---- Step 4: Reshape ----------------------------------------------------
   auto reshapeOp = singleUserOfOpType<ONNXReshapeOp>(current);
@@ -781,7 +787,7 @@ bool ExpandMulStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 
 bool ExpandMulStickFusionHelper::verify() const {
   constexpr int expectedWithMul =
-      5; // unsqueeze + expand + mul + reshape + stick
+      5; // unsqueeze + mul + expand + reshape + stick
   constexpr int expectedWithoutMul = 4; // unsqueeze + expand + reshape + stick
   bool hasMul;
   if ((int64_t)ops.size() == expectedWithMul) {
@@ -810,10 +816,18 @@ bool ExpandMulStickFusionHelper::verify() const {
     }
   }
 
-  // ops[1]: ONNXExpandOp — output dim P must equal expansionN.
+  // ops[1]: ONNXMulOp (only present when the pattern includes a Mul).
+  if (hasMul) {
+    if (!dyn_cast<ONNXMulOp>(ops[idx++])) {
+      LLVM_DEBUG(llvm::dbgs() << "EMS verify: ops[1] not Mul\n");
+      return false;
+    }
+  }
+
+  // ops[idx]: ONNXExpandOp — output dim P must equal expansionN.
   auto exp = dyn_cast<ONNXExpandOp>(ops[idx++]);
   if (!exp) {
-    LLVM_DEBUG(llvm::dbgs() << "EMS verify: ops[1] not Expand\n");
+    LLVM_DEBUG(llvm::dbgs() << "EMS verify: ops[idx] not Expand\n");
     return false;
   }
   {
@@ -821,14 +835,6 @@ bool ExpandMulStickFusionHelper::verify() const {
     if (outType.getRank() <= unsqueezedPosition ||
         outType.getShape()[unsqueezedPosition] != expansionN) {
       LLVM_DEBUG(llvm::dbgs() << "EMS verify: expand N mismatch\n");
-      return false;
-    }
-  }
-
-  // ops[2]: ONNXMulOp (only present when the pattern includes a Mul).
-  if (hasMul) {
-    if (!dyn_cast<ONNXMulOp>(ops[idx++])) {
-      LLVM_DEBUG(llvm::dbgs() << "EMS verify: ops[2] not Mul\n");
       return false;
     }
   }
@@ -959,21 +965,34 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   current = unsqOp.getExpanded();
   unsqueezedPosition = P;
 
-  // ---- Step 3: F32ToDLF16 (optional) ---------------------------------------
-  // Present <=> the existing 2-step tail (ends in a LayoutTransform);
+  // ---- Step 3: Mul (optional), then F32ToDLF16 (optional) -----------------
+  // The optional scalar Mul is tried first, for both tails, between the
+  // Unsqueeze and whatever follows it: the Expand-sinking canonicalization
+  // (SinkExpandBelowElementwiseOpPattern in ONNXOps/Canonicalize.cpp)
+  // rewrites Mul(Expand(x), k) into Expand(Mul(x, k)) for any scalar k, and
+  // it runs before this pass, so a Mul after the Expand no longer reaches
+  // here. In the 2-step tail, ZHighDecomposeStickUnstick then turns
+  // Stick(Reshape(Expand(Mul(...)))) into Mul -> F32ToDLF16 -> Expand ->
+  // Reshape -> LayoutTransform, so the Mul still sits right after the
+  // Unsqueeze, in F32, before the conversion. When no viable scalar Mul is
+  // found, mulScalar stays at its neutral default (1.f) and `current` still
+  // points at the unsqueeze output.
+  //
+  // Then F32ToDLF16 present <=> the 2-step tail (ends in a LayoutTransform);
   // absent <=> the 1-step tail (ends in an explicit ZHighStickOp). Expand
-  // and Reshape are identical either way -- shared below -- only this step,
-  // the optional Mul (Step 5, stick-tail only -- see its own comment for
-  // why), and the final step (Step 6) differ per tail.
-  bool hasSingleStick;
+  // and Reshape are identical either way -- shared below -- only this step
+  // and the final step (Step 6) differ per tail.
+  if (auto mulOp = detectOptionalScalarMul(current, mulScalar)) {
+    ops.push_back(mulOp.getOperation());
+    current = mulOp.getC();
+  }
+  bool hasSingleStick = true;
   if (auto dlfOp = singleUserOfOpType<ZHighF32ToDLF16Op>(current)) {
     hasSingleStick = false;
     if (auto ns = dlfOp.getNoSaturation())
       noSaturation = (*ns != 0);
     ops.push_back(dlfOp.getOperation());
     current = dlfOp.getOut();
-  } else {
-    hasSingleStick = true;
   }
 
   // ---- Step 4: Expand -------------------------------------------------------
@@ -987,25 +1006,7 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   ops.push_back(expandOp.getOperation());
   current = expandOp.getOutput();
 
-  // ---- Step 5: Mul (optional, stick-tail only) ------------------------------
-  // Only tried for the 1-step tail: by this point in the 2-step tail, data is
-  // already DLF16 (F32ToDLF16 ran in Step 3), so a real Mul here would need
-  // an F16-typed scalar constant (ONNX's Mul requires both operands to share
-  // one element type) -- detectOptionalScalarMul only recognizes F32/I32/I64
-  // scalars, so that combination could never actually match; skip trying it
-  // rather than leave dead code. If the expand output's single user is not a
-  // viable scalar Mul, skip this step and leave mulScalar at its neutral
-  // default (1.f); `current` still points at the expand output either way,
-  // so Step 5.5 matches the reshape directly against it.
-  if (hasSingleStick) {
-    if (auto mulOp = detectOptionalScalarMul(current, mulScalar)) {
-      ops.push_back(mulOp.getOperation());
-      current = mulOp.getC();
-    }
-  }
-
-  // ---- Step 5.5: Reshape
-  // -----------------------------------------------------
+  // ---- Step 5: Reshape ------------------------------------------------------
   auto reshapeOp = singleUserOfOpType<ONNXReshapeOp>(current);
   if (!reshapeOp)
     return returnFailure("reshape: not single user of type ONNXReshapeOp");
@@ -1132,14 +1133,16 @@ bool ConcatExpandStickFusionHelper::verify() const {
     return false;
   }
 
-  // Base count (no Mul): concat + unsqueeze + [f32-to-dlf16] + expand +
-  // reshape + [layout-transform | stick] -- 5 fixed ops, plus 1 more for
-  // f32-to-dlf16 when this is the 2-step tail. Mul, when present, adds one
-  // -- but only for the stick tail (see detectIfBeneficial's Step 5 comment
-  // for why the 2-step tail can never actually have one).
+  // Op count: 5 fixed ops (concat + unsqueeze + expand + reshape +
+  // [layout-transform | stick]), plus 1 for f32-to-dlf16 exactly when this is
+  // the 2-step tail, plus 1 for the optional scalar Mul (either tail):
+  //   1-step, no Mul: 5    1-step, Mul: 6
+  //   2-step, no Mul: 6    2-step, Mul: 7 (= kMaxOpCount)
+  // The tail is already fixed by which layout attr is set, so the count
+  // alone decides whether a Mul is present.
   int64_t baseCount = hasSingleStick ? 5 : 6;
   bool hasMul;
-  if (hasSingleStick && (int64_t)ops.size() == baseCount + 1) {
+  if ((int64_t)ops.size() == baseCount + 1) {
     hasMul = true;
   } else if ((int64_t)ops.size() == baseCount) {
     hasMul = false;
@@ -1171,7 +1174,17 @@ bool ConcatExpandStickFusionHelper::verify() const {
     }
   }
 
-  // ops[idx]: ZHighF32ToDLF16Op (only present for the 2-step tail).
+  // ops[2]: ONNXMulOp (only present when the chain has a scalar Mul, in
+  // either tail).
+  if (hasMul) {
+    if (!dyn_cast<ONNXMulOp>(ops[idx++])) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[2] not Mul\n");
+      return false;
+    }
+  }
+
+  // ops[idx]: ZHighF32ToDLF16Op (only present for the 2-step tail), after
+  // the Mul when there is one.
   if (!hasSingleStick) {
     if (!dyn_cast<ZHighF32ToDLF16Op>(ops[idx++])) {
       LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not F32ToDLF16\n");
@@ -1190,14 +1203,6 @@ bool ConcatExpandStickFusionHelper::verify() const {
     if (outType.getRank() <= unsqueezedPosition ||
         outType.getShape()[unsqueezedPosition] != expansionN) {
       LLVM_DEBUG(llvm::dbgs() << "CES verify: expand N mismatch\n");
-      return false;
-    }
-  }
-
-  // ops[idx]: ONNXMulOp (only present when the pattern includes a Mul).
-  if (hasMul) {
-    if (!dyn_cast<ONNXMulOp>(ops[idx++])) {
-      LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not Mul\n");
       return false;
     }
   }

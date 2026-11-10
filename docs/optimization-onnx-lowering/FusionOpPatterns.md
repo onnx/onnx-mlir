@@ -19,8 +19,8 @@ for LayoutTransform.
 |---|---|---|---|---|
 | [`simd-split-op-gather`](#simd-split-op-gather) (§1.1) | Concat | 2× (Slice → op?) → Concat | static | RoPE `rotate_half` |
 | [`zhigh.extended_layout_transform`](#zhigh-extended-layout-transform) (§2.1) | LayoutTransform | LT → Reshape? → Transpose? → Reshape? → (LT *or* DLF16ToF32 → Mul?) | %64 or 32 | head reshuffles between NNPA ops |
-| [`zhigh.expand-mul-stick`](#zhigh-expand-mul-stick) (§2.2) | Unsqueeze | Unsqueeze → Expand → Mul? → Reshape → Stick | %64 | GQA/MQA head repeat |
-| [`zhigh.concat-expand-stick`](#zhigh-concat-expand-stick) (§2.3) | Concat | Concat → Unsqueeze → F32ToDLF16? → Expand → Mul? → Reshape → (Stick *or* LT) | %64 | KV cache + GQA head repeat |
+| [`zhigh.expand-mul-stick`](#zhigh-expand-mul-stick) (§2.2) | Unsqueeze | Unsqueeze → Mul? → Expand → Reshape → Stick | %64 | GQA/MQA head repeat |
+| [`zhigh.concat-expand-stick`](#zhigh-concat-expand-stick) (§2.3) | Concat | Concat → Unsqueeze → Mul? → F32ToDLF16? → Expand → Reshape → (Stick *or* LT) | %64 | KV cache + GQA head repeat |
 | [`zhigh.unstick-split-heads`](#zhigh-unstick-split-heads) (§2.4) | Unstick | Unstick → Reshape → Transpose? → Split (→ Squeeze → Reshape → Stick) | D = 32 or %64 | fused QKV split into heads |
 | [`zhigh.mul-add-stick`](#zhigh-mul-add-stick) (§2.5) | Add / Sub | 2× Mul → (Add *or* Sub) → Mul? → Reshape → Stick | 32 or %64 | rotary embedding before attention |
 
@@ -166,8 +166,12 @@ Reshape?    (merge two dims into one)
 ### 2.2 `zhigh.expand-mul-stick`: broadcast-then-stick
 
 ```
-Unsqueeze (axis P) → Expand (dim P: 1 → N) → scalar Mul? → Reshape → Stick (3D/3DS/4D)
+Unsqueeze (axis P) → scalar Mul? → Expand (dim P: 1 → N) → Reshape → Stick (3D/3DS/4D)
 ```
+
+The scalar Mul is matched before the Expand because the Expand-sinking
+canonicalization, which runs earlier in the pipeline, rewrites
+`Mul(Expand(x), k)` into `Expand(Mul(x, k))` for a scalar `k`.
 
 - **Idiom.** Repeating KV heads for grouped-query or multi-query attention
   (GQA/MQA) before the attention MatMul.
@@ -190,10 +194,10 @@ Concat (2 inputs, axis A, not innermost)
         ↓
 Unsqueeze (axis P ≤ A)
         │
-        ├── LT ending:     F32ToDLF16 → Expand (dim P: 1 → N) → Reshape
-        │                    → LayoutTransform (CPU → zTensor, 3D/3DS/4D)
+        ├── LT ending:     scalar Mul? → F32ToDLF16 → Expand (dim P: 1 → N)
+        │                    → Reshape → LayoutTransform (CPU → zTensor, 3D/3DS/4D)
         │   or
-        └── Stick ending:  Expand (dim P: 1 → N) → scalar Mul? → Reshape
+        └── Stick ending:  scalar Mul? → Expand (dim P: 1 → N) → Reshape
                              → Stick (3D/3DS/4D)
 ```
 
@@ -204,8 +208,11 @@ Unsqueeze (axis P ≤ A)
 - **Matched when:** the Concat has two inputs, each with an innermost dim
   that is a multiple of 64. The Expand and Reshape conditions are the same as
   in §2.2.
-- **Scalar Mul.** Allowed only in the Stick ending. In the LayoutTransform
-  ending, the data is already dlf16 at that point.
+- **Scalar Mul.** Allowed in both endings, right after the Unsqueeze and in
+  f32, where the Expand-sinking canonicalization puts it (as in §2.2). In the
+  LayoutTransform ending, `--zhigh-decompose-stick-unstick` then splits the
+  Stick so that the F32ToDLF16 lands after the Mul, right before the Expand.
+  The lowering multiplies in f32 just before the dlf16 conversion.
 - **Extra uses of the Concat result.** Unlike the rest of the chain, the
   Concat result may have other uses, typically the updated KV cache passed to
   the next step. In that case the fused op gets a second result, which is the
