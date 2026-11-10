@@ -1700,6 +1700,78 @@ static bool checkAndInferShapes(onnx::ModelProto &model) {
   return true;
 }
 
+// Guard against malformed Scan nodes: ONNX's Scan shape inference
+// (ScanInferenceFunction and its opset8/opset9 variants) dereferences the
+// required num_scan_inputs attribute without a null check and converts it to
+// size_t without a sign check. A missing attribute is a null dereference; a
+// negative value (which passes onnx.checker) or a value larger than the number
+// of Scan inputs wraps the unsigned arithmetic and reaches an oversized
+// allocation. Both crash InferShapes, so reject such Scan nodes before it runs.
+// A num_scan_inputs given as an attribute reference (ref_attr_name) inside a
+// model-local function takes its value from the caller and cannot be validated
+// here, so it is rejected as well.
+// Returns true and sets `reason` if an invalid Scan node is found. Scan nodes
+// nested in the subgraphs of other nodes are checked recursively.
+static bool findInvalidScanNode(
+    const google::protobuf::RepeatedPtrField<onnx::NodeProto> &nodes,
+    std::string &reason) {
+  // Takes a node list rather than a GraphProto because a node list is the one
+  // thing shared by everything that can contain nodes: the main graph, the body
+  // of a model-local function (a FunctionProto has no GraphProto), and the
+  // subgraphs nested in node attributes. One function therefore covers all
+  // three without copying.
+  for (const onnx::NodeProto &node : nodes) {
+    if (node.op_type() == "Scan" &&
+        (node.domain().empty() || node.domain() == "ai.onnx")) {
+      // Search for the attribute instead of just reading its value: protobuf
+      // returns 0 for an unset int, which cannot be told apart from a real 0,
+      // and "missing" is exactly the case that crashes ONNX.
+      const onnx::AttributeProto *numScanInputs = nullptr;
+      for (const onnx::AttributeProto &attr : node.attribute())
+        if (attr.name() == "num_scan_inputs")
+          numScanInputs = &attr;
+      if (!numScanInputs) {
+        reason = "is missing the required 'num_scan_inputs' attribute";
+        return true;
+      }
+      // In a model-local function body the value can be a reference to a
+      // function attribute (ref_attr_name). The stored int is then a
+      // meaningless 0, and the real value only exists after a caller
+      // substitutes it (replaceAttrRefs), which happens after this check. It
+      // cannot be validated here, so reject it instead of letting an unchecked
+      // value reach ONNX shape inference.
+      if (!numScanInputs->ref_attr_name().empty()) {
+        reason = "takes 'num_scan_inputs' from a function attribute "
+                 "reference, which onnx-mlir does not support";
+        return true;
+      }
+      // ONNX computes num_inputs - num_scan_inputs in size_t, so both a
+      // negative value and one above the input count wrap around. For opset 8
+      // the input list also holds the extra sequence_lens input, so this upper
+      // bound is slightly loose there. That is safe: it never rejects a valid
+      // model, it only misses some invalid ones.
+      if (numScanInputs->i() < 0 || numScanInputs->i() > node.input_size()) {
+        reason =
+            "has 'num_scan_inputs' = " + std::to_string(numScanInputs->i()) +
+            ", which is outside the range [0, " +
+            std::to_string(node.input_size()) + "] of its input count";
+        return true;
+      }
+    }
+    // Control-flow operators (If, Loop, Scan) carry their bodies as graph
+    // attributes, and ONNX shape inference descends into them as well, so an
+    // invalid Scan nested in a body crashes it just like a top-level one.
+    for (const onnx::AttributeProto &attr : node.attribute()) {
+      if (attr.has_g() && findInvalidScanNode(attr.g().node(), reason))
+        return true;
+      for (const onnx::GraphProto &subgraph : attr.graphs())
+        if (findInvalidScanNode(subgraph.node(), reason))
+          return true;
+    }
+  }
+  return false;
+}
+
 bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
   int originVersion = CURRENT_ONNX_OPSET;
@@ -1718,6 +1790,18 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
       llvm::outs() << "The graph is not topologically sortable.\n";
       return false;
     }
+  }
+
+  // Reject malformed Scan nodes before any ONNX shape inference or version
+  // conversion runs; see findInvalidScanNode. Function bodies are checked too.
+  std::string scanReason;
+  bool invalidScan = findInvalidScanNode(model.graph().node(), scanReason);
+  for (const onnx::FunctionProto &function : model.functions())
+    invalidScan =
+        invalidScan || findInvalidScanNode(function.node(), scanReason);
+  if (invalidScan) {
+    llvm::errs() << "Scan node " << scanReason << "\n";
+    return false;
   }
 
   // Note: when options.useOnnxModelTypes is true, the onnx::shape_inference
