@@ -23,8 +23,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace {
-// IndexExpr adapter for tensor-based lowerings. The Reshape shape helper uses
-// it to materialize runtime shape values without introducing Krnl operations.
 
 struct ONNXReshapeOpLoweringToLinalg : public OpRewritePattern<ONNXReshapeOp> {
   ONNXReshapeOpLoweringToLinalg(MLIRContext *ctx, const std::string &linalgOps,
