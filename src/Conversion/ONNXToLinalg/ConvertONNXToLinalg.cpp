@@ -45,12 +45,11 @@ struct ConvertONNXToLinalgPass
 
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    // Perform dim analysis (useful for SIMD but also to avoid broadcast
-    // expressions in index access patterns).
-    DimAnalysis *dimAnalysis = new DimAnalysis(module);
-    dimAnalysis->analyze();
-    MLIRContext *context = &getContext();
 
+    DimAnalysis dimAnalysis{module};
+    dimAnalysis.analyze();
+
+    MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
 
@@ -65,7 +64,7 @@ struct ConvertONNXToLinalgPass
     populateLoweringONNXIdentityOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
     populateLoweringONNXReshapeOpToLinalgPattern(patterns, typeConverter,
-        context, linalgOps, useLinalgPath, dimAnalysis);
+        context, linalgOps, useLinalgPath, &dimAnalysis);
     populateLoweringONNXShapeOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
 
