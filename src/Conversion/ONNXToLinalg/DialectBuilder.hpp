@@ -4,11 +4,11 @@
 
 //====------------ DialectBuilder.hpp - Linalg dialect builder ------------===//
 //
-// Copyright 2022-2026
+// Copyright 2026 HighTec-EDV Systeme Gmbh Authors.
 //
 // =============================================================================
 //
-// This file contains dialect builder for Linalg dialect.
+// This file contains dialect builder for Arith/Tensor dialects.
 //
 //===----------------------------------------------------------------------===//
 
