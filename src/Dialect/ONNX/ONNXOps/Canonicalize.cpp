@@ -547,8 +547,7 @@ public:
     Value expandShape = nullptr;
     auto matchValue = [&expandShape](Value v) -> Value {
       Value res = v;
-      if (auto expandOp =
-              dyn_cast_if_present<ONNXExpandOp>(res.getDefiningOp())) {
+      if (auto expandOp = res.getDefiningOp<ONNXExpandOp>()) {
         if (!expandShape) {
           res = expandOp.getInput();
           expandShape = expandOp.getShape();
@@ -678,7 +677,7 @@ constexpr int64_t kMinExpandGrowthToSinkShared = 8;
 // tensor enough. It does NOT check legality, which depends on the user's other
 // operands; SinkExpandBelowElementwiseOpPattern does that itself.
 ONNXExpandOp getBeneficialSinkExpand(Value v) {
-  auto expandOp = dyn_cast_if_present<ONNXExpandOp>(v.getDefiningOp());
+  auto expandOp = v.getDefiningOp<ONNXExpandOp>();
   if (!expandOp)
     return nullptr;
   Value input = expandOp.getInput();
@@ -728,11 +727,12 @@ public:
     Value shape;
     int64_t minExpandInputRank = -1;
     int64_t maxScalarRank = 0;
-    bool allExpandInputsConstant = true;
+    bool allOperandsConstant = true;
     for (Value v : op->getOperands()) {
       // Legality: every operand is a scalar or an Expand by the same shape.
       if (isScalarTensor(v)) {
         maxScalarRank = std::max(maxScalarRank, getRank(v.getType()));
+        allOperandsConstant &= isDenseONNXConstant(v);
         newOperands.emplace_back(v);
         continue;
       }
@@ -749,7 +749,7 @@ public:
       int64_t rank = getRank(x.getType());
       minExpandInputRank =
           (minExpandInputRank < 0) ? rank : std::min(minExpandInputRank, rank);
-      allExpandInputsConstant &= isDenseONNXConstant(x);
+      allOperandsConstant &= isDenseONNXConstant(x);
       newOperands.emplace_back(x);
     }
     if (!shape)
@@ -760,9 +760,7 @@ public:
       return failure();
     // Leave the all-constant case to PropagateScalarConstantExpandPattern,
     // which then folds the op.
-    if (allExpandInputsConstant && llvm::all_of(newOperands, [](Value v) {
-          return isDenseONNXConstant(v);
-        }))
+    if (allOperandsConstant)
       return failure();
 
     // Rebuild the same op on the small operands: same name and attributes,
