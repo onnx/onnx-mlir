@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.hpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -62,7 +62,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
 /// Populate conversions for elementwise with NNPA layout patterns.
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
-    mlir::MLIRContext *ctx, bool enableParallel, bool disableSaturation);
+    mlir::MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+    bool disableSaturation);
 
 } // namespace zhigh
 } // namespace onnx_mlir

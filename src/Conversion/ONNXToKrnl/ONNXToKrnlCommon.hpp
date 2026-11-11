@@ -391,7 +391,7 @@ void populateLoweringONNXDetOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
-    bool enableParallel);
+    bool enableParallel, bool enableCollapse);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
     bool enableSIMD, bool enableParallel);

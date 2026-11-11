@@ -13,13 +13,14 @@ func.func @collapse_needs_two_loops() {
 
 // -----
 
-// v1 restriction: a block output is not a collapsable operand.
-func.func @collapse_of_block() {
+// The intra-tile loop of a krnl.block is not a collapsable operand: its bounds
+// depend on the tile loop's index. The tile loop itself may be collapsed.
+func.func @collapse_of_intra_tile_loop() {
   %ii, %jj = krnl.define_loops 2
   %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-  // expected-error @+1 {{cannot collapse a loop produced by krnl.block}}
-  %ff = krnl.collapse(%ib, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
-  krnl.iterate(%ff, %il) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+  // expected-error @+1 {{cannot collapse the intra-tile loop produced by krnl.block}}
+  %ff = krnl.collapse(%il, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  krnl.iterate(%ib, %ff) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
   }
   return
 }

@@ -4,6 +4,11 @@
 // than the [0, 2) most sites use. These cases pin down which level the search
 // lands on, including one where it looks past two trip-count-1 levels to find
 // enough work -- a depth only this wider window can reach.
+//
+// Where the slice after the axis is a contiguous row of at least 64 bytes (64
+// floats in the first two cases), the nest covers only the index levels and
+// copies each row with one krnl.memcpy, so the search ranges over those levels
+// alone.
 
 // A dynamic leading dimension is assumed wide enough by definition, so the
 // search stops at level 0.
@@ -11,24 +16,29 @@ func.func @test_parallel_gather_dyn_outer(%arg0: tensor<?x64xf32>, %arg1: tensor
   %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<?x64xf32>, tensor<?x8xi64>) -> tensor<?x8x64xf32>
   return %0 : tensor<?x8x64xf32>
 
+
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d0 * 512 + d1 * 64)>
 // CHECK-LABEL:  func.func @test_parallel_gather_dyn_outer
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x64xf32>, [[PARAM_1_:%.+]]: memref<?x8xi64>) -> memref<?x8x64xf32> {
-// CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
+// CHECK-DAG:       [[CST_64_1_:%.+]] = arith.constant 64 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x8xi64>
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x8x64xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) alignment = 16 : memref<?x8x64xf32>
 // CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x64xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.parallel([[LOOP_0_]]#0) : !krnl.loop
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 8, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 64){
-// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 8){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x8xi64>
 // CHECK:             [[VAR_3_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
 // CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_]] : index
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.addi [[VAR_3_]], [[VAR_dim_0_]] : index
 // CHECK:             [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[VAR_3_]] : index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_6_]], [[VAR_1_]]#2] : memref<?x64xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<?x8x64xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.muli [[VAR_6_]], [[CST_64_1_]] : index
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#0, [[VAR_1_]]#1)
+// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_8_]], [[VAR_7_]]) : (memref<?x8x64xf32>, memref<?x64xf32>, i64, index, index) -> ()
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x8x64xf32>
 // CHECK:         }
@@ -43,23 +53,28 @@ func.func @test_parallel_gather_narrow_prefix(%arg0: tensor<?x64xf32>, %arg1: te
   %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<?x64xf32>, tensor<1x1x112xi64>) -> tensor<1x1x112x64xf32>
   return %0 : tensor<1x1x112x64xf32>
 
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 7168 + d1 * 7168 + d2 * 64)>
 // CHECK-LABEL:  func.func @test_parallel_gather_narrow_prefix
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x64xf32>, [[PARAM_1_:%.+]]: memref<1x1x112xi64>) -> memref<1x1x112x64xf32> {
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
+// CHECK-DAG:       [[CST_64_1_:%.+]] = arith.constant 64 : index
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x112x64xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() alignment = 16 : memref<1x1x112x64xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x64xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.parallel([[LOOP_0_]]#2) : !krnl.loop
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 112, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 64){
-// CHECK:             [[VAR_1_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 112){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<1x1x112xi64>
 // CHECK:             [[VAR_3_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
 // CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpi slt, [[VAR_3_]], [[CST_0_]] : index
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.addi [[VAR_3_]], [[VAR_dim_]] : index
 // CHECK:             [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[VAR_3_]] : index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_6_]], [[VAR_1_]]#3] : memref<?x64xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<1x1x112x64xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.muli [[VAR_6_]], [[CST_64_1_]] : index
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2)
+// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_8_]], [[VAR_7_]]) : (memref<1x1x112x64xf32>, memref<?x64xf32>, i64, index, index) -> ()
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x112x64xf32>
 // CHECK:         }
