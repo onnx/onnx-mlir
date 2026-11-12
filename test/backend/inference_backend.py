@@ -3901,6 +3901,23 @@ def get_test_models():
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # The axis is a Constant node: the static variant covers a static axis
+        # dimension of size 1, the dynamic one a dynamic dimension that is 1.
+        "test_onnxmlir_cumsum_axis_dim_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_onnxmlir_cumsum_axis_dim_1_exclusive_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_onnxmlir_cumsum_axis_dim_1_reverse_negative_axis_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
     }
 
     ############################################################
