@@ -6,7 +6,7 @@
 //
 // This pass replaces llvm.call @malloc with llvm.call @OMHugePageMalloc.
 // Buffers that the model frees itself are routed to the runtime's memory
-// cache instead (OMCacheAlloc / OMCacheFree).
+// cache instead (OMCacheAlloc / OMCacheFreeSized).
 //
 //===----------------------------------------------------------------------===//
 
@@ -38,7 +38,10 @@ namespace onnx_mlir {
 /// passed to another call. The pair is then rewritten to use the cache:
 ///   %0 = llvm.call @OMCacheAlloc(%size) : (i64) -> !llvm.ptr
 ///   ...
-///   llvm.call @OMCacheFree(%0) : (!llvm.ptr) -> ()
+///   llvm.call @OMCacheFreeSized(%0, %size) : (!llvm.ptr, i64) -> ()
+/// The free also receives the allocation size (%size dominates the free, since
+/// it is defined before the malloc whose result the free uses), so that the
+/// runtime frees sizes the cache never serves without taking its lock.
 /// Model outputs keep using OMHugePageMalloc, so that the host can free them
 /// with free(). Allocations inside OpenMP regions are left alone: they are
 /// small per-thread buffers that glibc already reuses well.
@@ -102,14 +105,14 @@ public:
   }
 
   Option<bool> enableMemoryCache{*this, "enable-memory-cache",
-      llvm::cl::desc("Use OMCacheAlloc/OMCacheFree for buffers that the model "
-                     "frees itself"),
+      llvm::cl::desc("Use OMCacheAlloc/OMCacheFreeSized for buffers that the "
+                     "model frees itself"),
       llvm::cl::init(true)};
 
   Statistic numCacheAllocs{
       this, "cache-allocs", "Number of malloc calls rewritten to OMCacheAlloc"};
-  Statistic numCacheFrees{
-      this, "cache-frees", "Number of free calls rewritten to OMCacheFree"};
+  Statistic numCacheFrees{this, "cache-frees",
+      "Number of free calls rewritten to OMCacheFreeSized"};
 
   StringRef getArgument() const override {
     return "replace-malloc-by-hugepage-malloc";
@@ -199,7 +202,7 @@ private:
     if (pairs.empty())
       return;
 
-    // Declare OMCacheAlloc and OMCacheFree.
+    // Declare OMCacheAlloc and OMCacheFreeSized.
     MLIRContext *context = &getContext();
     OpBuilder builder(context);
     builder.setInsertionPointToStart(moduleOp.getBody());
@@ -208,15 +211,21 @@ private:
     LLVM::LLVMPointerType ptrType = LLVM::LLVMPointerType::get(context);
     FlatSymbolRefAttr cacheAllocRef = createLLVM.getOrInsertSymbolRef(
         moduleOp, "OMCacheAlloc", ptrType, {i64Type});
-    FlatSymbolRefAttr cacheFreeRef = createLLVM.getOrInsertSymbolRef(
-        moduleOp, "OMCacheFree", LLVM::LLVMVoidType::get(context), {ptrType});
+    FlatSymbolRefAttr cacheFreeRef =
+        createLLVM.getOrInsertSymbolRef(moduleOp, "OMCacheFreeSized",
+            LLVM::LLVMVoidType::get(context), {ptrType, i64Type});
 
-    // The signatures match those of malloc and free: only the callee changes.
     for (auto &[mallocOp, frees] : pairs) {
+      // OMCacheAlloc has the signature of malloc: only the callee changes.
       mallocOp.setCalleeAttr(cacheAllocRef);
       numCacheAllocs++;
+      // Each free becomes OMCacheFreeSized(ptr, size), with the malloc's size.
+      Value size = mallocOp.getOperand(0);
       for (LLVM::CallOp freeOp : frees) {
-        freeOp.setCalleeAttr(cacheFreeRef);
+        OpBuilder freeBuilder(freeOp);
+        LLVM::CallOp::create(freeBuilder, freeOp.getLoc(), TypeRange{},
+            cacheFreeRef, ValueRange{freeOp.getOperand(0), size});
+        freeOp.erase();
         numCacheFrees++;
       }
     }

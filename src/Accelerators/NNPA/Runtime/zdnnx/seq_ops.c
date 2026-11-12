@@ -596,8 +596,9 @@ static void broadcast_column_to_tile(
 
 // Free buffer and heap-allocated descriptors of an intermediate ztensor.
 static void free_ztensor(zdnn_ztensor *zt) {
-  // Return the buffer to the cache; a buffer the cache does not own is freed.
-  OMCacheFree(zt->buffer);
+  // Return the buffer to the cache; a buffer the cache does not own is freed
+  // (sizes the cache never serves without taking its lock).
+  OMCacheFreeSized(zt->buffer, zt->buffer_size);
   free(zt->pre_transformed_desc);
   free(zt->transformed_desc);
 }

@@ -203,6 +203,25 @@ int main(void) {
   OMCacheFree(malloc(10));
   OMCacheFree(NULL);
 
+  // 4b. Sized free: sizes without a bin are freed without the lock; a cache
+  // buffer freed with its size goes back to its bin.
+  {
+    uint64_t fastBefore = cache.statFastFrees;
+    void *small = OMCacheAlloc(100 * KB); // Below the cache: plain malloc.
+    OMCacheFreeSized(small, 100 * KB);
+    void *large = OMCacheAlloc(70 * MB); // Above the cache (64M here).
+    OMCacheFreeSized(large, 70 * MB);
+    if (cache.printStats)
+      assert(cache.statFastFrees == fastBefore + 2);
+    void *cached = OMCacheAlloc(2 * MB);
+    size_t availBefore = cache.bins[binIndexFor(2 * MB)].statNumAvailable;
+    OMCacheFreeSized(cached, 2 * MB);
+    assert(cache.bins[binIndexFor(2 * MB)].statNumAvailable == availBefore + 1);
+    assert(cache.statFastFrees == fastBefore + (cache.printStats ? 2 : 0));
+    OMCacheFreeSized(NULL, 0);
+    check();
+  }
+
   // 5. Double free is ignored.
   void *twice = OMCacheAlloc(MB);
   OMCacheFree(twice);

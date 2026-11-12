@@ -55,6 +55,13 @@ void *OMCacheAlloc(size_t size);
  * must be released with OMCacheFree, never with plain free(). */
 void OMCacheFree(void *buffer);
 
+/* Same as OMCacheFree, given the size that was passed to OMCacheAlloc or
+ * OMCacheTryAlloc for this buffer. A size the cache never serves (outside its
+ * range, or cache disabled) is freed with free() at once, without taking the
+ * cache mutex or looking the buffer up. Called from compiled code, which
+ * passes the same size value as to the allocation, and from zdnnx. */
+void OMCacheFreeSized(void *buffer, size_t size);
+
 /* Return all available buffers (cached, not in use) to the system. Intended
  * for hosts that keep an idle model loaded. */
 void OMCacheTrim(void);

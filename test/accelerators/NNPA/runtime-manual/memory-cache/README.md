@@ -40,7 +40,7 @@ and checks the default largest cached size (16M).
 
 | Test | Checks |
 |---|---|
-| `test_cache` | bin rounding; 100% hits from the 2nd repeated "inference"; registry with 40 forced collisions (remove head, tail, middle); trim; double free; ceiling eviction and its order across bins; 8 threads, with forks in the middle (Linux: through the runtime's own fork handlers; macOS and z/OS have none, see below) |
+| `test_cache` | bin rounding; 100% hits from the 2nd repeated "inference"; registry with 40 forced collisions (remove head, tail, middle); trim; sized free (`OMCacheFreeSized`: sizes without a bin skip the lock); double free; ceiling eviction and its order across bins; 8 threads, with forks in the middle (Linux: through the runtime's own fork handlers; macOS and z/OS have none, see below) |
 | `test_stale` | a buffer released with plain `free()` whose address comes back from `posix_memalign`: the stale descriptor is replaced and the counts repaired |
 | `test_share` | `OM_MEMORY_CACHE_SHARE=2`: a request borrows an available buffer of a larger bin, which goes back to its own bin when freed; the most recently freed eligible buffer wins over an older one of the request's own bin; the ratio limit; random sizes from 4 threads; default largest cached size 16M |
 | `test_alloc_failure` | `posix_memalign` failing: trim and retry succeeds; nothing to trim gives NULL; retry failing too gives NULL; in-use counts are undone |

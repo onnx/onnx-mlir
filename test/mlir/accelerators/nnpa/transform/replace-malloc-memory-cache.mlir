@@ -8,12 +8,12 @@ llvm.func @malloc(i64) -> !llvm.ptr
 llvm.func @free(!llvm.ptr)
 
 // CHECK-DAG: llvm.func @OMCacheAlloc(i64) -> !llvm.ptr
-// CHECK-DAG: llvm.func @OMCacheFree(!llvm.ptr)
+// CHECK-DAG: llvm.func @OMCacheFreeSized(!llvm.ptr, i64)
 // CHECK-LABEL: llvm.func @test_temporary
 llvm.func @test_temporary(%size: i64, %align: i64, %val: f32) {
   // CHECK: %[[P:.*]] = llvm.call @OMCacheAlloc(%arg0) : (i64) -> !llvm.ptr
   // CHECK: llvm.ptrtoint %[[P]]
-  // CHECK: llvm.call @OMCacheFree(%[[P]]) : (!llvm.ptr) -> ()
+  // CHECK: llvm.call @OMCacheFreeSized(%[[P]], %arg0) : (!llvm.ptr, i64) -> ()
   // CHECK-NOT: llvm.call @malloc
   // CHECK-NOT: llvm.call @free
   // DISABLED-LABEL: llvm.func @test_temporary
@@ -75,8 +75,8 @@ llvm.func @other()
 // CHECK-LABEL: llvm.func @test_two_frees
 llvm.func @test_two_frees(%size: i64, %cond: i1) {
   // CHECK: %[[P:.*]] = llvm.call @OMCacheAlloc(%arg0) : (i64) -> !llvm.ptr
-  // CHECK: llvm.call @OMCacheFree(%[[P]]) : (!llvm.ptr) -> ()
-  // CHECK: llvm.call @OMCacheFree(%[[P]]) : (!llvm.ptr) -> ()
+  // CHECK: llvm.call @OMCacheFreeSized(%[[P]], %arg0) : (!llvm.ptr, i64) -> ()
+  // CHECK: llvm.call @OMCacheFreeSized(%[[P]], %arg0) : (!llvm.ptr, i64) -> ()
   // CHECK-NOT: llvm.call @free
   %0 = llvm.call @malloc(%size) : (i64) -> !llvm.ptr
   llvm.cond_br %cond, ^bb1, ^bb2

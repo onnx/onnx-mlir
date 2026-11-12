@@ -203,6 +203,9 @@ typedef struct {
   size_t statRegisteredBytes, statPeakAvailableBytes, statPeakRegisteredBytes;
   uint64_t statEvictions, statTrims, statAllocFailureTrims;
   uint64_t statStaleDescs, statDoubleFrees, statFailedAllocs;
+  // OMCacheFreeSized calls that freed without the mutex (size without a bin).
+  // Updated atomically, and only when statistics are printed.
+  uint64_t statFastFrees;
   // Registry statistics: most buffers registered at once, longest chain seen.
   size_t statPeakRegistered, statMaxBucketChain;
   // Bytes of buffers in use at the same time, counted as buffer sizes and as
@@ -829,6 +832,25 @@ void OMCacheFree(void *buffer) {
   returnDetachedToSystem(detached);
 }
 
+// Free given the allocation size: a size without a bin cannot be a cache
+// buffer (hasBin depends only on the configuration, fixed at init), so it is
+// freed at once, without the mutex or a registry lookup. This is the common
+// case for the many small temporaries of compiled code. Other sizes take the
+// OMCacheFree path (they may still not be cache buffers, e.g. after a failed
+// cache allocation).
+void OMCacheFreeSized(void *buffer, size_t size) {
+  if (!buffer)
+    return;
+  ensureInit();
+  if (!hasBin(size)) {
+    if (cache.printStats)
+      __atomic_fetch_add(&cache.statFastFrees, 1, __ATOMIC_RELAXED);
+    free(buffer);
+    return;
+  }
+  OMCacheFree(buffer);
+}
+
 // Trim: return every available buffer to the system now; buffers in use are
 // not affected.
 void OMCacheTrim(void) {
@@ -886,9 +908,9 @@ static void printStats(void) {
       formatBytes(cache.statPeakRegisteredBytes, b3));
   fprintf(stderr,
       "==OM-MEMORY-CACHE== registry: peak %zu buffers, longest chain %zu "
-      "(%d buckets)\n",
+      "(%d buckets); %llu frees without the lock (size without a bin)\n",
       cache.statPeakRegistered, cache.statMaxBucketChain,
-      CACHE_REGISTRY_BUCKETS);
+      CACHE_REGISTRY_BUCKETS, (unsigned long long)cache.statFastFrees);
   for (int i = 0; i < cache.numBins; i++) {
     OMCacheBin *bin = &cache.bins[i];
     if (bin->statHits + bin->statMisses + bin->statBorrowed == 0)
