@@ -134,10 +134,11 @@ void *OMHugePageMalloc(size_t size);
 // buffer); an available buffer's descriptor is also on its bin's available
 // list.
 typedef struct OMCacheBufferDesc {
-  void *buffer;      // Memory handed out to the caller.
-  size_t bufferSize; // Size of the bin, not of the request.
-  int binIndex;      // Index of the bin in OMCache.bins.
-  int inUse;         // 1 between OMCacheTryAlloc and OMCacheFree, else 0.
+  void *buffer;       // Memory handed out to the caller.
+  size_t bufferSize;  // Size of the bin, not of the request.
+  int binIndex;       // Index of the bin in OMCache.bins.
+  int inUse;          // 1 between OMCacheTryAlloc and OMCacheFree, else 0.
+  size_t requestSize; // Size asked for by the current user (statistics).
   // Available list of the bin, most recently freed first. Once detached,
   // availableNext chains the detached list instead.
   struct OMCacheBufferDesc *availablePrev, *availableNext;
@@ -188,6 +189,13 @@ typedef struct {
   uint64_t statStaleDescs, statDoubleFrees, statFailedAllocs;
   // Registry statistics: most buffers registered at once, longest chain seen.
   size_t statPeakRegistered, statMaxBucketChain;
+  // Bytes of buffers in use at the same time, counted as buffer sizes and as
+  // requested sizes, and their peaks. statPeakInUseBytes vs
+  // statPeakRegisteredBytes: memory lost because bins do not share buffers
+  // across sizes. statPeakInUseRequestBytes vs statPeakInUseBytes: memory
+  // lost to rounding requests up to the bin size.
+  size_t statInUseBytes, statPeakInUseBytes;
+  size_t statInUseRequestBytes, statPeakInUseRequestBytes;
 } OMCache;
 
 // The cache state and its lock; initCache runs once through cacheOnce.
@@ -552,6 +560,23 @@ static int trimOnAllocFailure(void) {
   return n > 0;
 }
 
+// Statistics only: count a buffer handed out for a request of requestSize
+// bytes, or given back, in the bytes in use at the same time.
+static void statCountHandOut(OMCacheBufferDesc *desc, size_t requestSize) {
+  desc->requestSize = requestSize;
+  cache.statInUseBytes += desc->bufferSize;
+  cache.statInUseRequestBytes += requestSize;
+  if (cache.statInUseBytes > cache.statPeakInUseBytes)
+    cache.statPeakInUseBytes = cache.statInUseBytes;
+  if (cache.statInUseRequestBytes > cache.statPeakInUseRequestBytes)
+    cache.statPeakInUseRequestBytes = cache.statInUseRequestBytes;
+}
+
+static void statCountGiveBack(OMCacheBufferDesc *desc) {
+  cache.statInUseBytes -= desc->bufferSize;
+  cache.statInUseRequestBytes -= desc->requestSize;
+}
+
 //===----------------------------------------------------------------------===//
 // Buffer creation.
 //===----------------------------------------------------------------------===//
@@ -573,10 +598,11 @@ static void *allocBuffer(size_t size) {
   return buffer;
 }
 
-// Fill desc for a new in-use buffer of bin binIndex and map buffer to it.
-// Called with the mutex held; releases it and returns buffer.
+// Fill desc for a new in-use buffer of bin binIndex, handed out for a request
+// of requestSize bytes, and map buffer to it. Called with the mutex held;
+// releases it and returns buffer.
 static void *mapNewBufferAndUnlock(
-    OMCacheBufferDesc *desc, void *buffer, int binIndex) {
+    OMCacheBufferDesc *desc, void *buffer, int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
   // A buffer already mapped at this address was given to free() by someone
   // else and its memory reused by malloc: forget the stale descriptor.
@@ -585,6 +611,7 @@ static void *mapNewBufferAndUnlock(
     removeBufferMapping(staleDesc);
     if (staleDesc->inUse) {
       cache.bins[staleDesc->binIndex].numInUse--;
+      statCountGiveBack(staleDesc);
     } else {
       removeFromAvailableList(staleDesc);
     }
@@ -598,6 +625,7 @@ static void *mapNewBufferAndUnlock(
   desc->inUse = 1;
   desc->availablePrev = desc->availableNext = NULL;
   desc->freedAt = 0;
+  statCountHandOut(desc, requestSize);
   mapBufferToDesc(desc);
   cache.statRegisteredBytes += size;
   // High-water mark, for the statistics only.
@@ -616,14 +644,14 @@ static void *mapNewBufferAndUnlock(
 // matters far more for returnDetachedToSystem. If the descriptor or the buffer
 // cannot be allocated, every available buffer is returned to the system and
 // the creation is retried once. A buffer is never handed out unmapped.
-static void *createBufferOnMiss(int binIndex) {
+static void *createBufferOnMiss(int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
   for (int attempt = 0;; attempt++) {
     OMCacheBufferDesc *desc = malloc(sizeof(OMCacheBufferDesc));
     void *buffer = desc ? allocBuffer(size) : NULL;
     pthread_mutex_lock(&cacheMutex);
-    if (buffer)
-      return mapNewBufferAndUnlock(desc, buffer, binIndex); // Unlocks.
+    if (buffer) // mapNewBufferAndUnlock releases the mutex.
+      return mapNewBufferAndUnlock(desc, buffer, binIndex, requestSize);
     // Failure: buffer is NULL here; desc may be non-NULL (only allocBuffer
     // failed), so free it. On the first attempt, trim (detach all available
     // buffers) and retry if there were any.
@@ -673,6 +701,7 @@ void *OMCacheTryAlloc(size_t size) {
   if (desc) {
     removeFromAvailableList(desc);
     desc->inUse = 1;
+    statCountHandOut(desc, size);
     bin->statHits++;
     // The buffer still holds data from its previous use; it is not zeroed
     // (see "Debugging and testing" at the top of the file).
@@ -685,7 +714,7 @@ void *OMCacheTryAlloc(size_t size) {
   // Drop the mutex: the new buffer is allocated without it (see
   // createBufferOnMiss).
   pthread_mutex_unlock(&cacheMutex);
-  return createBufferOnMiss(binIndex);
+  return createBufferOnMiss(binIndex, size);
 }
 
 // Cached buffer if possible; otherwise the same allocation as before the
@@ -733,6 +762,7 @@ void OMCacheFree(void *buffer) {
   // "Debugging and testing" at the top of the file).
   desc->inUse = 0;
   cache.bins[desc->binIndex].numInUse--;
+  statCountGiveBack(desc);
   addToAvailableList(desc);
   OMCacheBufferDesc *detached = NULL;
   while (cache.availableBytes > cache.maxAvailableBytes) {
@@ -773,6 +803,11 @@ static void printStats(void) {
       (unsigned long long)cache.statStaleDescs,
       (unsigned long long)cache.statDoubleFrees,
       (unsigned long long)cache.statFailedAllocs);
+  fprintf(stderr,
+      "==OM-MEMORY-CACHE== peak in use at once: %zu KB of buffers, %zu KB "
+      "requested (vs max registered %zu KB)\n",
+      cache.statPeakInUseBytes / KB, cache.statPeakInUseRequestBytes / KB,
+      cache.statPeakRegisteredBytes / KB);
   fprintf(stderr,
       "==OM-MEMORY-CACHE== registry: peak %zu buffers, longest chain %zu "
       "(%d buckets)\n",

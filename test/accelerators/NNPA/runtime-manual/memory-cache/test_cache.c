@@ -26,6 +26,7 @@ static void testUnlockForFork(void) { pthread_mutex_unlock(&cacheMutex); }
 static void check(void) {
   pthread_mutex_lock(&cacheMutex);
   size_t numMapped = 0, mappedBytes = 0, availBytes = 0, numAvail = 0;
+  size_t inUseBytes = 0, inUseRequestBytes = 0;
   for (size_t i = 0; i < CACHE_REGISTRY_BUCKETS; i++)
     for (OMCacheBufferDesc *d = cache.buckets[i]; d; d = d->bucketNext) {
       numMapped++;
@@ -33,6 +34,11 @@ static void check(void) {
       assert(hashPtr(d->buffer) == i);
       assert(findBufferDesc(d->buffer) == d);
       assert((uintptr_t)d->buffer % (d->bufferSize >= MB ? MB : 4096) == 0);
+      if (d->inUse) {
+        assert(d->requestSize <= d->bufferSize);
+        inUseBytes += d->bufferSize;
+        inUseRequestBytes += d->requestSize;
+      }
     }
   for (int i = 0; i < cache.numBins; i++) {
     OMCacheBin *bin = &cache.bins[i];
@@ -52,6 +58,8 @@ static void check(void) {
   assert(numMapped == cache.numRegistered);
   assert(mappedBytes == cache.statRegisteredBytes);
   assert(availBytes == cache.availableBytes);
+  assert(inUseBytes == cache.statInUseBytes);
+  assert(inUseRequestBytes == cache.statInUseRequestBytes);
   (void)numAvail;
   pthread_mutex_unlock(&cacheMutex);
 }
@@ -169,6 +177,27 @@ int main(void) {
   OMCacheTrim();
   check();
   assert(cache.availableBytes == 0 && cache.numRegistered == 0);
+
+  // 3b. Peak in use at once vs registered: a 6 MB buffer, then (after it is
+  // freed) a 2 MB one. Registered holds both bins (7 MB + 2 MB); the peak in
+  // use is only the larger one; requested bytes are below the bin sizes.
+  {
+    cache.statPeakInUseBytes = cache.statPeakInUseRequestBytes = 0;
+    cache.statPeakRegisteredBytes = 0;
+    void *big = OMCacheAlloc(6 * MB + 64);
+    OMCacheFree(big);
+    void *small = OMCacheAlloc(1536 * KB);
+    OMCacheFree(small);
+    check();
+    printf("phases: peak in use %zu KB (requested %zu KB), registered %zu KB\n",
+        cache.statPeakInUseBytes / KB, cache.statPeakInUseRequestBytes / KB,
+        cache.statPeakRegisteredBytes / KB);
+    assert(cache.statPeakInUseBytes == 7 * MB);
+    assert(cache.statPeakInUseRequestBytes == 6 * MB + 64);
+    assert(cache.statPeakRegisteredBytes == 9 * MB);
+    assert(cache.statInUseBytes == 0 && cache.statInUseRequestBytes == 0);
+    OMCacheTrim();
+  }
 
   // 4. Buffers the cache does not own, and NULL.
   OMCacheFree(malloc(10));

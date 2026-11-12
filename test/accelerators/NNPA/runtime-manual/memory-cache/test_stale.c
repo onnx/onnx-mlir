@@ -48,6 +48,8 @@ int main(void) {
   assert(cache.bins[binIndexFor(384 * KB)].numInUse == 1);
   assert(cache.numRegistered == 1);
   assert(findBufferDesc(reused)->bufferSize == 384 * KB);
+  assert(cache.statInUseBytes == 384 * KB); // The stale 320 KB was given back.
+  assert(cache.statInUseRequestBytes == 384 * KB);
   // Give it back and trim: the cache frees lost's memory exactly once.
   OMCacheFree(reused);
   OMCacheTrim();
