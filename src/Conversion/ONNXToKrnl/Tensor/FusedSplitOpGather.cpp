@@ -34,17 +34,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// TODO: we could consider collapsing the outer loops for more parallelism.
-
 struct ONNXFusedSplitOpGatherLowering
     : public FusedOpKindLowering<SplitOpGatherFusionHelper> {
   using Base = FusedOpKindLowering<SplitOpGatherFusionHelper>;
   bool enableSIMD;
   bool enableParallel;
+  bool enableCollapse;
 
-  ONNXFusedSplitOpGatherLowering(
-      TypeConverter &tc, MLIRContext *ctx, bool enableSIMD, bool enableParallel)
-      : Base(tc, ctx), enableSIMD(enableSIMD), enableParallel(enableParallel) {}
+  ONNXFusedSplitOpGatherLowering(TypeConverter &tc, MLIRContext *ctx,
+      bool enableSIMD, bool enableParallel, bool enableCollapse)
+      : Base(tc, ctx), enableSIMD(enableSIMD), enableParallel(enableParallel),
+        enableCollapse(enableCollapse) {}
 
   FailureOr<SmallVector<Value>> lowerVerified(ONNXFusedOp fusedOp,
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
@@ -192,9 +192,20 @@ struct ONNXFusedSplitOpGatherLowering
       SmallVector<IndexExpr, 4> ubs;
       for (int64_t d = 0; d < rank - 1; ++d)
         ubs.emplace_back(create.krnlIE.getShapeAsDim(dataMemref, d));
-      int64_t maxId = std::min(rank - 1, (int64_t)2);
-      auto plan = KrnlParallelPlan::noCollapse(
-          loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
+      // Each outer iteration computes its own slice of the output (both
+      // halves along the split axis) from `data` only, so any run of outer
+      // levels may be collapsed. Fusing the top two levels lets a [B, H, S, D]
+      // rotate-half spread B*H over the threads instead of sitting on B alone,
+      // which is 1 at inference. The window stops at two levels, as at the
+      // other collapse sites, so index recovery is a single divide.
+      //
+      // bodyCost: one outer iteration runs both halves' SIMD loops, D elements
+      // in all.
+      int64_t parLevels = std::min(rank - 1, (int64_t)2);
+      KrnlParallelPlan plan(loopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
+          /*collapseLastExclusiveDim=*/parLevels,
+          {.minTripCountForParallel = 4, .bodyCost = D});
       if (enableParallel) {
         plan.tryCreateParallel(create.krnl, fusedOp.getOperation(),
             "simd-split-op-gather fused outer loop", lbs, ubs);
@@ -222,9 +233,9 @@ struct ONNXFusedSplitOpGatherLowering
 
 void populateLoweringONNXFusedSplitOpGatherOpPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    bool enableSIMD, bool enableParallel) {
+    bool enableSIMD, bool enableParallel, bool enableCollapse) {
   patterns.insert<ONNXFusedSplitOpGatherLowering>(
-      typeConverter, ctx, enableSIMD, enableParallel);
+      typeConverter, ctx, enableSIMD, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

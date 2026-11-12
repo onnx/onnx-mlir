@@ -309,8 +309,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRandomUniformLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLpNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXQLinearMatMulOpPattern(
-      patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXQLinearMatMulOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   // ML
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
@@ -339,12 +338,11 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
-  populateLoweringONNXTensorScatterOpPattern(
-      patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXTensorScatterOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
-  populateLoweringONNXFusedSplitOpGatherOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXFusedSplitOpGatherOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel, enableCollapse);
   populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSplitOpPattern(patterns, typeConverter, ctx);
@@ -355,8 +353,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRangeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXEyeLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXNonZeroOpPattern(
-      patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);

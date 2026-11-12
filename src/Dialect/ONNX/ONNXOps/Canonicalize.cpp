@@ -547,8 +547,7 @@ public:
     Value expandShape = nullptr;
     auto matchValue = [&expandShape](Value v) -> Value {
       Value res = v;
-      if (auto expandOp =
-              dyn_cast_if_present<ONNXExpandOp>(res.getDefiningOp())) {
+      if (auto expandOp = res.getDefiningOp<ONNXExpandOp>()) {
         if (!expandShape) {
           res = expandOp.getInput();
           expandShape = expandOp.getShape();
@@ -576,6 +575,206 @@ public:
         expandShape);
 
     rewriter.replaceOp(op, {res});
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Sink elementwise ops below Expand: compute on the small tensor, then expand.
+//
+// Motivating pattern: the HuggingFace padding-mask code
+// (`_prepare_4d_attention_mask`, `inverted = 1.0 - mask;
+// inverted.masked_fill(inverted.bool(), finfo.min)`), as exported in BERT,
+// RoBERTa and the granite-embedding models:
+//
+//   %m4  = Unsqueeze(mask)                        : [B, 1, 1, S]   i64
+//   %e   = Expand(%m4, [B, 1, S, S])              : [B, 1, S, S]   i64
+//   %f   = Cast(%e, f32)                          : [B, 1, S, S]
+//   %inv = Sub(1.0, %f)                           : [B, 1, S, S]
+//   %c   = Cast(%inv, i1)                         : [B, 1, S, S]
+//   %r   = Where(%c, -FLT_MAX, %inv)              : [B, 1, S, S]
+//
+// Every op after the Expand is elementwise, with at most a scalar on the side,
+// so its result is just as constant along the expanded axis as its input. The
+// patterns below move the Expand to the end of the chain:
+//
+//   %f'  = Cast(%m4, f32)                         : [B, 1, 1, S]
+//   %inv'= Sub(1.0, %f')                          : [B, 1, 1, S]
+//   %c'  = Cast(%inv', i1)                        : [B, 1, 1, S]
+//   %r'  = Where(%c', -FLT_MAX, %inv')            : [B, 1, 1, S]
+//   %r   = Expand(%r', [B, 1, S, S])              : [B, 1, S, S]
+//
+// so the four elementwise ops touch S elements per batch instead of S*S
+// (512x fewer at S = 512), and only one full-size tensor is written.
+//
+// SinkExpandBelowElementwiseOpPattern<Op> performs one step of that walk:
+//
+//   Op(v1, ..., vn) -> Expand(Op(v1', ..., vn'), s)
+//
+// when each operand vi is either
+//   - an Expand(xi, s), all with the same shape operand s, replaced by xi; or
+//   - a scalar (isScalarTensor: rank 0, or rank 1 with one element), kept;
+// and at least one operand is an Expand. The same template serves unary
+// (Cast), binary (Sub(1.0, Expand), or Expand + Expand) and ternary (Where)
+// ops. In the chain above it fires on the first Cast, the Sub, the second Cast
+// and finally the Where, whose condition and else-value now both come from
+// Expands of the same shape.
+//
+// Legality. For an elementwise op, broadcasting commutes with the op:
+// op(Expand(x1, s), ..., Expand(xk, s), scalars) and
+// Expand(op(x1, ..., xk, scalars), s) both have shape
+// broadcast(x1, ..., xk, s) and the same value at every position. Scalars
+// broadcast the same way against xi and against Expand(xi, s), as long as
+// they do not raise the rank, which the rank check below guarantees. A
+// non-scalar operand that is not an Expand by s would make the result the
+// broadcast of a third shape, which this pattern does not attempt.
+//
+// Profitability. Sinking an Expand that has other users keeps the original
+// Expand alive and adds a second one, so we only sink when it is clearly a
+// win: the Expand has a single use, or it grows the tensor by at least
+// kMinExpandGrowthToSinkShared (getBeneficialSinkExpand). In the pattern
+// above, %inv is used by both the Cast and the Where, so after the Sub sinks
+// its Expand is shared by two users; the 512x growth there makes duplicating
+// that cheap Expand far better than computing at full size, and both copies
+// sink further and meet again in the Where. Identical Expands are merged by
+// CSE.
+//
+// Where to extend. An elementwise op that sits between an Expand and the rest
+// of an elementwise chain, and that is not registered below, blocks the
+// Expand from sinking past it: everything downstream then runs at the
+// expanded size. To unblock such an op -- unary (e.g. Not, Neg, Abs), binary,
+// or variadic (Sum, Max, Min, Mean) -- add
+// `SinkExpandBelowElementwiseOpPattern<ONNXFooOp>` to its
+// getCanonicalizationPatterns. If the op has none yet, first add it to
+// OpsWithCanonicalizer in utils/gen_onnx_mlir.py and regenerate with
+// `make OMONNXOpsIncTranslation`. Today it is registered on every elementwise
+// op that already had a canonicalizer: Cast; Add, Sub, Mul, Div, Pow, And,
+// Or, Xor, Equal, Greater, GreaterOrEqual, Less, LessOrEqual; Where.
+//
+// Only register it on elementwise ops. The template keeps the Expand's shape
+// operand `s` as is, which is only correct when the op computes each output
+// element from the same position of its inputs. It does NOT adapt `s` to an op
+// that moves, merges or drops elements, so it must not be registered on
+// layout- or shape-changing ops such as Reshape, Flatten, Transpose,
+// Squeeze/Unsqueeze, Slice, Split, Concat, Gather, Pad, DepthToSpace /
+// SpaceToDepth, reductions, LayoutTransform, or zhigh.Stick / Unstick. Sinking
+// an Expand below one of those needs its own pattern that recomputes the
+// shape and checks which axes were expanded (see e.g.
+// ReplaceSliceOfExpandRewritePattern and
+// ReplaceUnsqueezeOfExpandRewritePattern, which handle only an Expand of a
+// scalar).
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+// Minimum output/input element-count ratio of a multi-use Expand for sinking
+// it below one of its users to be worthwhile.
+constexpr int64_t kMinExpandGrowthToSinkShared = 8;
+
+// Return the Expand producing `v` if sinking it below one of its users is
+// beneficial (see above); otherwise null. This checks the Expand only: that
+// its input and output are ranked, and that it has one use or grows the
+// tensor enough. It does NOT check legality, which depends on the user's other
+// operands; SinkExpandBelowElementwiseOpPattern does that itself.
+ONNXExpandOp getBeneficialSinkExpand(Value v) {
+  auto expandOp = v.getDefiningOp<ONNXExpandOp>();
+  if (!expandOp)
+    return nullptr;
+  Value input = expandOp.getInput();
+  Value output = expandOp.getOutput();
+  if (!hasShapeAndRank(input) || !hasShapeAndRank(output))
+    return nullptr;
+  if (expandOp->hasOneUse())
+    return expandOp;
+  // Shared Expand: sink only if it grows the tensor by at least
+  // kMinExpandGrowthToSinkShared. With static shapes, compare element counts.
+  // With dynamic ones, require some output dim that the input has as 1 and
+  // that is dynamic or at least that large: the expanded axis. In the mask
+  // above that is S, in [B,1,1,S] -> [B,1,S,S].
+  auto inType = mlir::cast<ShapedType>(input.getType());
+  auto outType = mlir::cast<ShapedType>(output.getType());
+  if (inType.hasStaticShape() && outType.hasStaticShape())
+    return (getNumberOfElements(outType) >=
+               kMinExpandGrowthToSinkShared * getNumberOfElements(inType))
+               ? expandOp
+               : nullptr;
+  if (inType.getRank() != outType.getRank())
+    return nullptr;
+  for (int64_t d = 0; d < outType.getRank(); ++d) {
+    int64_t inDim = inType.getShape()[d];
+    int64_t outDim = outType.getShape()[d];
+    if (inDim == 1 && (ShapedType::isDynamic(outDim) ||
+                          outDim >= kMinExpandGrowthToSinkShared))
+      return expandOp;
+  }
+  return nullptr;
+}
+
+} // namespace
+
+// See the comment block above. OP_TYPE is any elementwise ONNX op.
+template <typename OP_TYPE>
+class SinkExpandBelowElementwiseOpPattern : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE elementwiseOp, PatternRewriter &rewriter) const override {
+    Operation *op = elementwiseOp.getOperation();
+    if (op->getNumResults() != 1 || !hasShapeAndRank(op->getResult(0)))
+      return failure();
+    SmallVector<Value, 4> newOperands;
+    Value shape;
+    int64_t minExpandInputRank = -1;
+    int64_t maxScalarRank = 0;
+    bool allOperandsConstant = true;
+    for (Value v : op->getOperands()) {
+      // Legality: every operand is a scalar or an Expand by the same shape.
+      if (isScalarTensor(v)) {
+        maxScalarRank = std::max(maxScalarRank, getRank(v.getType()));
+        allOperandsConstant &= isDenseONNXConstant(v);
+        newOperands.emplace_back(v);
+        continue;
+      }
+      // Profitability: that Expand is worth moving.
+      ONNXExpandOp expandOp = getBeneficialSinkExpand(v);
+      if (!expandOp)
+        return failure();
+      // All Expands must use the same shape value; CSE makes equal shape
+      // computations the same value.
+      if (shape && expandOp.getShape() != shape)
+        return failure();
+      shape = expandOp.getShape();
+      Value x = expandOp.getInput();
+      int64_t rank = getRank(x.getType());
+      minExpandInputRank =
+          (minExpandInputRank < 0) ? rank : std::min(minExpandInputRank, rank);
+      allOperandsConstant &= isDenseONNXConstant(x);
+      newOperands.emplace_back(x);
+    }
+    if (!shape)
+      return failure();
+    // A scalar of rank 1 next to a rank-0 Expand input would raise the new
+    // op's rank above the Expand inputs'; keep shapes simple and decline.
+    if (maxScalarRank > minExpandInputRank)
+      return failure();
+    // Leave the all-constant case to PropagateScalarConstantExpandPattern,
+    // which then folds the op.
+    if (allOperandsConstant)
+      return failure();
+
+    // Rebuild the same op on the small operands: same name and attributes,
+    // result type left unranked for shape inference to fill in.
+    Location loc = op->getLoc();
+    Type elemType = getElementType(op->getResult(0).getType());
+    OperationState state(loc, op->getName().getStringRef(), newOperands,
+        {UnrankedTensorType::get(elemType)}, op->getAttrs());
+    auto newOp = mlir::cast<OP_TYPE>(rewriter.create(state));
+    if (failed(newOp.inferShapes([](Region &region) {})))
+      return failure();
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    rewriter.replaceOp(op, create.onnx.expand(op->getResult(0).getType(),
+                               newOp->getResult(0), shape));
     return success();
   }
 };
@@ -3027,12 +3226,14 @@ void ONNXAddOp::getCanonicalizationPatterns(
       PropagateBiasIntoLayerNormRewritePattern<ONNXRMSLayerNormalizationOp>>(
       context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
+  results.insert<SinkExpandBelowElementwiseOpPattern<ONNXAddOp>>(context);
 }
 
 /// on the ONNXAndOp.
 void ONNXAndOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXAndOp>>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXAndOp>>(context);
 }
 
 /// on the ONNXCastOp.
@@ -3043,6 +3244,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
   result.insert<SwapCastSlicePattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXCastOp>>(context);
 }
 
 /// on the ONNXConcatOp.
@@ -3082,6 +3284,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<PropagateConstantScalingIntoMatMulOperandsPattern<ONNXDivOp>>(
       context);
   result.insert<FuseScalarDivMatMulPattern>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXDivOp>>(context);
 }
 
 /// on the ONNXDropoutOp.
@@ -3103,6 +3306,7 @@ void ONNXEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
   result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXEqualOp>>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXEqualOp>>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
@@ -3128,12 +3332,15 @@ void ONNXGreaterOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
   result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOp>>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXGreaterOp>>(context);
 }
 
 /// on the ONNXGreaterOrEqualOp.
 void ONNXGreaterOrEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOrEqualOp>>(
+      context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXGreaterOrEqualOp>>(
       context);
 }
 
@@ -3180,12 +3387,15 @@ void ONNXLessOp::getCanonicalizationPatterns(
   results.insert<LessOpSameCastPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
   results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOp>>(context);
+  results.insert<SinkExpandBelowElementwiseOpPattern<ONNXLessOp>>(context);
 }
 
 /// on the ONNXLessOrEqualOp.
 void ONNXLessOrEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOrEqualOp>>(
+      context);
+  results.insert<SinkExpandBelowElementwiseOpPattern<ONNXLessOrEqualOp>>(
       context);
 }
 
@@ -3233,12 +3443,14 @@ void ONNXMulOp::getCanonicalizationPatterns(
           context);
   results.insert<PropagateConstantScalingIntoMatMulOperandsPattern<ONNXMulOp>>(
       context);
+  results.insert<SinkExpandBelowElementwiseOpPattern<ONNXMulOp>>(context);
 }
 
 /// on the ONNXOrOp.
 void ONNXOrOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXOrOp>>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXOrOp>>(context);
 }
 
 /// on the ONNXReshapeOp.
@@ -3284,6 +3496,7 @@ void ONNXSubOp::getCanonicalizationPatterns(
   result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXSubOp>>(context);
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXSubOp>>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXSubOp>>(context);
 }
 
 /// on ONNXShapeTransformOp
@@ -3402,12 +3615,14 @@ void ONNXPowOp::getCanonicalizationPatterns(
   result.insert<PowToMulRewritePattern>(context, 64);
   result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
   result.insert<PowConversionRewritePattern>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXPowOp>>(context);
 }
 
 /// on the ONNXXorOp.
 void ONNXXorOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXXorOp>>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXXorOp>>(context);
 }
 
 // on the ONNXWhereOp.
@@ -3415,6 +3630,8 @@ void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
   result.insert<RemoveWhereEqualPattern>(context);
+  result.insert<WhereNotConditionSwapPattern>(context);
+  result.insert<SinkExpandBelowElementwiseOpPattern<ONNXWhereOp>>(context);
 }
 
 // on the ONNXDequantizeLinearOp.
