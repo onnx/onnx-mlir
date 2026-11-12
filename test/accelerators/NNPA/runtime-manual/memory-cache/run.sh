@@ -25,8 +25,9 @@ SAN=${SAN--fsanitize=address,undefined}
 REPEAT=${REPEAT:-5}
 flags="-std=gnu99 -g -O1 -Wall -pthread -I$src"
 
-# The tests assume the default configuration.
-unset OM_MEMORY_CACHE_MAX OM_MEMORY_CACHE_LARGE OM_MEMORY_CACHE_STATS
+# The tests set their own configuration: start from the defaults.
+unset OM_MEMORY_CACHE_MAX OM_MEMORY_CACHE_LARGE OM_MEMORY_CACHE_STATS \
+  OM_MEMORY_CACHE_SHARE
 
 fail=0
 
@@ -61,6 +62,7 @@ run() {
 build test_cache "$here/test_cache.c"
 build test_stale "$here/test_stale.c"
 build test_alloc_failure "$here/test_alloc_failure.c"
+build test_share "$here/test_share.c"
 # The .so and its loader are built without sanitizers: dlopen'ing an
 # uninstrumented library is the case to test.
 $CC $flags -fPIC -shared "$here/dso_cache.c" -o "$out/libomcachetest.so" \
@@ -71,12 +73,14 @@ $CC $flags "$here/test_dlclose_fork.c" -o "$out/test_dlclose_fork" -ldl \
 
 i=1
 while [ "$i" -le "$REPEAT" ]; do
-  run "test_cache.$i" "$out/test_cache"
+  run "test_cache.$i" env OM_MEMORY_CACHE_LARGE=64M "$out/test_cache"
   i=$((i + 1))
 done
-run test_cache.stats env OM_MEMORY_CACHE_STATS=1 "$out/test_cache"
+run test_cache.stats env OM_MEMORY_CACHE_LARGE=64M OM_MEMORY_CACHE_STATS=1 \
+  "$out/test_cache"
 run test_stale "$out/test_stale"
 run test_alloc_failure "$out/test_alloc_failure"
+run test_share "$out/test_share"
 run test_dlclose_fork "$out/test_dlclose_fork" "$out/libomcachetest.so"
 
 if [ "$fail" -eq 0 ]; then

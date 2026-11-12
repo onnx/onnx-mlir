@@ -30,9 +30,11 @@ prints PASS or FAIL per test. Settings:
 | `SAN` | `-fsanitize=address,undefined` | sanitizer flags; set `SAN=` to build without (the script also falls back on its own if they do not compile) |
 | `REPEAT` | `5` | runs of `test_cache`, whose thread and fork timing varies |
 
-The script unsets `OM_MEMORY_CACHE_*`: the tests assume the default ceiling
-(1G) and largest cached size (64M). `test_cache` also runs once with
-`OM_MEMORY_CACHE_STATS=1`, which enables the registry statistics.
+The script unsets `OM_MEMORY_CACHE_*` and each test sets its own
+configuration: `test_cache` runs with `OM_MEMORY_CACHE_LARGE=64M` (to cover
+bins up to 64 MB), once more with `OM_MEMORY_CACHE_STATS=1` (which enables the
+registry statistics), and `test_share` sets `OM_MEMORY_CACHE_SHARE=2` itself
+and checks the default largest cached size (16M).
 
 ## Tests
 
@@ -40,6 +42,7 @@ The script unsets `OM_MEMORY_CACHE_*`: the tests assume the default ceiling
 |---|---|
 | `test_cache` | bin rounding; 100% hits from the 2nd repeated "inference"; registry with 40 forced collisions (remove head, tail, middle); trim; double free; ceiling eviction and its order across bins; 8 threads, with forks in the middle (Linux: through the runtime's own fork handlers; macOS and z/OS have none, see below) |
 | `test_stale` | a buffer released with plain `free()` whose address comes back from `posix_memalign`: the stale descriptor is replaced and the counts repaired |
+| `test_share` | `OM_MEMORY_CACHE_SHARE=2`: a request borrows an available buffer of a larger bin, which goes back to its own bin when freed; the most recently freed eligible buffer wins over an older one of the request's own bin; the ratio limit; random sizes from 4 threads; default largest cached size 16M |
 | `test_alloc_failure` | `posix_memalign` failing: trim and retry succeeds; nothing to trim gives NULL; retry failing too gives NULL; in-use counts are undone |
 | `test_dlclose_fork` | load a `.so` that contains the cache, use it, `dlclose` it, then `fork()`. glibc must have removed the fork handlers; if not, the child jumps into unmapped code (this crashed on macOS before the runtime stopped registering handlers there) |
 

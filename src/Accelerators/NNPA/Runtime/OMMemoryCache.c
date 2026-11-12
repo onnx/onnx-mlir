@@ -21,8 +21,14 @@
 //   OMCacheFree would be taken for a cache buffer of the wrong size. All
 //   current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree.
 // - Bins: 64 KB steps to 1 MB, then 1 MB multiples, <= 4 per doubling; no
-//   splitting. < 128 KB and > 64 MB are not cached (glibc reuses small ones;
-//   a fresh mapping is faster to write than an old one for very large ones).
+//   splitting. < 128 KB and > 16 MB are not cached by default. glibc reuses
+//   small ones well; large ones are typically used once per inference (e.g.
+//   the attention-mask chain), and writing into a buffer last touched a whole
+//   inference ago (cold) was slower than into a fresh mapping: granite S=2048
+//   on z17, 147.3 ms with a 64 MB limit vs 145.8 ms with 16 MB (glibc 145.6).
+// - Optional sharing (OM_MEMORY_CACHE_SHARE=<ratio>): a request may take the
+//   most recently freed (warmest) available buffer of its bin or of a larger
+//   bin, up to ratio times its size. Off by default while being evaluated.
 // - Freed buffers are kept available (peak use per bin at fixed shapes); a
 //   ceiling on available bytes evicts the oldest first. When an allocation
 //   fails, all available buffers are returned to the system and the
@@ -83,7 +89,8 @@ void *OMHugePageMalloc(size_t size);
 
 #define CACHE_MIN_SIZE (128 * KB)
 #define CACHE_SMALL_BIN_STEP (64 * KB)
-#define CACHE_DEFAULT_LARGE (64 * MB)
+// Largest cached request by default; see "Bins" in the design notes above.
+#define CACHE_DEFAULT_LARGE (16 * MB)
 // Per model .so. If memory use is too high, see "Debugging and testing" above.
 #define CACHE_DEFAULT_MAX (1 * GB)
 #define CACHE_PAGE_4K (4 * KB)
@@ -116,6 +123,9 @@ void *OMHugePageMalloc(size_t size);
 //   cache, ready to be handed out again.
 // - available list: a bin's available buffers, most recently freed first (the
 //   reuse order); so its tail is the bin's oldest available buffer.
+// - borrow / lend (OM_MEMORY_CACHE_SHARE only): a request served by a buffer
+//   of a larger bin borrows it; that bin lends it. The buffer stays in its own
+//   bin: it goes back to that bin's available list when freed.
 // - age stamp (freedAt): when an available buffer was freed, from a counter
 //   incremented at each OMCacheFree. The oldest available buffer of the whole
 //   cache is the bin tail with the smallest stamp (the eviction order).
@@ -159,6 +169,9 @@ typedef struct {
   // Statistics. statDetached: by eviction, trim or unload.
   uint64_t statNumAvailable, statPeakInUse;
   uint64_t statHits, statMisses, statDetached;
+  // OM_MEMORY_CACHE_SHARE only: requests of this bin served by a larger bin,
+  // and buffers of this bin handed out for smaller requests.
+  uint64_t statBorrowed, statLent;
 } OMCacheBin;
 
 // The whole cache: one static instance per model .so, guarded by cacheMutex
@@ -168,6 +181,9 @@ typedef struct {
   int enabled, printStats;
   size_t maxAvailableBytes; // Ceiling on the bytes of available buffers.
   size_t maxCachedSize; // Largest cached request (buffer size of the last bin).
+  // OM_MEMORY_CACHE_SHARE: a request may use an available buffer of a larger
+  // bin up to shareRatio times its size; 0 when sharing is off.
+  double shareRatio;
   // Bins, by ascending buffer size.
   OMCacheBin bins[CACHE_MAX_BINS];
   int numBins;
@@ -303,6 +319,14 @@ static void initCache(void) {
       getEnvSize("OM_MEMORY_CACHE_LARGE", CACHE_DEFAULT_LARGE);
   const char *stats = getenv("OM_MEMORY_CACHE_STATS");
   cache.printStats = stats && *stats && *stats != '0';
+  // Sharing: a ratio > 1 enables it; unset, malformed or <= 1 leaves it off.
+  const char *share = getenv("OM_MEMORY_CACHE_SHARE");
+  if (share && *share) {
+    char *end = NULL;
+    double ratio = strtod(share, &end);
+    if (end != share && *end == '\0' && ratio > 1.0 && ratio <= 1024.0)
+      cache.shareRatio = ratio;
+  }
   if (cache.maxCachedSize > CACHE_MAX_LARGE)
     cache.maxCachedSize = CACHE_MAX_LARGE;
   cache.enabled =
@@ -543,6 +567,24 @@ static OMCacheBufferDesc *findOldestAvailable(void) {
   return oldest;
 }
 
+// OM_MEMORY_CACHE_SHARE only: return the most recently freed available buffer
+// that can serve a request of size bytes, looking at the request's own bin
+// and at the larger bins whose buffers are at most shareRatio times size; or
+// NULL if there is none. Each bin's head is its most recently freed buffer,
+// so this compares the heads of a few bins.
+static OMCacheBufferDesc *findWarmestAvailable(int binIndex, size_t size) {
+  double limit = cache.shareRatio * (double)size;
+  OMCacheBufferDesc *warmest = NULL;
+  for (int i = binIndex; i < cache.numBins; i++) {
+    if (i != binIndex && (double)cache.bins[i].bufferSize > limit)
+      break;
+    OMCacheBufferDesc *head = cache.bins[i].availableHead;
+    if (head && (!warmest || head->freedAt > warmest->freedAt))
+      warmest = head;
+  }
+  return warmest;
+}
+
 // Trim after an allocation failed: return every available buffer to the
 // system, so that the retry can use that memory. Return 1 if any buffer was
 // returned. Takes the mutex.
@@ -690,19 +732,30 @@ void *OMCacheTryAlloc(size_t size) {
   int binIndex = binIndexFor(size);
   OMCacheBin *bin = &cache.bins[binIndex];
   pthread_mutex_lock(&cacheMutex);
-  // Count the request as in use now, before a miss drops the mutex to allocate:
-  // numInUse means "requests not yet freed", in-flight misses included (the
-  // planned epoch logic will rely on it). createBufferOnMiss undoes the count
-  // if it fails.
-  bin->numInUse++;
-  if (bin->numInUse > bin->statPeakInUse)
-    bin->statPeakInUse = bin->numInUse;
-  OMCacheBufferDesc *desc = bin->availableHead;
+  // A hit takes the most recently freed buffer of the bin, or with sharing on,
+  // the most recently freed one of this bin or of a slightly larger bin.
+  OMCacheBufferDesc *desc = cache.shareRatio > 0
+                                ? findWarmestAvailable(binIndex, size)
+                                : bin->availableHead;
+  // The in-use count goes to the bin that owns the buffer handed out (on a
+  // borrow, the larger bin). On a miss it goes to this bin now, before the
+  // mutex is dropped to allocate: numInUse means "requests not yet freed",
+  // in-flight misses included (the planned epoch logic will rely on it).
+  // createBufferOnMiss undoes the count if it fails.
+  OMCacheBin *owner = desc ? &cache.bins[desc->binIndex] : bin;
+  owner->numInUse++;
+  if (owner->numInUse > owner->statPeakInUse)
+    owner->statPeakInUse = owner->numInUse;
   if (desc) {
     removeFromAvailableList(desc);
     desc->inUse = 1;
     statCountHandOut(desc, size);
-    bin->statHits++;
+    if (owner == bin) {
+      bin->statHits++;
+    } else {
+      bin->statBorrowed++;
+      owner->statLent++;
+    }
     // The buffer still holds data from its previous use; it is not zeroed
     // (see "Debugging and testing" at the top of the file).
     // Read the buffer pointer while the mutex is held.
@@ -790,13 +843,35 @@ void OMCacheTrim(void) {
   returnDetachedToSystem(detached);
 }
 
+// Format a byte count for the statistics: KB below 1 MB, MB below 1 GB, then
+// GB; one decimal unless the value is a whole number of the unit (bin sizes
+// usually are). Writes into buf and returns it.
+static const char *formatBytes(size_t bytes, char buf[32]) {
+  const char *unit = "KB";
+  size_t scale = KB;
+  if (bytes >= GB) {
+    unit = "GB";
+    scale = GB;
+  } else if (bytes >= MB) {
+    unit = "MB";
+    scale = MB;
+  }
+  if (bytes % scale == 0 || scale == KB)
+    snprintf(buf, 32, "%zu %s", bytes / scale, unit);
+  else
+    snprintf(buf, 32, "%.1f %s", (double)bytes / (double)scale, unit);
+  return buf;
+}
+
 // Print totals, then one line per bin that was used (OM_MEMORY_CACHE_STATS).
 static void printStats(void) {
+  char b1[32], b2[32], b3[32];
   fprintf(stderr,
-      "==OM-MEMORY-CACHE== max available %zu KB, max registered %zu KB, "
-      "evictions %llu, trims %llu, alloc-failure trims %llu, stale descs "
-      "%llu, double frees %llu, failed allocs %llu\n",
-      cache.statPeakAvailableBytes / KB, cache.statPeakRegisteredBytes / KB,
+      "==OM-MEMORY-CACHE== max available %s, max registered %s, evictions "
+      "%llu, trims %llu, alloc-failure trims %llu, stale descs %llu, double "
+      "frees %llu, failed allocs %llu\n",
+      formatBytes(cache.statPeakAvailableBytes, b1),
+      formatBytes(cache.statPeakRegisteredBytes, b2),
       (unsigned long long)cache.statEvictions,
       (unsigned long long)cache.statTrims,
       (unsigned long long)cache.statAllocFailureTrims,
@@ -804,10 +879,11 @@ static void printStats(void) {
       (unsigned long long)cache.statDoubleFrees,
       (unsigned long long)cache.statFailedAllocs);
   fprintf(stderr,
-      "==OM-MEMORY-CACHE== peak in use at once: %zu KB of buffers, %zu KB "
-      "requested (vs max registered %zu KB)\n",
-      cache.statPeakInUseBytes / KB, cache.statPeakInUseRequestBytes / KB,
-      cache.statPeakRegisteredBytes / KB);
+      "==OM-MEMORY-CACHE== peak in use at once: %s of buffers, %s requested "
+      "(vs max registered %s)\n",
+      formatBytes(cache.statPeakInUseBytes, b1),
+      formatBytes(cache.statPeakInUseRequestBytes, b2),
+      formatBytes(cache.statPeakRegisteredBytes, b3));
   fprintf(stderr,
       "==OM-MEMORY-CACHE== registry: peak %zu buffers, longest chain %zu "
       "(%d buckets)\n",
@@ -815,17 +891,20 @@ static void printStats(void) {
       CACHE_REGISTRY_BUCKETS);
   for (int i = 0; i < cache.numBins; i++) {
     OMCacheBin *bin = &cache.bins[i];
-    if (bin->statHits + bin->statMisses == 0)
+    if (bin->statHits + bin->statMisses + bin->statBorrowed == 0)
       continue;
     fprintf(stderr,
-        "==OM-MEMORY-CACHE== bin %zu KB: hits %llu, misses %llu, peak in "
-        "use %llu, available %llu, in use %llu, detached %llu\n",
-        bin->bufferSize / KB, (unsigned long long)bin->statHits,
+        "==OM-MEMORY-CACHE== bin %s: hits %llu, misses %llu, peak in use "
+        "%llu, available %llu, in use %llu, detached %llu, borrowed %llu, "
+        "lent %llu\n",
+        formatBytes(bin->bufferSize, b1), (unsigned long long)bin->statHits,
         (unsigned long long)bin->statMisses,
         (unsigned long long)bin->statPeakInUse,
         (unsigned long long)bin->statNumAvailable,
         (unsigned long long)bin->numInUse,
-        (unsigned long long)bin->statDetached);
+        (unsigned long long)bin->statDetached,
+        (unsigned long long)bin->statBorrowed,
+        (unsigned long long)bin->statLent);
   }
 }
 

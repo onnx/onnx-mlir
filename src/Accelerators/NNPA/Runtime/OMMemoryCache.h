@@ -20,8 +20,13 @@
 //                          behaves as before the cache (OMHugePageMalloc /
 //                          free).
 //   OM_MEMORY_CACHE_LARGE  Largest request that is cached; larger ones go to
-//                          OMHugePageMalloc. Default 64M, at most 1T. A value
+//                          OMHugePageMalloc. Default 16M, at most 1T. A value
 //                          below 128K disables the cache.
+//   OM_MEMORY_CACHE_SHARE  Experimental, off by default. A ratio > 1 (e.g. 2):
+//                          a request may take the most recently freed
+//                          available buffer of its bin or of a larger bin, up
+//                          to ratio times its size, so that phases of an
+//                          inference share warm buffers across sizes.
 //   OM_MEMORY_CACHE_STATS  Any value other than empty or starting with '0':
 //                          print statistics to stderr when the model .so is
 //                          unloaded or the process exits.
@@ -39,7 +44,7 @@ extern "C" {
 #endif
 
 /* Allocate a temporary buffer that is freed with OMCacheFree before the
- * inference ends. Requests between 128 KB and 64 MB are served from a cache of
+ * inference ends. Requests between 128 KB and 16 MB are served from a cache of
  * previously freed buffers; other requests, or all requests when the cache is
  * disabled, go to OMHugePageMalloc. Called from compiled code. */
 void *OMCacheAlloc(size_t size);
