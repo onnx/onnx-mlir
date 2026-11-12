@@ -2819,7 +2819,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
 
 //===----------------------------------------------------------------------===//
 // Lowering for kind "zhigh.expand-mul-stick":
-//   Unsqueeze(axis P) -> Expand(dim P: 1->N) -> Mul(scalar) -> Reshape
+//   Unsqueeze(axis P) -> Mul(scalar)? -> Expand(dim P: 1->N) -> Reshape
 //   (collapses mid-space dims [F, F+C-1]) -> ZHighStick
 //
 // Computed as a single tiled loop nest over the *original* (pre-unsqueeze)
@@ -3074,8 +3074,12 @@ struct ZHighToZLowFusedExpandMulStickLowering
 
 //===----------------------------------------------------------------------===//
 // Lowering for kind "zhigh.concat-expand-stick":
-//   Concat(2 inputs, axis A) -> Unsqueeze(axis P) -> F32ToDLF16 ->
-//   Expand(dim P: 1->N) -> Reshape (collapses [0..P]) -> LayoutTransform
+//   Concat(2 inputs, axis A) -> Unsqueeze(axis P) -> Mul(scalar)? ->
+//   F32ToDLF16 -> Expand(dim P: 1->N) -> Reshape (collapses [0..P]) ->
+//   LayoutTransform
+// or, for the 1-step stick tail:
+//   Concat -> Unsqueeze(axis P) -> Mul(scalar)? -> Expand(dim P: 1->N) ->
+//   Reshape -> ZHighStick
 //
 // Computed as an outer loop over dims [0,A) (shared by both concat inputs),
 // containing two back-to-back tiled inner loop nests over dims [A,R) -- one
@@ -3120,10 +3124,10 @@ struct ZHighToZLowFusedConcatExpandStickLowering
   // result buffer, so that instance shares this tile's read with the
   // stickified writes instead of being re-read by a separate loop nest.
   // scalarConst, when non-null, is the (once-created) constant for the
-  // 1-step stick tail's optional Mul -- applied to the read values right
-  // before the DLF16 conversion, after the concatWriteIdx store below, since
-  // Concat's own result must reflect concat semantics, not the later Mul.
-  // Null for the existing 2-step tail (which has no Mul step at all).
+  // chain's optional scalar Mul (either tail) -- applied to the F32 read
+  // values right before the DLF16 conversion, after the concatWriteIdx store
+  // below, since Concat's own result must reflect concat semantics, not the
+  // later Mul. Null when the chain has no Mul.
   void emitVectorizedConversion(const KrnlBuilder &ck2,
       IndexExprScope &midScope, int64_t readIdx, int64_t N,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
@@ -3263,11 +3267,12 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     int64_t F = fusion.reshapeFirstCollapsedDim;
     int64_t C = fusion.reshapeCollapsedCount;
     bool effectiveDisableSaturation = fusion.noSaturation || disableSaturation;
-    // A neutral (1.f) scalar means either the 2-step tail (no Mul step at
-    // all) or a 1-step stick tail whose source chain had no Mul op (mulScalar
-    // stays at its default then) -- skip the multiply entirely rather than
-    // emitting a multiply-by-one, exactly like
-    // ZHighToZLowFusedExpandMulStickLowering above.
+    // The optional scalar Mul (either tail) is applied in F32 right before
+    // the DLF16 conversion, in emitVectorizedConversion. A neutral (1.f)
+    // scalar means the source chain had no Mul op (mulScalar stays at its
+    // default then) -- skip the multiply entirely rather than emitting a
+    // multiply-by-one, exactly like ZHighToZLowFusedExpandMulStickLowering
+    // above.
     bool hasMulScalar = fusion.mulScalar != 1.0f;
     Value scalarConst = hasMulScalar
                             ? create.math.constant(rewriter.getF32Type(),
