@@ -10,8 +10,8 @@
       %6 = onnx.Constant dense<[3, 8, 4, 64]> : tensor<4xi64>
       %7 = onnx.Constant dense<1> : tensor<1xi64>
       %8 = "onnx.Unsqueeze"(%arg2, %7) : (tensor<3x4x64xf32>, tensor<1xi64>) -> tensor<3x1x4x64xf32>
-      %9 = "onnx.Expand"(%8, %6) : (tensor<3x1x4x64xf32>, tensor<4xi64>) -> tensor<3x8x4x64xf32>
-      %10 = "onnx.Mul"(%9, %5) : (tensor<3x8x4x64xf32>, tensor<f32>) -> tensor<3x8x4x64xf32>
+      %9 = "onnx.Mul"(%8, %5) : (tensor<3x1x4x64xf32>, tensor<f32>) -> tensor<3x1x4x64xf32>
+      %10 = "onnx.Expand"(%9, %6) : (tensor<3x1x4x64xf32>, tensor<4xi64>) -> tensor<3x8x4x64xf32>
       %11 = "onnx.Reshape"(%10, %4) <{allowzero = 0 : si64}> : (tensor<3x8x4x64xf32>, tensor<3xi64>) -> tensor<24x4x64xf32>
       %12 = "zhigh.Stick"(%11) <{layout = "3DS"}> : (tensor<24x4x64xf32>) -> tensor<24x4x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
       onnx.Yield %12 : tensor<24x4x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>

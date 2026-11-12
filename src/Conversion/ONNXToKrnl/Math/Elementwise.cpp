@@ -1591,13 +1591,21 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       {.minTripCountForParallel = 4,
           .bodyCost = simdUb.isLiteral() ? simdUb.getLiteral() : VL});
   if (enableParallel) {
-    if (outerLoopRank > 1) {
-      // Outer loop parallelism.
-      plan.tryCreateParallel(create.krnl, op,
+    // Prefer an outer loop whenever there is one, including a single outer
+    // loop (e.g. [1, S] - [S, 1] -> [S, S], where only the innermost dim
+    // flattens). Parallelizing the SIMD loop instead would fork and join one
+    // region per outer iteration, each over a single row of work.
+    int64_t outerParId = NO_PAR_FOUND;
+    if (outerLoopRank >= 1)
+      outerParId = plan.tryCreateParallel(create.krnl, op,
           "outer-loop of elementwise simd partially flattened", lbs, ubs);
-    } else {
-      // SIMD loop parallelism. These bounds are the flattened SIMD loop's,
-      // which forLoopIE defines internally -- no loop ref of ours describes it.
+    if (outerParId == NO_PAR_FOUND && outerLoopRank <= 1) {
+      // SIMD loop parallelism: no outer loop, or a single one too short to be
+      // worth a region (a literal trip count below the floor, so only a few
+      // regions get forked). With 2+ outer loops, keep the prior behavior of
+      // no parallelism when none qualifies. These bounds are the flattened
+      // SIMD loop's, which forLoopIE defines internally -- no loop ref of ours
+      // describes it.
       auto simdPlan = KrnlParallelPlan::noLoopRefs(
           /*first*/ 0, /*last excl*/ 1, /*cost*/ {VL * 32});
       if (simdPlan.findParallelDim(op,

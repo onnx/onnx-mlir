@@ -71,9 +71,19 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     // safely be the whole search window.
     // bodyCost 1: one innermost iteration is a load and a store, or just a
     // store when the input is a scalar hoisted out of the nest.
+    //
+    // Window: the top two levels, as before, widened to three for rank 4 and
+    // up (still leaving out the innermost level). Two levels suffice for a
+    // [B, H, ...] tensor, but an attention mask expanded to [B, 1, S, S] at
+    // batch 1 has two literal-1 levels on top, and a two-level window then
+    // finds nothing to parallelize. Reaching level 2 lets the plan put the
+    // region on S at batch 1, or fuse B*1*S when B is dynamic. Ranks 2 and 3
+    // keep their two-level window unchanged.
+    int64_t parLevels =
+        std::max((int64_t)2, std::min(outputRank - 1, (int64_t)3));
     KrnlParallelPlan plan(outputLoopDef, enableCollapse,
-        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
-        /*collapseLastExclusiveDim=*/2,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
+        /*collapseLastExclusiveDim=*/parLevels,
         {.minTripCountForParallel = 4, .bodyCost = 1});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "expand", lbs, ubs);

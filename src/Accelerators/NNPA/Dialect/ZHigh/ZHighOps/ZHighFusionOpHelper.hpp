@@ -110,13 +110,20 @@ public:
 // Pattern:
 //  ONNXUnsqueezeOp  one axis P; innermost dim of result static mod 64
 //                   (required)
-//  ONNXExpandOp     dim P expands from 1 to N (N static, >= 2)
-//                   (required)
 //  ONNXMulOp        element-wise mul by scalar F32/I32/I64 const
 //                   (optional; when absent, mulScalar stays at its neutral
 //                    1.f default)
+//  ONNXExpandOp     dim P expands from 1 to N (N static, >= 2)
+//                   (required)
 //  ONNXReshapeOp    dims 0..P may collapse; dims after P unchanged (required)
 //  ZHighStickOp     stick to 3D / 3DS / 4D (required)
+//
+// The scalar Mul is matched before the Expand, not after it: the
+// Expand-sinking canonicalization (SinkExpandBelowElementwiseOpPattern in
+// src/Dialect/ONNX/ONNXOps/Canonicalize.cpp) rewrites Mul(Expand(x), k) into
+// Expand(Mul(x, k)) for any scalar k, and it runs before this fusion, so the
+// Expand -> Mul order no longer reaches it.  The Mul commutes with the
+// expand, so the lowering is the same either way.
 //
 // Unique-use invariant: every intermediate value (unsqueeze through reshape)
 // has exactly one use.  The stick result is not checked.
@@ -126,7 +133,7 @@ class ExpandMulStickFusionHelper : public onnx_mlir::FusionOpKindHelper {
 public:
   static constexpr llvm::StringLiteral kKind{"zhigh.expand-mul-stick"};
   /// See the kMaxOpCount contract note in FusionOpHelper.hpp: unsqueeze +
-  /// expand + mul + reshape + stick.
+  /// mul + expand + reshape + stick.
   static constexpr int kMaxOpCount = 5;
 
   int64_t unsqueezedPosition = -1; ///< P: axis inserted by unsqueeze
@@ -160,21 +167,22 @@ public:
 //                   concat result's rank (so the new dim is inserted at or
 //                   before the concat axis, never appended after it)
 //                   (required)
+//  ONNXMulOp        element-wise mul by scalar F32/I32/I64 const (optional,
+//                   either tail; when absent, mulScalar stays at its neutral
+//                   1.f default).  It sits right after the Unsqueeze, in F32:
+//                   the Expand-sinking canonicalization
+//                   (SinkExpandBelowElementwiseOpPattern) moves a scalar Mul
+//                   above the Expand before this fusion runs, and for the
+//                   2-step tail ZHighDecomposeStickUnstick then places the
+//                   F32ToDLF16 after that Mul, right before the Expand
 //  ZHighF32ToDLF16Op  F32 CPU tensor => DLF16 CPU tensor (optional; present
-//                   <=> the existing 2-step tail, ending in
-//                   ONNXLayoutTransformOp; absent <=> the 1-step tail,
-//                   ending in an explicit ZHighStickOp -- tracked by the
-//                   local hasSingleStick in detectIfBeneficial)
+//                   <=> the 2-step tail, ending in ONNXLayoutTransformOp;
+//                   absent <=> the 1-step tail, ending in an explicit
+//                   ZHighStickOp -- tracked by the local hasSingleStick in
+//                   detectIfBeneficial)
 //  ONNXExpandOp     dim P expands from 1 to N (N static, >= 2); every other
 //                   dim is provably unchanged (required); identical check
 //                   regardless of tail
-//  ONNXMulOp        element-wise mul by scalar F32/I32/I64 const (optional;
-//                   when absent, mulScalar stays at its neutral 1.f default)
-//                   -- stick-tail only: by this point in the 2-step tail,
-//                   data is already DLF16, so a real Mul there would need an
-//                   F16-typed scalar (ONNX's Mul requires both operands to
-//                   share one element type), which the F32/I32/I64-only
-//                   scalar extraction can never match -- not tried there
 //  ONNXReshapeOp    dims 0..P may collapse; dims after P unchanged (required);
 //                   identical check regardless of tail
 // -- then either --
@@ -202,15 +210,14 @@ class ConcatExpandStickFusionHelper : public onnx_mlir::FusionOpKindHelper {
 public:
   static constexpr llvm::StringLiteral kKind{"zhigh.concat-expand-stick"};
   /// See the kMaxOpCount contract note in FusionOpHelper.hpp: concat +
-  /// unsqueeze + expand + mul + reshape + stick (this kind's longest chain,
-  /// tying the existing concat+unsqueeze+f32dlf16+expand+reshape+LT chain --
-  /// Mul is stick-tail-only, see the class doc comment above).
+  /// unsqueeze + mul + f32dlf16 + expand + reshape + LT (this kind's longest
+  /// chain: the 2-step tail with its optional Mul).
   /// Deliberately larger than ExpandMulStickFusionHelper::kMaxOpCount (5):
   /// this kind's chain can subsume that one's entirely (Concat heading the
-  /// same Unsqueeze->Expand->Mul->Reshape->Stick tail), so
+  /// same Unsqueeze->Mul?->Expand->Reshape->Stick tail), so
   /// FusionOpStickUnstick.cpp gives it its own, earlier pattern-application
   /// phase -- see that file for why PatternBenefit alone can't express this.
-  static constexpr int kMaxOpCount = 6;
+  static constexpr int kMaxOpCount = 7;
 
   int64_t concatAxis = -1;         ///< A: onnx.Concat's axis (normalized)
   int64_t unsqueezedPosition = -1; ///< P: axis inserted by unsqueeze
@@ -219,20 +226,18 @@ public:
   int64_t reshapeFirstCollapsedDim =
       -1; ///< first input dim in merge run (-1 = none)
   int64_t reshapeCollapsedCount = 0; ///< # consecutive input dims merged into 1
-  /// Target layout of the trailing ONNXLayoutTransformOp, for the existing
-  /// 2-step tail (F32ToDLF16 -> Expand -> Reshape -> LayoutTransform). Set
+  /// Target layout of the trailing ONNXLayoutTransformOp, for the 2-step
+  /// tail (Mul? -> F32ToDLF16 -> Expand -> Reshape -> LayoutTransform). Set
   /// exactly when `stickFormat` below is not.
   std::optional<mlir::StringAttr> finalLayout; ///< "3D", "3DS", or "4D"
   bool yieldConcatResult = false; ///< concat result used outside the chain
                                   ///< too => it becomes FusedOp output 1
-  /// Scalar multiplier (F32; 1 = neutral) of the optional Mul between Expand
-  /// and Reshape, in the 1-step stick tail only (see the class doc comment
-  /// for why the 2-step tail can never actually have one). Stays at its
-  /// neutral default for the 2-step tail, and for the stick tail when no
-  /// Mul op is present.
+  /// Scalar multiplier (F32; 1 = neutral) of the optional Mul right after
+  /// the Unsqueeze, in either tail (before F32ToDLF16 in the 2-step tail).
+  /// Stays at its neutral default when no Mul op is present.
   float mulScalar = 1.f;
   /// Target layout ("3D"/"3DS"/"4D") of the trailing ZHighStickOp, for the
-  /// 1-step tail (Expand -> Mul? -> Reshape -> ZHighStickOp). Set exactly
+  /// 1-step tail (Mul? -> Expand -> Reshape -> ZHighStickOp). Set exactly
   /// when `finalLayout` above is not -- exactly one of the two is present
   /// after a successful match.
   std::optional<mlir::StringAttr> stickFormat;

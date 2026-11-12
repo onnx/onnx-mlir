@@ -1268,4 +1268,17 @@ def AlwaysFalseWherePattern : Pat<
  [(IsNegativeSplatConstant:$negative_constant), (AreAllDimSizes:$dims)]
 >;
 
+// Where(Not(c), x, y) = Where(c, y, x). Normalizing to the un-negated condition
+// removes the Not (once unused) and lets Wheres on c and on Not(c) share the
+// same condition. Swapping x and y keeps the result shape and element type,
+// since Where broadcasts its three operands symmetrically.
+
+// This pattern was found in granite-embedding-97m-multilingual-r2 (sliding-
+// window attention mask) in HuggingFace.
+
+def WhereNotConditionSwapPattern : Pat<
+ (ONNXWhereOp (ONNXNotOp $cond), $true_val, $false_val),
+ (ONNXWhereOp $cond, $false_val, $true_val)
+>;
+
 #endif // ONNX_REWRITE
