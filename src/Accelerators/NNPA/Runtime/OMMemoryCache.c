@@ -22,14 +22,15 @@
 //   current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree.
 // - Bins: 64 KB steps to 1 MB, then 1 MB multiples, <= 4 per doubling; no
 //   splitting. < 128 KB (glibc reuses those well) and > 256 MB are not cached.
-// - Large buffers (>= 4 MB) are kept only while their bin is hot: reused
-//   before much other data went through the processor caches. Writing into a
-//   cold buffer first fetches its stale contents from memory, which is slower
-//   than a fresh, kernel-zeroed mapping; a large buffer reused every layer is
-//   worth keeping. Measured on z17: granite-embedding S=2048 (masks reused
-//   once per inference, about 3.3 GB later: cold) vs S=512 (about 440 MB
-//   later: still warm) and granite-4 prefill (attention scores reused every
-//   layer, a few hundred MB later: hot). See "reuse distance" below.
+// - Large buffers that went cold are not reused: writing into a cold buffer
+//   first fetches its stale contents from memory, which is slower than a
+//   fresh, kernel-zeroed mapping (granite-embedding S=2048 on z17: Stick 11.9
+//   vs 7.6 ms into its 96 MB mask), while a large buffer reused every layer
+//   is worth keeping (granite-4 prefill). Epoch policy (default): a buffer of
+//   16 MB or more freed in an earlier inference is never reused; the compiler
+//   marks each inference with OMCacheEpoch. Only with transparent huge pages
+//   (otherwise all buffers are kept): with 4 KB pages, releasing is the
+//   expensive part. OM_MEMORY_CACHE_POLICY=none keeps all buffers.
 // - Freed buffers are kept available (peak use per bin at fixed shapes); a
 //   ceiling on available bytes evicts the oldest first. When an allocation
 //   fails, all available buffers are returned to the system and the
@@ -92,14 +93,11 @@ void *OMHugePageMalloc(size_t size);
 #define CACHE_SMALL_BIN_STEP (64 * KB)
 // Largest cached request by default; see "Bins" in the design notes above.
 #define CACHE_DEFAULT_LARGE (256 * MB)
-// Large buffers, from this size, are kept only when their bin is hot; see
-// "reuse distance" in the vocabulary.
-#define CACHE_COLD_MIN_SIZE (4 * MB)
-// Default OM_MEMORY_CACHE_COLD: reuse distance, in bytes handed out, from
-// which a request of a large bin is cold. Between the measured hot cases
-// (<= about 500 MB) and cold ones (about 3 GB); also between z17's per-chip L3
-// (360 MB) and per-drawer L4 (2.9 GB).
-#define CACHE_DEFAULT_COLD_BYTES (1 * GB)
+// Epoch policy: buffers from this size are never reused across inferences.
+#define CACHE_EPOCH_MIN_SIZE (16 * MB)
+// OM_MEMORY_CACHE_POLICY values.
+#define CACHE_POLICY_NONE 0  // Keep every buffer.
+#define CACHE_POLICY_EPOCH 1 // Default: large buffers not reused across epochs.
 // Per model .so. If memory use is too high, see "Debugging and testing" above.
 #define CACHE_DEFAULT_MAX (1 * GB)
 #define CACHE_PAGE_4K (4 * KB)
@@ -135,21 +133,14 @@ void *OMHugePageMalloc(size_t size);
 // - age stamp (freedAt): when an available buffer was freed, from a counter
 //   incremented at each OMCacheFree. The oldest available buffer of the whole
 //   cache is the bin tail with the smallest stamp (the eviction order).
-// - byte clock (cache-wide): bytes handed out by the cache, hits and misses of
-//   all bins, counted in bin sizes. Allocations the cache does not hand out
-//   (below 128 KB, above the largest cached size, outputs, zdnnx's and zDNN's
-//   own) are not counted, so the clock underestimates how much data went
-//   through the processor caches.
-// - reuse distance (per request): byte clock now minus the byte clock at the
-//   last free of the request's bin, i.e. data handed out while the bin sat
-//   idle. Since the pass frees a buffer right after its last use, a bin's last
-//   free marks when its data was last used.
-// - cold request: a request of a bin of 4 MB or more whose reuse distance is
-//   at least OM_MEMORY_CACHE_COLD (default 1 GB). Its bin's available buffers
-//   are returned to the system (they are cold too) and it gets a fresh buffer,
-//   which is also returned when freed. The decision is taken at the request
-//   and stored in the buffer's descriptor; only the bin's last idle gap
-//   counts, so one request soon after a free makes the bin hot again.
+// - epoch: one inference, delimited by OMCacheEpoch calls that the compiler
+//   wraps around the model's body. A kept buffer records the epoch of its
+//   free.
+// - stale buffer (epoch policy): an available buffer of a bin of 16 MB or more
+//   freed in an earlier epoch. Its memory has likely left the processor
+//   caches. A request that finds one returns it and the older ones of its bin
+//   to the system and gets a fresh buffer. The available buffers of 16 MB or
+//   more are also returned at the end of each epoch.
 // - registry: hash maps a buffer to its descriptor.
 // - detach: take an available buffer out of every cache structure (available
 //   list and registry), under the mutex.
@@ -165,11 +156,11 @@ void *OMHugePageMalloc(size_t size);
 // buffer); an available buffer's descriptor is also on its bin's available
 // list.
 typedef struct OMCacheBufferDesc {
-  void *buffer;      // Memory handed out to the caller.
-  size_t bufferSize; // Size of the bin, not of the request.
-  int binIndex;      // Index of the bin in OMCache.bins.
-  int inUse;         // 1 between OMCacheTryAlloc and OMCacheFree, else 0.
-  int releaseOnFree; // Cold request: return to the system when freed.
+  void *buffer;        // Memory handed out to the caller.
+  size_t bufferSize;   // Size of the bin, not of the request.
+  int binIndex;        // Index of the bin in OMCache.bins.
+  int inUse;           // 1 between OMCacheTryAlloc and OMCacheFree, else 0.
+  uint64_t freedEpoch; // cache.epoch at its last free (epoch policy).
   // Available list of the bin, most recently freed first. Once detached,
   // availableNext chains the detached list instead.
   struct OMCacheBufferDesc *availablePrev, *availableNext;
@@ -188,16 +179,11 @@ typedef struct {
   OMCacheBufferDesc *availableHead; // Available list, most recent first.
   OMCacheBufferDesc *availableTail; // Oldest available buffer of the bin.
   uint64_t numInUse;                // Requests of this bin not yet freed.
-  // cache.byteClock at the bin's last free (kept or released); 0 if none (a
-  // free always follows a hand-out, so a real value is never 0).
-  uint64_t lastFreeByteClock;
-  // Statistics. statDetached: by eviction, trim, unload or cold release.
-  // statColdReleases: buffers returned because of a cold request (available
-  // ones at the request, the request's own at its free). statMaxReuseDistance:
-  // largest reuse distance seen, to check OM_MEMORY_CACHE_COLD against.
+  // Statistics. statDetached: by eviction, trim, unload or stale release.
+  // statStaleReleases: stale buffers returned (at a request or at the end of
+  // an epoch).
   uint64_t statNumAvailable, statPeakInUse;
-  uint64_t statHits, statMisses, statDetached, statColdReleases;
-  uint64_t statMaxReuseDistance;
+  uint64_t statHits, statMisses, statDetached, statStaleReleases;
 } OMCacheBin;
 
 // The whole cache: one static instance per model .so, guarded by cacheMutex
@@ -207,9 +193,12 @@ typedef struct {
   int enabled, printStats;
   size_t maxAvailableBytes; // Ceiling on the bytes of available buffers.
   size_t maxCachedSize; // Largest cached request (buffer size of the last bin).
-  // OM_MEMORY_CACHE_COLD: reuse distance (bytes) from which a request of a
-  // large bin is cold; 0 keeps every buffer (no cold requests).
-  uint64_t coldBytes;
+  // OM_MEMORY_CACHE_POLICY (CACHE_POLICY_*). Without transparent huge pages
+  // the default is CACHE_POLICY_NONE: releasing and mapping fresh is only
+  // cheap with huge pages.
+  int policy, thpAvailable;
+  // Epoch policy: current epoch, from OMCacheEpoch (0 until the first start).
+  uint64_t epoch;
   // Bins, by ascending buffer size.
   OMCacheBin bins[CACHE_MAX_BINS];
   int numBins;
@@ -220,8 +209,6 @@ typedef struct {
   size_t numRegistered; // Registered buffers, in use or available.
   // Counter for the age stamps, incremented at each OMCacheFree of a buffer.
   uint64_t freeClock;
-  // Byte clock: bytes handed out (bin sizes), for reuse distances.
-  uint64_t byteClock;
   // Bytes of available buffers, checked against maxAvailableBytes.
   size_t availableBytes;
   // Statistics (stat*, only printed). statRegisteredBytes: in all registered
@@ -231,6 +218,7 @@ typedef struct {
   size_t statRegisteredBytes, statPeakAvailableBytes, statPeakRegisteredBytes;
   uint64_t statEvictions, statTrims, statAllocFailureTrims;
   uint64_t statStaleDescs, statDoubleFrees, statFailedAllocs;
+  uint64_t statEpochsStarted, statEpochsEnded, statEpochEndReleases;
   // OMCacheFreeSized calls that freed without the mutex (size without a bin).
   // Updated atomically, and only when statistics are printed.
   uint64_t statFastFrees;
@@ -340,6 +328,24 @@ static void initNextBinSize(size_t size) {
     cache.bins[cache.numBins++].bufferSize = size;
 }
 
+// True if transparent huge pages can back the cache's large buffers: Linux,
+// and /sys/kernel/mm/transparent_hugepage/enabled set to always or madvise.
+// The file is missing when the kernel does not support THP (e.g. no EDAT-1 on
+// s390x) or in sandboxes that hide /sys/kernel/mm.
+static int transparentHugePagesAvailable(void) {
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+  FILE *f = fopen("/sys/kernel/mm/transparent_hugepage/enabled", "r");
+  if (!f)
+    return 0;
+  char line[128];
+  int ok = fgets(line, sizeof(line), f) != NULL;
+  fclose(f);
+  return ok && (strstr(line, "[always]") || strstr(line, "[madvise]"));
+#else
+  return 0;
+#endif
+}
+
 // Read the environment, build the table of bins, and register the fork
 // handlers. Runs once, at the first call into the cache.
 static void initCache(void) {
@@ -350,9 +356,15 @@ static void initCache(void) {
       getEnvSize("OM_MEMORY_CACHE_LARGE", CACHE_DEFAULT_LARGE);
   const char *stats = getenv("OM_MEMORY_CACHE_STATS");
   cache.printStats = stats && *stats && *stats != '0';
-  // A count of frees (a K/M/G suffix is accepted but rarely meaningful).
-  cache.coldBytes =
-      getEnvSize("OM_MEMORY_CACHE_COLD", CACHE_DEFAULT_COLD_BYTES);
+  // Policy: an explicit OM_MEMORY_CACHE_POLICY wins; by default, epoch with
+  // transparent huge pages and none without.
+  cache.thpAvailable = transparentHugePagesAvailable();
+  cache.policy = cache.thpAvailable ? CACHE_POLICY_EPOCH : CACHE_POLICY_NONE;
+  const char *policy = getenv("OM_MEMORY_CACHE_POLICY");
+  if (policy && strcmp(policy, "epoch") == 0)
+    cache.policy = CACHE_POLICY_EPOCH;
+  else if (policy && strcmp(policy, "none") == 0)
+    cache.policy = CACHE_POLICY_NONE;
   if (cache.maxCachedSize > CACHE_MAX_LARGE)
     cache.maxCachedSize = CACHE_MAX_LARGE;
   cache.enabled =
@@ -593,7 +605,7 @@ static OMCacheBufferDesc *findOldestAvailable(void) {
   return oldest;
 }
 
-// Detach all available buffers of one bin into *detached (a cold request);
+// Detach all available buffers of one bin into *detached (stale buffers);
 // return how many were detached.
 static uint64_t detachBinAvailable(
     OMCacheBin *bin, OMCacheBufferDesc **detached) {
@@ -659,10 +671,10 @@ static void *allocBuffer(size_t size) {
 }
 
 // Fill desc for a new in-use buffer of bin binIndex, handed out for a request
-// of requestSize bytes (releaseOnFree: a cold request), and map buffer to it.
-// Called with the mutex held; releases it and returns buffer.
-static void *mapNewBufferAndUnlock(OMCacheBufferDesc *desc, void *buffer,
-    int binIndex, size_t requestSize, int releaseOnFree) {
+// of requestSize bytes, and map buffer to it. Called with the mutex held;
+// releases it and returns buffer.
+static void *mapNewBufferAndUnlock(
+    OMCacheBufferDesc *desc, void *buffer, int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
   // A buffer already mapped at this address was given to free() by someone
   // else and its memory reused by malloc: forget the stale descriptor.
@@ -685,9 +697,8 @@ static void *mapNewBufferAndUnlock(OMCacheBufferDesc *desc, void *buffer,
   desc->inUse = 1;
   desc->availablePrev = desc->availableNext = NULL;
   desc->freedAt = 0;
-  desc->releaseOnFree = releaseOnFree;
+  desc->freedEpoch = 0;
   statCountHandOut(desc, requestSize);
-  cache.byteClock += size;
   mapBufferToDesc(desc);
   cache.statRegisteredBytes += size;
   // High-water mark, for the statistics only.
@@ -706,16 +717,14 @@ static void *mapNewBufferAndUnlock(OMCacheBufferDesc *desc, void *buffer,
 // matters far more for returnDetachedToSystem. If the descriptor or the buffer
 // cannot be allocated, every available buffer is returned to the system and
 // the creation is retried once. A buffer is never handed out unmapped.
-static void *createBufferOnMiss(
-    int binIndex, size_t requestSize, int releaseOnFree) {
+static void *createBufferOnMiss(int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
   for (int attempt = 0;; attempt++) {
     OMCacheBufferDesc *desc = malloc(sizeof(OMCacheBufferDesc));
     void *buffer = desc ? allocBuffer(size) : NULL;
     pthread_mutex_lock(&cacheMutex);
     if (buffer) // mapNewBufferAndUnlock releases the mutex.
-      return mapNewBufferAndUnlock(
-          desc, buffer, binIndex, requestSize, releaseOnFree);
+      return mapNewBufferAndUnlock(desc, buffer, binIndex, requestSize);
     // Failure: buffer is NULL here; desc may be non-NULL (only allocBuffer
     // failed), so free it. On the first attempt, trim (detach all available
     // buffers) and retry if there were any.
@@ -761,28 +770,20 @@ void *OMCacheTryAlloc(size_t size) {
   bin->numInUse++;
   if (bin->numInUse > bin->statPeakInUse)
     bin->statPeakInUse = bin->numInUse;
-  // Cold request (see "cold request" in the vocabulary): return the bin's
-  // available buffers, which are cold too, and take a fresh buffer, released
-  // when freed. Decided here, applied at that buffer's free.
-  int releaseOnFree = 0;
+  // Epoch policy: a stale head (see "stale buffer" in the vocabulary) is
+  // returned to the system with the older buffers behind it, and the request
+  // gets a fresh buffer.
   OMCacheBufferDesc *detached = NULL;
-  if (bin->lastFreeByteClock > 0) {
-    uint64_t distance = cache.byteClock - bin->lastFreeByteClock;
-    if (distance > bin->statMaxReuseDistance)
-      bin->statMaxReuseDistance = distance;
-    releaseOnFree = cache.coldBytes > 0 &&
-                    bin->bufferSize >= CACHE_COLD_MIN_SIZE &&
-                    distance >= cache.coldBytes;
-    if (releaseOnFree)
-      bin->statColdReleases += detachBinAvailable(bin, &detached);
-  }
-  OMCacheBufferDesc *desc = bin->availableHead; // NULL on a cold request.
+  OMCacheBufferDesc *head = bin->availableHead; // Most recently freed.
+  if (cache.policy == CACHE_POLICY_EPOCH && head && cache.epoch > 0 &&
+      bin->bufferSize >= CACHE_EPOCH_MIN_SIZE &&
+      head->freedEpoch != cache.epoch)
+    bin->statStaleReleases += detachBinAvailable(bin, &detached);
+  OMCacheBufferDesc *desc = bin->availableHead; // NULL if stale.
   if (desc) {
     removeFromAvailableList(desc);
     desc->inUse = 1;
-    desc->releaseOnFree = 0;
     statCountHandOut(desc, size);
-    cache.byteClock += desc->bufferSize;
     bin->statHits++;
     // The buffer still holds data from its previous use; it is not zeroed
     // (see "Debugging and testing" at the top of the file).
@@ -792,11 +793,11 @@ void *OMCacheTryAlloc(size_t size) {
     return buffer;
   }
   bin->statMisses++;
-  // Drop the mutex: cold buffers are returned and the new buffer is allocated
-  // without it (see createBufferOnMiss).
+  // Drop the mutex: stale buffers are returned and the new buffer is
+  // allocated without it (see createBufferOnMiss).
   pthread_mutex_unlock(&cacheMutex);
   returnDetachedToSystem(detached);
-  return createBufferOnMiss(binIndex, size, releaseOnFree);
+  return createBufferOnMiss(binIndex, size);
 }
 
 // Cached buffer if possible; otherwise the same allocation as before the
@@ -847,20 +848,8 @@ void OMCacheFree(void *buffer) {
   bin->numInUse--;
   statCountGiveBack(desc);
   OMCacheBufferDesc *detached = NULL;
-  if (desc->releaseOnFree) {
-    // Cold request: return the buffer to the system (after the mutex is
-    // dropped) instead of keeping it. It is in use, so not on the available
-    // list: only its mapping is removed.
-    removeBufferMapping(desc);
-    cache.statRegisteredBytes -= desc->bufferSize;
-    bin->statDetached++;
-    bin->statColdReleases++;
-    desc->availableNext = detached;
-    detached = desc;
-  } else {
-    addToAvailableList(desc); // Stamps desc->freedAt from cache.freeClock.
-  }
-  bin->lastFreeByteClock = cache.byteClock;
+  addToAvailableList(desc); // Stamps desc->freedAt from cache.freeClock.
+  desc->freedEpoch = cache.epoch;
   while (cache.availableBytes > cache.maxAvailableBytes) {
     OMCacheBufferDesc *oldest = findOldestAvailable();
     if (!oldest)
@@ -889,6 +878,40 @@ void OMCacheFreeSized(void *buffer, size_t size) {
     return;
   }
   OMCacheFree(buffer);
+}
+
+// Start (epoch == 0) or end (epoch = the id returned by the start) of an
+// inference; called by the compiled entry point around the model's body. The
+// epoch policy never reuses buffers of 16 MB or more across inferences: at
+// the end, if no later inference has started meanwhile, those available
+// buffers are returned to the system at once. Concurrent inferences on one
+// model are correct but reuse less (each start makes earlier buffers stale).
+uint64_t OMCacheEpoch(uint64_t epoch) {
+  ensureInit();
+  if (!cache.enabled)
+    return epoch == 0 ? 1 : 0;
+  OMCacheBufferDesc *detached = NULL;
+  pthread_mutex_lock(&cacheMutex);
+  if (epoch == 0) {
+    uint64_t started = ++cache.epoch;
+    cache.statEpochsStarted++;
+    pthread_mutex_unlock(&cacheMutex);
+    return started;
+  }
+  cache.statEpochsEnded++;
+  if (cache.policy == CACHE_POLICY_EPOCH && epoch == cache.epoch) {
+    for (int i = 0; i < cache.numBins; i++) {
+      OMCacheBin *bin = &cache.bins[i];
+      if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE || !bin->availableHead)
+        continue;
+      uint64_t n = detachBinAvailable(bin, &detached);
+      bin->statStaleReleases += n;
+      cache.statEpochEndReleases += n;
+    }
+  }
+  pthread_mutex_unlock(&cacheMutex);
+  returnDetachedToSystem(detached);
+  return 0;
 }
 
 // Trim: return every available buffer to the system now; buffers in use are
@@ -929,6 +952,14 @@ static const char *formatBytes(size_t bytes, char buf[32]) {
 static void printStats(void) {
   char b1[32], b2[32], b3[32];
   fprintf(stderr,
+      "==OM-MEMORY-CACHE== policy %s (transparent huge pages %s), epochs "
+      "started %llu, ended %llu, buffers released at epoch end %llu\n",
+      cache.policy == CACHE_POLICY_EPOCH ? "epoch" : "none",
+      cache.thpAvailable ? "on" : "off",
+      (unsigned long long)cache.statEpochsStarted,
+      (unsigned long long)cache.statEpochsEnded,
+      (unsigned long long)cache.statEpochEndReleases);
+  fprintf(stderr,
       "==OM-MEMORY-CACHE== max available %s, max registered %s, evictions "
       "%llu, trims %llu, alloc-failure trims %llu, stale descs %llu, double "
       "frees %llu, failed allocs %llu\n",
@@ -957,16 +988,15 @@ static void printStats(void) {
       continue;
     fprintf(stderr,
         "==OM-MEMORY-CACHE== bin %s: hits %llu, misses %llu, peak in use "
-        "%llu, available %llu, in use %llu, detached %llu (cold releases "
-        "%llu), max reuse distance %s\n",
+        "%llu, available %llu, in use %llu, detached %llu (stale releases "
+        "%llu)\n",
         formatBytes(bin->bufferSize, b1), (unsigned long long)bin->statHits,
         (unsigned long long)bin->statMisses,
         (unsigned long long)bin->statPeakInUse,
         (unsigned long long)bin->statNumAvailable,
         (unsigned long long)bin->numInUse,
         (unsigned long long)bin->statDetached,
-        (unsigned long long)bin->statColdReleases,
-        formatBytes((size_t)bin->statMaxReuseDistance, b2));
+        (unsigned long long)bin->statStaleReleases);
   }
 }
 

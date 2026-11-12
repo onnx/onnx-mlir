@@ -108,3 +108,25 @@ llvm.func @test_openmp(%size: i64) {
   }
   llvm.return
 }
+
+// -----
+
+// The entry point's call to the model's body is wrapped with OMCacheEpoch:
+// start (0) before, end (the returned id) after.
+
+llvm.func @_mlir_ciface_main_graph(!llvm.ptr, !llvm.ptr)
+
+// CHECK-DAG: llvm.func @OMCacheEpoch(i64) -> i64
+// CHECK-LABEL: llvm.func @run_main_graph
+llvm.func @run_main_graph(%arg0: !llvm.ptr) -> !llvm.ptr {
+  // CHECK: %[[ZERO:.*]] = llvm.mlir.constant(0 : i64) : i64
+  // CHECK: %[[EPOCH:.*]] = llvm.call @OMCacheEpoch(%[[ZERO]]) : (i64) -> i64
+  // CHECK: llvm.call @_mlir_ciface_main_graph(%arg0, %arg0)
+  // CHECK: llvm.call @OMCacheEpoch(%[[EPOCH]]) : (i64) -> i64
+  // CHECK: llvm.return
+  // DISABLED-LABEL: llvm.func @run_main_graph
+  // DISABLED-NOT: OMCacheEpoch
+  // DISABLED: llvm.return
+  llvm.call @_mlir_ciface_main_graph(%arg0, %arg0) : (!llvm.ptr, !llvm.ptr) -> ()
+  llvm.return %arg0 : !llvm.ptr
+}

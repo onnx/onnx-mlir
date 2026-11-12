@@ -22,13 +22,11 @@
 //   OM_MEMORY_CACHE_LARGE  Largest request that is cached; larger ones go to
 //                          OMHugePageMalloc. Default 256M, at most 1T. A value
 //                          below 128K disables the cache.
-//   OM_MEMORY_CACHE_COLD   Buffers of 4 MB and more are kept only while their
-//                          bin is hot. A request is cold when the cache has
-//                          handed out at least this many bytes since its bin's
-//                          last free: the bin's available buffers are returned
-//                          to the system, and the request gets a fresh buffer,
-//                          also returned when freed. Default 1G. 0 keeps all
-//                          buffers.
+//   OM_MEMORY_CACHE_POLICY epoch (default): a buffer of 16 MB or more freed
+//                          in an earlier inference is never reused; it is
+//                          returned to the system and a fresh one is mapped.
+//                          none: keep all buffers. Without transparent huge
+//                          pages the default is none.
 //   OM_MEMORY_CACHE_STATS  Any value other than empty or starting with '0':
 //                          print statistics to stderr when the model .so is
 //                          unloaded or the process exits.
@@ -40,6 +38,7 @@
 #define ONNX_MLIR_OM_MEMORY_CACHE_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,6 +62,11 @@ void OMCacheFree(void *buffer);
  * cache mutex or looking the buffer up. Called from compiled code, which
  * passes the same size value as to the allocation, and from zdnnx. */
 void OMCacheFreeSized(void *buffer, size_t size);
+
+/* Start or end an inference (epoch policy). OMCacheEpoch(0) at the start
+ * returns the epoch's id (never 0); OMCacheEpoch(id) at the end returns 0.
+ * Called by compiled code around the model's body. */
+uint64_t OMCacheEpoch(uint64_t epoch);
 
 /* Return all available buffers (cached, not in use) to the system. Intended
  * for hosts that keep an idle model loaded. */

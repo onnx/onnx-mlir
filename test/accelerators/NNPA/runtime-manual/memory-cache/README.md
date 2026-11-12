@@ -33,8 +33,8 @@ prints PASS or FAIL per test. Settings:
 The script unsets `OM_MEMORY_CACHE_*` and each test sets its own
 configuration: `test_cache` runs with `OM_MEMORY_CACHE_LARGE=64M` (to cover
 bins up to 64 MB), once more with `OM_MEMORY_CACHE_STATS=1` (which enables the
-registry statistics), and `test_cold` sets `OM_MEMORY_CACHE_COLD` itself (64M, then 0) and checks
-the default largest cached size (256M).
+registry statistics), and `test_epoch` sets `OM_MEMORY_CACHE_POLICY` itself (epoch, none, or unset)
+and checks the default largest cached size (256M).
 
 ## Tests
 
@@ -42,7 +42,7 @@ the default largest cached size (256M).
 |---|---|
 | `test_cache` | bin rounding; 100% hits from the 2nd repeated "inference"; registry with 40 forced collisions (remove head, tail, middle); trim; sized free (`OMCacheFreeSized`: sizes without a bin skip the lock); double free; ceiling eviction and its order across bins; 8 threads, with forks in the middle (Linux: through the runtime's own fork handlers; macOS and z/OS have none, see below) |
 | `test_stale` | a buffer released with plain `free()` whose address comes back from `posix_memalign`: the stale descriptor is replaced and the counts repaired |
-| `test_cold` | `OM_MEMORY_CACHE_COLD` (reuse distance in bytes; the test uses 64M): a hot 8 MB bin stays cached; after more than 64 MB handed out elsewhere, a request is cold: the bin's kept buffer is returned and the request gets a fresh buffer, also returned at its free; one close reuse makes the bin hot again; the decision follows each buffer when several are in use; bins below 4 MB are never cold; with `off`, nothing is returned; default largest cached size 256M |
+| `test_epoch` | epoch policy (`OMCacheEpoch`): a 32 MB buffer is reused within an epoch and returned at its end, an 8 MB one is kept across epochs; with no end call the stale buffer is returned at the next request; an epoch that ends after a later one started releases nothing; `none` keeps all; `default` checks that the policy follows transparent-huge-page availability; default largest cached size 256M |
 | `test_alloc_failure` | `posix_memalign` failing: trim and retry succeeds; nothing to trim gives NULL; retry failing too gives NULL; in-use counts are undone |
 | `test_dlclose_fork` | load a `.so` that contains the cache, use it, `dlclose` it, then `fork()`. glibc must have removed the fork handlers; if not, the child jumps into unmapped code (this crashed on macOS before the runtime stopped registering handlers there) |
 

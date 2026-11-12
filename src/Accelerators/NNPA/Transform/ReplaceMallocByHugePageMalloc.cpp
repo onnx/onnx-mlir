@@ -42,6 +42,12 @@ namespace onnx_mlir {
 /// The free also receives the allocation size (%size dominates the free, since
 /// it is defined before the malloc whose result the free uses), so that the
 /// runtime frees sizes the cache never serves without taking its lock.
+/// With the cache enabled, the pass also delimits each inference for the
+/// cache's epoch policy: in every entry point (run_*), the call to the model's
+/// body (_mlir_ciface_*) is wrapped as
+///   %e = llvm.call @OMCacheEpoch(%zero) : (i64) -> i64
+///   llvm.call @_mlir_ciface_main_graph(...)
+///   llvm.call @OMCacheEpoch(%e) : (i64) -> i64
 /// Model outputs keep using OMHugePageMalloc, so that the host can free them
 /// with free(). Allocations inside OpenMP regions are left alone: they are
 /// small per-thread buffers that glibc already reuses well.
@@ -111,6 +117,8 @@ public:
 
   Statistic numCacheAllocs{
       this, "cache-allocs", "Number of malloc calls rewritten to OMCacheAlloc"};
+  Statistic numEpochWraps{this, "cache-epoch-wraps",
+      "Number of entry-point calls wrapped with OMCacheEpoch"};
   Statistic numCacheFrees{this, "cache-frees",
       "Number of free calls rewritten to OMCacheFreeSized"};
 
@@ -127,8 +135,10 @@ public:
 
     // Route the buffers that the model frees itself to the memory cache. The
     // remaining malloc calls are rewritten to OMHugePageMalloc below.
-    if (enableMemoryCache)
+    if (enableMemoryCache) {
       replaceTemporaryMallocByCacheAlloc(moduleOp);
+      wrapEntryPointsWithCacheEpoch(moduleOp);
+    }
 
     // Declare OMHugePageMalloc function if not already present.
     OpBuilder builder(&getContext());
@@ -228,6 +238,42 @@ private:
         freeOp.erase();
         numCacheFrees++;
       }
+    }
+  }
+
+  // Delimit each inference for the cache's epoch policy: in every entry point
+  // (run_*), wrap the call to the model's body (_mlir_ciface_*) with
+  // OMCacheEpoch(0) before (returns the epoch id) and OMCacheEpoch(id) after.
+  // Done whenever the cache is enabled, since zdnnx also uses it.
+  void wrapEntryPointsWithCacheEpoch(ModuleOp moduleOp) {
+    SmallVector<LLVM::CallOp, 2> bodyCalls;
+    moduleOp.walk([&](LLVM::CallOp callOp) {
+      FlatSymbolRefAttr callee = callOp.getCalleeAttr();
+      if (!callee || !callee.getValue().starts_with("_mlir_ciface_"))
+        return;
+      auto func = callOp->getParentOfType<LLVM::LLVMFuncOp>();
+      if (func && func.getName().starts_with("run_"))
+        bodyCalls.emplace_back(callOp);
+    });
+    if (bodyCalls.empty())
+      return;
+
+    MLIRContext *context = &getContext();
+    OpBuilder builder(context);
+    builder.setInsertionPointToStart(moduleOp.getBody());
+    LLVMBuilder createLLVM(builder, moduleOp.getLoc());
+    IntegerType i64Type = IntegerType::get(context, 64);
+    FlatSymbolRefAttr epochRef = createLLVM.getOrInsertSymbolRef(
+        moduleOp, "OMCacheEpoch", i64Type, {i64Type});
+
+    for (LLVM::CallOp bodyCall : bodyCalls) {
+      OpBuilder callBuilder(bodyCall);
+      LLVMBuilder createCall(callBuilder, bodyCall.getLoc());
+      Value zero = createCall.constant(i64Type, static_cast<int64_t>(0));
+      Value epoch = createCall.call({i64Type}, epochRef, {zero});
+      callBuilder.setInsertionPointAfter(bodyCall);
+      createCall.call({i64Type}, epochRef, {epoch});
+      numEpochWraps++;
     }
   }
 };
