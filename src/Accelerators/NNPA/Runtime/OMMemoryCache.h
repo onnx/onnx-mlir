@@ -22,11 +22,13 @@
 //   OM_MEMORY_CACHE_LARGE  Largest request that is cached; larger ones go to
 //                          OMHugePageMalloc. Default 256M, at most 1T. A value
 //                          below 128K disables the cache.
-//   OM_MEMORY_CACHE_COLD   Buffers of 4 MB and more are kept only if their bin
-//                          is reused soon: a request that comes more than this
-//                          many cache frees after its bin's last free is cold,
-//                          and its buffer is returned to the system when
-//                          freed. Default 256. 0 keeps all buffers.
+//   OM_MEMORY_CACHE_COLD   Buffers of 4 MB and more are kept only while their
+//                          bin is hot. A request is cold when the cache has
+//                          handed out at least this many bytes since its bin's
+//                          last free: the bin's available buffers are returned
+//                          to the system, and the request gets a fresh buffer,
+//                          also returned when freed. Default 1G. 0 keeps all
+//                          buffers.
 //   OM_MEMORY_CACHE_STATS  Any value other than empty or starting with '0':
 //                          print statistics to stderr when the model .so is
 //                          unloaded or the process exits.
