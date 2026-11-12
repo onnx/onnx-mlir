@@ -169,5 +169,41 @@ test_onnxmlir_gridsample_align_corners
                 np.array([[[[1.0, 4.0], [13.0, 16.0]]]], np.float32),
             ],
         ),
+        # CumSum tests where the dimension selected by the axis has size 1. The
+        # axis is a Constant node (not a graph input), so that the step count
+        # is computed at compile time.
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_cumsum_axis_dim_1
+(float[1,4] x) => (float[1,4] y) {
+    axis = Constant <value = int64 {0}> ()
+    y = CumSum (x, axis)
+}
+""",
+            [np.array([[1.0, -2.0, 3.0, 4.5]], np.float32)],
+            [np.array([[1.0, -2.0, 3.0, 4.5]], np.float32)],
+        ),
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_cumsum_axis_dim_1_exclusive
+(float[1,4] x) => (float[1,4] y) {
+    axis = Constant <value = int64 {0}> ()
+    y = CumSum <exclusive = 1> (x, axis)
+}
+""",
+            [np.array([[1.0, -2.0, 3.0, 4.5]], np.float32)],
+            [np.array([[0.0, 0.0, 0.0, 0.0]], np.float32)],
+        ),
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_cumsum_axis_dim_1_reverse_negative_axis
+(float[4,1] x) => (float[4,1] y) {
+    axis = Constant <value = int64 {-1}> ()
+    y = CumSum <reverse = 1> (x, axis)
+}
+""",
+            [np.array([[1.0], [-2.0], [3.0], [4.5]], np.float32)],
+            [np.array([[1.0], [-2.0], [3.0], [4.5]], np.float32)],
+        ),
         # add more onnxmlir node tests here
     ]
