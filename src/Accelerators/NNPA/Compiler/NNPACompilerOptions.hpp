@@ -4,7 +4,7 @@
 
 //===------------------------ NNPACompilerOptions.hpp ---------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -79,6 +79,7 @@ extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
 extern llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick;
 extern llvm::cl::opt<bool> nnpaDisableShapeRestriction;
 extern llvm::cl::opt<bool> nnpaDisableHugePageMalloc;
+extern llvm::cl::opt<bool> nnpaDisableMemoryCache;
 extern llvm::cl::opt<bool> nnpaDisableExpandAttentionMask;
 extern llvm::cl::opt<bool> nnpaDisableConstructSDPA3D;
 extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;

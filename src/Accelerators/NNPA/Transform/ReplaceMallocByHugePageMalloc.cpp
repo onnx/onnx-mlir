@@ -5,6 +5,8 @@
 // =============================================================================
 //
 // This pass replaces llvm.call @malloc with llvm.call @OMHugePageMalloc.
+// Buffers that the model frees itself are routed to the runtime's memory
+// cache instead (OMCacheAlloc / OMCacheFree).
 //
 //===----------------------------------------------------------------------===//
 
@@ -29,6 +31,17 @@ namespace onnx_mlir {
 ///
 /// will be replaced by:
 ///   %0 = llvm.call @OMHugePageMalloc(%size) : (i64) -> !llvm.ptr
+///
+/// When the memory cache is enabled, a malloc whose result is passed directly
+/// to free, and otherwise only converted to an integer (to compute the aligned
+/// pointer), is a temporary of the model: it is not returned, stored, or
+/// passed to another call. The pair is then rewritten to use the cache:
+///   %0 = llvm.call @OMCacheAlloc(%size) : (i64) -> !llvm.ptr
+///   ...
+///   llvm.call @OMCacheFree(%0) : (!llvm.ptr) -> ()
+/// Model outputs keep using OMHugePageMalloc, so that the host can free them
+/// with free(). Allocations inside OpenMP regions are left alone: they are
+/// small per-thread buffers that glibc already reuses well.
 
 /// Replace malloc with OMHugePageMalloc.
 class ReplaceMallocPattern : public OpRewritePattern<LLVM::CallOp> {
@@ -79,6 +92,25 @@ class ReplaceMallocByHugePageMallocPass
     : public PassWrapper<ReplaceMallocByHugePageMallocPass,
           OperationPass<ModuleOp>> {
 public:
+  ReplaceMallocByHugePageMallocPass() = default;
+  ReplaceMallocByHugePageMallocPass(
+      const ReplaceMallocByHugePageMallocPass &pass)
+      : PassWrapper<ReplaceMallocByHugePageMallocPass,
+            OperationPass<ModuleOp>>() {}
+  ReplaceMallocByHugePageMallocPass(bool enableMemoryCache) {
+    this->enableMemoryCache = enableMemoryCache;
+  }
+
+  Option<bool> enableMemoryCache{*this, "enable-memory-cache",
+      llvm::cl::desc("Use OMCacheAlloc/OMCacheFree for buffers that the model "
+                     "frees itself"),
+      llvm::cl::init(true)};
+
+  Statistic numCacheAllocs{
+      this, "cache-allocs", "Number of malloc calls rewritten to OMCacheAlloc"};
+  Statistic numCacheFrees{
+      this, "cache-frees", "Number of free calls rewritten to OMCacheFree"};
+
   StringRef getArgument() const override {
     return "replace-malloc-by-hugepage-malloc";
   }
@@ -89,6 +121,11 @@ public:
 
   void runOnOperation() override {
     ModuleOp moduleOp = getOperation();
+
+    // Route the buffers that the model frees itself to the memory cache. The
+    // remaining malloc calls are rewritten to OMHugePageMalloc below.
+    if (enableMemoryCache)
+      replaceTemporaryMallocByCacheAlloc(moduleOp);
 
     // Declare OMHugePageMalloc function if not already present.
     OpBuilder builder(&getContext());
@@ -108,10 +145,87 @@ public:
 
     static_cast<void>(applyPatternsGreedily(moduleOp, std::move(patterns)));
   }
+
+private:
+  static bool isCallTo(LLVM::CallOp callOp, StringRef name) {
+    FlatSymbolRefAttr calleeAttr = callOp.getCalleeAttr();
+    return calleeAttr && calleeAttr.getValue() == name;
+  }
+
+  static bool isInsideOpenMP(Operation *op) {
+    for (Operation *parent = op->getParentOp(); parent;
+         parent = parent->getParentOp()) {
+      Dialect *dialect = parent->getDialect();
+      if (dialect && dialect->getNamespace() == "omp")
+        return true;
+    }
+    return false;
+  }
+
+  // Return the free calls of a malloc result if the buffer is a temporary of
+  // the model, that is, if the result is passed directly to free and its only
+  // other uses are conversions to an integer. Return an empty list otherwise.
+  static SmallVector<LLVM::CallOp, 2> getFreesOfTemporary(
+      LLVM::CallOp mallocOp) {
+    SmallVector<LLVM::CallOp, 2> frees;
+    for (Operation *user : mallocOp.getResult().getUsers()) {
+      auto userCall = mlir::dyn_cast<LLVM::CallOp>(user);
+      if (userCall && isCallTo(userCall, "free") &&
+          userCall.getNumOperands() == 1) {
+        frees.emplace_back(userCall);
+        continue;
+      }
+      if (mlir::isa<LLVM::PtrToIntOp>(user))
+        continue;
+      // Any other use (descriptor, store, return, call) may let it escape.
+      return {};
+    }
+    return frees;
+  }
+
+  void replaceTemporaryMallocByCacheAlloc(ModuleOp moduleOp) {
+    SmallVector<std::pair<LLVM::CallOp, SmallVector<LLVM::CallOp, 2>>> pairs;
+    moduleOp.walk([&](LLVM::CallOp callOp) {
+      if (!isCallTo(callOp, "malloc") || callOp.getNumOperands() != 1 ||
+          callOp.getNumResults() != 1 ||
+          !mlir::isa<LLVM::LLVMPointerType>(callOp.getResult().getType()))
+        return;
+      if (isInsideOpenMP(callOp))
+        return;
+      SmallVector<LLVM::CallOp, 2> frees = getFreesOfTemporary(callOp);
+      if (!frees.empty())
+        pairs.emplace_back(callOp, std::move(frees));
+    });
+    if (pairs.empty())
+      return;
+
+    // Declare OMCacheAlloc and OMCacheFree.
+    MLIRContext *context = &getContext();
+    OpBuilder builder(context);
+    builder.setInsertionPointToStart(moduleOp.getBody());
+    LLVMBuilder createLLVM(builder, moduleOp.getLoc());
+    IntegerType i64Type = IntegerType::get(context, 64);
+    LLVM::LLVMPointerType ptrType = LLVM::LLVMPointerType::get(context);
+    FlatSymbolRefAttr cacheAllocRef = createLLVM.getOrInsertSymbolRef(
+        moduleOp, "OMCacheAlloc", ptrType, {i64Type});
+    FlatSymbolRefAttr cacheFreeRef = createLLVM.getOrInsertSymbolRef(
+        moduleOp, "OMCacheFree", LLVM::LLVMVoidType::get(context), {ptrType});
+
+    // The signatures match those of malloc and free: only the callee changes.
+    for (auto &[mallocOp, frees] : pairs) {
+      mallocOp.setCalleeAttr(cacheAllocRef);
+      numCacheAllocs++;
+      for (LLVM::CallOp freeOp : frees) {
+        freeOp.setCalleeAttr(cacheFreeRef);
+        numCacheFrees++;
+      }
+    }
+  }
 };
 
-std::unique_ptr<Pass> createReplaceMallocByHugePageMallocPass() {
-  return std::make_unique<ReplaceMallocByHugePageMallocPass>();
+std::unique_ptr<Pass> createReplaceMallocByHugePageMallocPass(
+    bool enableMemoryCache) {
+  return std::make_unique<ReplaceMallocByHugePageMallocPass>(enableMemoryCache);
 }
 
 } // namespace onnx_mlir
