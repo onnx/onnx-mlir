@@ -33,6 +33,7 @@
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAPlacementReporter.hpp"
 #include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
@@ -111,6 +112,11 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Determine if Conv to Im2Col+MatMul decomposition should be enabled.
   bool enableConvToMatmul = !disableConvToMatmul;
 
+  // Expand attention masks BEFORE the loop (if not disabled).
+  // This pass uses DimAnalysis which is expensive, so run it only once.
+  if (!nnpaDisableExpandAttentionMask)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createExpandAttentionMaskPass());
+
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
@@ -148,6 +154,13 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
+
+  // Fuse MatMul(Softmax(MatMul+Add),V) into zhigh.SDPA3D.
+  if (!nnpaDisableConstructSDPA3D) {
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighConstructSDPA3DPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
@@ -299,6 +312,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
+      // Add instrumentation to print NNPA placement information before
+      // convert-onnx-to-krnl. Currently reports ONNX operations that will run
+      // on CPU (not accelerated by NNPA).
+      pm.addInstrumentation(
+          std::make_unique<onnx_mlir::zhigh::NNPAPlacementReporter>(
+              pm.getContext()));
       // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
       // Optimizations at ZLow that needs affine map in MemRef.

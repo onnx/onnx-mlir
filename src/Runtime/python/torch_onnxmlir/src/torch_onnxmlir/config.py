@@ -33,3 +33,43 @@ session_cache_limit = 3
 
 # Whether to keep ONNX files or not.
 keep_onnx_files = False
+
+# Whether to generate test data sets (inputs/outputs) for the .so file in the cache.
+# This is useful for debugging where we can use them to run the .so file in the cache by using [RunONNXModel.py](https://github.com/onnx/onnx-mlir/blob/main/utils/RunONNXModel.py).
+# When enabled, a folder `test_data_set` is created in the cache folder containing multiple files for inputs (input_0.npy, input_1.npy, ...) and outputs (output_0.npy, output_1.npy, ...).
+# The generation is done once after compiling a model, which makes the first run slower and does not affect next runs.
+generate_test_data_set = False
+
+# Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
+# This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging.
+regenerate_test_data_set = False
+
+import threading
+
+_profiling_state = threading.local()
+
+
+def _get_profiling_enabled() -> bool:
+    return getattr(_profiling_state, "enabled", False)
+
+
+def _set_profiling_enabled(value: bool):
+    _profiling_state.enabled = value
+
+
+# Number of warmup runs to skip when computing profiling statistics.
+profiling_warmup = 0
+
+# Profiling reporting mode: "all", "quartile", or "sum".
+profiling_reporting = "all"
+
+# Profiling detail level for table output:
+#   0 = op summary only, 1 = + signature breakdown, 2 = + individual nodes.
+profiling_detail = 0
+
+# Override the --profile-ir-with-sig level.
+# None = auto-detect from compile_options (Onnx or ZHigh).
+profiling_profile_ir: str = None
+
+# When True, keep profile.prof files after collection instead of deleting them.
+profiling_keep_profiles = False

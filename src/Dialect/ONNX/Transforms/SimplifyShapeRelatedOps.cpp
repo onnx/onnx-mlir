@@ -247,20 +247,23 @@ public:
 
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    int64_t inputRank = getRank(input.getType());
-
-    // Compute integer indices.
-    SmallVector<int64_t, 4> indicesI64;
-    for (auto element : indicesAttr.getValues<IntegerAttr>()) {
-      int64_t axis = element.getInt();
-      axis = (axis < 0) ? (axis + inputRank) : axis;
-      indicesI64.emplace_back(axis);
-    }
 
     // Replace GatherOp by ConcatOp of specific dimensions.
     SmallVector<Value, 4> dims;
     getDims(input, dims);
-    SmallVector<Value> castedDims;
+    int64_t numDims = static_cast<int64_t>(dims.size());
+
+    // Compute integer indices. Indices are relative to the number of
+    // dimensions represented by `input` (i.e. `dims.size()`), not to
+    // `input`'s own tensor rank, which is always 1 since `input` is a
+    // Concat of dims.
+    SmallVector<int64_t, 4> indicesI64;
+    for (auto element : indicesAttr.getValues<IntegerAttr>()) {
+      int64_t idx = element.getInt();
+      idx = (idx < 0) ? (idx + numDims) : idx;
+      indicesI64.emplace_back(idx);
+    }
+
     SmallVector<Value> gatherDims;
     for (int64_t i : indicesI64)
       gatherDims.emplace_back(dims[i]);

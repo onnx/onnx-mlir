@@ -4,7 +4,7 @@
 
 //===-- OMTopK.c - OMTopK C Implementation -------------------------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2025-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,6 @@
 
 // Include the header to get definitions for OMTensor,
 // and the prototypes for getCompareFunction() and omTensorSort().
-#include "OMSort.h" // Provides OMTensor, OnnxDataType, and function typedefs
 
 #include <assert.h>
 
@@ -23,6 +22,9 @@
 #endif
 #include <stdint.h> // For uint64_t, int64_t
 #include <stdlib.h> // For qsort_r
+
+#include "OMSort.h" // Provides OMTensor, OnnxDataType, and function typedefs
+#include "src/Runtime/OMTensorInternal.h"
 
 /* =========================================================================
  *
@@ -133,6 +135,11 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
   void *dataPtr = omTensorGetDataPtr(inputTensor);
   int64_t sort_elems = inputShape[axis];
   int64_t k = (int64_t)k_u64; // Use signed int
+  // Clamp k to [0, sort_elems]: a negative or oversized K is not meaningful and
+  // would drive the partial-heapsort loop to index idx[negative] (OOB
+  // read/write).
+  if (k < 0 || k > sort_elems)
+    k = sort_elems;
 
   // If K is 0, or the axis is empty, do nothing
   if (k == 0 || sort_elems == 0)
@@ -183,11 +190,15 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
     strides[i + (6 - rank)] = inputStrides[i];
   }
 
-  for (int dim0 = 0; dim0 < shape[0]; dim0++) {
-    for (int dim1 = 0; dim1 < shape[1]; dim1++) {
-      for (int dim2 = 0; dim2 < shape[2]; dim2++) {
-        for (int dim3 = 0; dim3 < shape[3]; dim3++) {
-          for (int dim4 = 0; dim4 < shape[4]; dim4++) {
+  // Use int64_t counters to match shape[] (int64_t): a 32-bit signed counter
+  // wraps at INT_MAX, and the wrapped negative value still compares less than
+  // a large positive shape[i], causing an unbounded loop and OOB pointer
+  // arithmetic when any outer dimension genuinely exceeds 2^31-1.
+  for (int64_t dim0 = 0; dim0 < shape[0]; dim0++) {
+    for (int64_t dim1 = 0; dim1 < shape[1]; dim1++) {
+      for (int64_t dim2 = 0; dim2 < shape[2]; dim2++) {
+        for (int64_t dim3 = 0; dim3 < shape[3]; dim3++) {
+          for (int64_t dim4 = 0; dim4 < shape[4]; dim4++) {
             uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
                            dim2 * strides[2] + dim3 * strides[3] +
                            dim4 * strides[4];

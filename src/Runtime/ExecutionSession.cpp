@@ -134,9 +134,21 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
     throw ExecutionSessionException(
         "Cannot open library: '" + sharedLibPath + "'.");
 #else
-  // Copy code from llvm/lib/Support/DynamicLibrary.cpp, especially the flags
-  // ToFix: copy the lock related code too.
-  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+  // ToFix: copy the lock related code from llvm/lib/Support/DynamicLibrary.cpp.
+  //
+  // Use RTLD_LOCAL, not RTLD_GLOBAL. Every compiled model .so statically embeds
+  // libcruntime.a (omTensorCreate, omInstrument, etc.) under identical,
+  // untagged symbol names (src/Runtime/CMakeLists.txt:14 -- "embedded in
+  // model.so to make model.so self-contained"). RTLD_GLOBAL promotes those
+  // symbols into the process-wide dynamic-linker scope, so a later model's lazy
+  // binding of e.g. omInstrument* resolves to the first model's copy instead of
+  // its own -- causing merged or empty --profile-ir reports when two
+  // instrumented models share a process, and a dlclose-UAF if the first session
+  // is destroyed while the second still holds bindings into its text. LLVM's
+  // DynamicLibrary.cpp uses RTLD_GLOBAL deliberately for JIT symbol resolution;
+  // that use case does not apply here -- all entry-point resolution uses
+  // explicit dlsym(handle, ...) against each model's own handle.
+  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
   if (!_sharedLibraryHandle)
     throw ExecutionSessionException(
         "Cannot open library: '" + sharedLibPath + "'.");

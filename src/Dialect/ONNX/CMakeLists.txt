@@ -10,8 +10,12 @@ add_subdirectory(ElementsAttr)
 add_subdirectory(ONNXOps)
 add_subdirectory(Transforms)
 
+# ONNX.td includes ONNXOps.td.inc, which is not matched by tablegen's *.td
+# glob, so list it explicitly to re-run tablegen when it changes.
+set(LLVM_TARGET_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ONNXOps.td.inc)
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
+unset(LLVM_TARGET_DEPENDS)
 
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
@@ -22,7 +26,6 @@ add_onnx_mlir_library(OMONNXOps
   ONNXDialect.cpp
   ONNXDimAnalysis.cpp
   ONNXOps.cpp
-  ONNXOps/FusionOpChain.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp
@@ -48,6 +51,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/Attention.cpp
   ONNXOps/Math/Bernoulli.cpp
   ONNXOps/Math/DFT.cpp
+  ONNXOps/Math/Det.cpp
   ONNXOps/Math/Einsum.cpp
   ONNXOps/Math/EinsumHelper.cpp
   ONNXOps/Math/ElementwiseBroadcast.cpp
@@ -63,6 +67,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/RandomUniformLike.cpp
   ONNXOps/Math/Reduction.cpp
   ONNXOps/Math/Scatter.cpp
+  ONNXOps/Math/TensorScatter.cpp
   ONNXOps/Math/TopK.cpp
   ONNXOps/NN/Conv.cpp
   ONNXOps/NN/Dropout.cpp
@@ -77,6 +82,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Sequence/Sequence.cpp
   ONNXOps/Sequence/SplitToSequence.cpp
   ONNXOps/Tensor/ArgMinMax.cpp
+  ONNXOps/Tensor/Col2Im.cpp
   ONNXOps/Tensor/Compress.cpp
   ONNXOps/Tensor/Concat.cpp
   ONNXOps/Tensor/ConcatFromSequence.cpp
@@ -117,12 +123,20 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXCanonicalizeIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
+  # src/Pass/Passes.hpp includes tablegen'ed pass declarations from
+  # src/Transform/Passes.h.inc, src/Transform/PassesKrnl.h.inc and
+  # src/Dialect/ONNX/Transforms/Passes.h.inc. That header is pulled in
+  # (transitively) by most targets that link against OMONNXOps, so declare all
+  # three here to order their compiles after the corresponding tablegen runs.
   OMTransformsPassIncGen
+  OMTransformsKrnlPassIncGen
+  OMONNXTransformsPassIncGen
 
   LINK_LIBS PRIVATE
   OMDiagnostic
 
   LINK_LIBS PUBLIC
+  OMCompilerOptions
   OMMlirDialects
   OMMlirUtilities
   OMShapeHelperOpInterface

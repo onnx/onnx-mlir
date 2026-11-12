@@ -6,8 +6,8 @@ add_onnx_mlir_dialect_doc(zhigh ZHigh.td)
 add_onnx_mlir_library(OMZHighOps
   # Top files for ZHigh dialect.
   ZHighOps.cpp
-  ZHighOps/OpFusionHelper.cpp
   ZHighOps/OpHelper.cpp
+  ZHighOps/ZHighFusionOpHelper.cpp
 
   # Support for shape inference, verifier, and canonicalization.
   # Please list in the alphabetical order.
@@ -23,6 +23,7 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/GRU/GRU.cpp
   ZHighOps/LSTM/LSTM.cpp
   ZHighOps/MatMul/MatMul.cpp
+  ZHighOps/SDPA3D/SDPA3D.cpp
   ZHighOps/MeanReduce2D/MeanReduce2D.cpp
   ZHighOps/Pooling/Pooling.cpp
   ZHighOps/QuantizedMatMul/QuantizedMatMul.cpp
@@ -50,7 +51,8 @@ add_onnx_mlir_library(OMZHighOps
   OMDiagnostic
 
   LINK_LIBS PUBLIC
-  OMONNXOps # Use ONNXShapeHelper 
+  OMONNXOps # Use ONNXShapeHelper
+  OMFusionOpHelper
   OMLayoutHelper
   OMShapeHelperOpInterface
   OMNNPACompilerOptions

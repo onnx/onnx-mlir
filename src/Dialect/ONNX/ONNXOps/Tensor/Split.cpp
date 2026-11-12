@@ -4,7 +4,7 @@
 
 //===------------------ Split.cpp - ONNX Operations -----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -55,33 +55,70 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   if (!indexExprArray.empty()) {
     if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
+    IndexExpr splitInputDim = createIE->getShapeAsDim(input, axisIndex);
+    int64_t numOfNonLiterals = 0, sumOfLiterals = 0, nonLiteralIndex = -1;
     for (unsigned int i = 0; i < numOfResults; ++i) {
-      LiteralIndexExpr dim(indexExprArray[i]);
-      splitDims.emplace_back(dim);
+      if (indexExprArray[i].isLiteral()) {
+        sumOfLiterals += indexExprArray[i].getLiteral();
+      } else {
+        numOfNonLiterals++;
+        nonLiteralIndex = i;
+      }
+      splitDims.emplace_back(indexExprArray[i]);
+    }
+    // When the size of the split dimension is known, check that the sum of the
+    // split sizes is equal to the size of the split dimension.
+    if (splitInputDim.isLiteral()) {
+      int64_t axisDim = splitInputDim.getLiteral();
+      if (numOfNonLiterals == 0 && sumOfLiterals != axisDim)
+        return op->emitError("Split sizes must sum up to the dimension at "
+                             "the split axis");
+      // A single unknown split value is the remainder of the axis dimension.
+      if (numOfNonLiterals == 1 && sumOfLiterals <= axisDim)
+        splitDims[nonLiteralIndex] = LitIE(axisDim - sumOfLiterals);
     }
   } else {
-    // If split parameter is not specified, the dimension is split to
-    // equal-sized parts.
-    bool hasNumOutputsAttr = std::is_same_v<OP_TYPE, ONNXSplitOp>;
-    // TODO figure out how to handle when numResults is determined by
-    // num_outputs attribute introduced for Split in opset 18
-    // Currently the whole graph depends on the number of outputs being
-    // determined at the ONNX to ONNX-MLIR ingestion stage.
     IndexExpr splitInputDim = createIE->getShapeAsDim(input, axisIndex);
     LiteralIndexExpr numOfPartitions(numOfResults);
-    if (splitInputDim.isLiteral() &&
-        (splitInputDim.getLiteral() % numOfResults != 0) && !hasNumOutputsAttr)
-      return op->emitError("The dimension at the split axis is "
-                           "expected to be divisible by the number of results");
 
-    unsigned numBiggerChunks = splitInputDim.isLiteral()
-                                   ? splitInputDim.getLiteral() % numOfResults
-                                   : numOfResults;
-    for (unsigned int i = 0; i < numOfResults; ++i) {
-      IndexExpr splitDim = (i < numBiggerChunks)
-                               ? splitInputDim.ceilDiv(numOfPartitions)
-                               : splitInputDim.floorDiv(numOfPartitions);
-      splitDims.emplace_back(splitDim);
+    // SplitV13-to-Split decomposition currently represents an absent split
+    // using ONNXSplitOp without num_outputs. Preserve equal-split semantics
+    // for that compatibility form and use Split-18 semantics only when the
+    // num_outputs attribute is actually present.
+    bool hasNumOutputs = false;
+    if constexpr (std::is_same_v<OP_TYPE, ONNXSplitOp>)
+      hasNumOutputs = splitOp.getNumOutputs().has_value();
+
+    if (hasNumOutputs) {
+      // Split-18: use ceil-sized chunks, except for the last chunk,
+      // which contains all remaining elements.
+      for (unsigned i = 0; i + 1 < numOfResults; ++i)
+        splitDims.emplace_back(splitInputDim.ceilDiv(numOfPartitions));
+
+      // Build a distinct expression for each result. Downstream IndexExpr
+      // lowering classifies these values independently as dimensions or
+      // symbols, so sharing one computed IndexExpr between results is unsafe.
+      IndexExpr lastChunk =
+          splitInputDim - splitInputDim.ceilDiv(numOfPartitions) *
+                              LiteralIndexExpr(numOfResults - 1);
+      if (lastChunk.isLiteral() && lastChunk.getLiteral() < 0)
+        return op->emitError(
+            "'num_outputs' produces a negative size for the last output");
+      splitDims.emplace_back(lastChunk);
+    } else {
+      // SplitV13, SplitV11, and the compatibility form described above must
+      // produce equal-sized outputs when explicit split sizes are absent.
+      if (splitInputDim.isLiteral() &&
+          splitInputDim.getLiteral() % numOfResults != 0)
+        return op->emitError(
+            "The dimension at the split axis is expected to be "
+            "divisible by the number of results");
+
+      // For a valid dynamic input the dimension is divisible, making ceilDiv
+      // equivalent to floorDiv. Keep ceilDiv to preserve the IndexExpr form
+      // expected by existing lowerings.
+      for (unsigned i = 0; i < numOfResults; ++i)
+        splitDims.emplace_back(splitInputDim.ceilDiv(numOfPartitions));
     }
   }
 
@@ -110,9 +147,9 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
   if (isNoneValue(split)) {
     // None is fine, indexExprArray will be empty.
   } else {
+    // Split values may be runtime values; they are then question marks
+    // during analysis and symbols during code generation.
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
-    assert(IndexExpr::isLiteral(indexExprArray) &&
-           "dynamic split not yet supported");
   }
   return customComputeShape(indexExprArray);
 }
@@ -127,9 +164,9 @@ LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
   if (isNoneValue(split)) {
     // None is fine, indexExprArray will be empty.
   } else {
+    // Split values may be runtime values; they are then question marks
+    // during analysis and symbols during code generation.
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
-    assert(IndexExpr::isLiteral(indexExprArray) &&
-           "dynamic split not yet supported");
   }
   return customComputeShape(indexExprArray);
 }
@@ -156,6 +193,24 @@ LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
 LogicalResult ONNXSplitOp::verify() {
   ONNXSplitOpAdaptor operandAdaptor(*this);
   Value input = operandAdaptor.getInput();
+  Value split = operandAdaptor.getSplit();
+  std::optional<int64_t> numOutputs = operandAdaptor.getNumOutputs();
+
+  if (getNumResults() == 0)
+    return emitOpError("requires at least one output");
+
+  if (!isNoneValue(split) && numOutputs.has_value())
+    return emitOpError(
+        "does not allow both 'split' and 'num_outputs' to be specified");
+
+  if (numOutputs.has_value()) {
+    if (*numOutputs < 1)
+      return emitOpError("requires 'num_outputs' to be positive");
+    if (static_cast<uint64_t>(*numOutputs) != getNumResults())
+      return emitOpError("requires 'num_outputs' to equal the number of "
+                         "variadic results");
+  }
+
   if (!hasShapeAndRank(input))
     return success(); // Won't be able to do any checking at this stage.
 

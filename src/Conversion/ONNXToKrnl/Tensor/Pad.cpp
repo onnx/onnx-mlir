@@ -39,9 +39,11 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
         MemRefBuilder>
         create(rewriter, loc);
 
-    // Shape helper.
+    // Shape helper. It fails when some axes are still not known; the pre-Krnl
+    // verify pass reports those.
     ONNXPadOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (failed(shapeHelper.computeShape()))
+      return rewriter.notifyMatchFailure(op, "Pad axes are not all known");
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -108,7 +110,7 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
             createKrnl.storeIE(dataValue, resMemRef, resLoopInd);
           });
     } else {
-      // 'edge' and 'reflect' modes.
+      // 'edge', 'reflect' and 'wrap' modes.
       SmallVector<IndexExpr, 4> lbs(rank, zero);
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(resMemRef, ubs);
@@ -139,6 +141,12 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
                 // After the right side of input. Reflect on the right edge.
                 dataInd = dataInd.selectOrSelf(
                     dataInd >= dim, dim - (dataInd - dim) - two);
+              }
+              if (padMode.equals_insensitive("wrap")) {
+                // Wrap around the input, as if it were repeated on both
+                // sides. The remainder may be negative when `dim` is not a
+                // literal, hence the second modulo.
+                dataInd = ((dataInd - pad) % dim + dim) % dim;
               }
               dataLoopInd.emplace_back(dataInd);
             }

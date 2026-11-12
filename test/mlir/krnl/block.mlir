@@ -59,12 +59,12 @@ func.func private @bertsquad10_const_pattern(%arg0: memref<1x256x768xf32>) -> me
     %c1 = arith.constant 1 : index
     %c256 = arith.constant 256 : index
     %c768 = arith.constant 768 : index
-    %alloc = memref.alloc() {alignment = 16 : i64} : memref<1x256x1xf32>
-    %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<2xindex>
+    %alloc = memref.alloc() alignment = 16 : memref<1x256x1xf32>
+    %alloc_1 = memref.alloc() alignment = 16 : memref<2xindex>
     affine.store %c1, %alloc_1[0] : memref<2xindex>
     affine.store %c256, %alloc_1[1] : memref<2xindex>
     %reshape = memref.reshape %alloc(%alloc_1) : (memref<1x256x1xf32>, memref<2xindex>) -> memref<1x256xf32>
-    %alloca = memref.alloca() {alignment = 16 : i64} : memref<4x4xf32>
+    %alloca = memref.alloca() alignment = 16 : memref<4x4xf32>
     %0:2 = krnl.define_loops 2
     %loop_block, %loop_local = krnl.block %0#1 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     krnl.iterate(%0#0, %loop_block) with (%0#0 -> %arg1 = 0 to 1, %0#1 -> %arg2 = 0 to 256){

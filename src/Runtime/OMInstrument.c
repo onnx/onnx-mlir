@@ -231,7 +231,7 @@ static void ProcessName(
 static bool perfCounterEnabled = false;
 static int perfCounterCount = 0;
 
-#ifdef __s390x__
+#if defined(__s390x__) && !defined(__MVS__)
 #define _GNU_SOURCE
 #include <linux/hw_breakpoint.h> /* Definition of HW_* constants */
 #include <linux/perf_event.h>    /* Definition of PERF_* constants */

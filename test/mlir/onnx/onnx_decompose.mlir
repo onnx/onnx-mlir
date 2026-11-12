@@ -336,6 +336,32 @@ func.func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_padv2_f16(%arg0: tensor<1x3x224x224xf16>) -> tensor<*xf16> {
+    %0 = "onnx.PadV2"(%arg0) {mode = "constant", pads = [0, 0, 4, 4, 0, 0, 4, 4], value = 1.25 : f32} : (tensor<1x3x224x224xf16>) -> tensor<*xf16>
+    onnx.Return %0 : tensor<*xf16>
+    // CHECK-LABEL: test_padv2_f16
+    // CHECK: [[PAD:%.+]] = onnx.Constant dense<[0, 0, 4, 4, 0, 0, 4, 4]> : tensor<8xi64>
+    // CHECK: [[CONSTANT_VALUE:%.+]] = onnx.Constant dense<1.250000e+00> : tensor<1xf16>
+    // CHECK: [[NONE:%.+]] = "onnx.NoValue"() : () -> none
+    // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[PAD]], [[CONSTANT_VALUE]], [[NONE]]) <{mode = "constant"}> : (tensor<1x3x224x224xf16>, tensor<8xi64>, tensor<1xf16>, none) -> tensor<*xf16>
+    // CHECK: onnx.Return [[RES]] : tensor<*xf16>
+}
+
+// -----
+
+func.func @test_padv2_f64(%arg0: tensor<1x3x224x224xf64>) -> tensor<*xf64> {
+    %0 = "onnx.PadV2"(%arg0) {mode = "constant", pads = [0, 0, 4, 4, 0, 0, 4, 4], value = 1.25 : f32} : (tensor<1x3x224x224xf64>) -> tensor<*xf64>
+    onnx.Return %0 : tensor<*xf64>
+    // CHECK-LABEL: test_padv2_f64
+    // CHECK: [[PAD:%.+]] = onnx.Constant dense<[0, 0, 4, 4, 0, 0, 4, 4]> : tensor<8xi64>
+    // CHECK: [[CONSTANT_VALUE:%.+]] = onnx.Constant dense<1.250000e+00> : tensor<1xf64>
+    // CHECK: [[NONE:%.+]] = "onnx.NoValue"() : () -> none
+    // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[PAD]], [[CONSTANT_VALUE]], [[NONE]]) <{mode = "constant"}> : (tensor<1x3x224x224xf64>, tensor<8xi64>, tensor<1xf64>, none) -> tensor<*xf64>
+    // CHECK: onnx.Return [[RES]] : tensor<*xf64>
+}
+
+// -----
+
 func.func @test_resizev10(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
   %0 = "onnx.ResizeV10"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<4xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>

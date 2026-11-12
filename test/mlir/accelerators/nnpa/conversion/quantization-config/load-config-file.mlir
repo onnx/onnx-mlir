@@ -1,4 +1,4 @@
-// RUN: cfg_file=$(dirname %s)/cfg.json && onnx-mlir-opt --nnpa-quant-ops-selection=load-config-file=$cfg_file --march=z17 --maccel=NNPA --split-input-file %s | FileCheck %s
+// RUN: onnx-mlir-opt --nnpa-quant-ops-selection=load-config-file=%S/cfg.json --march=z17 --maccel=NNPA --split-input-file %s | FileCheck %s
 
 func.func @test_load_config_file(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg0) {onnx_node_name = "MatMul_0"} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>

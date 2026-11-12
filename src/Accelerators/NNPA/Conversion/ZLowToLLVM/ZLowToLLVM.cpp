@@ -1072,6 +1072,98 @@ private:
   ApiRegistry apiRegistry;
 };
 
+class ZLowSDPA3DLowering : public ConvertToLLVMPattern {
+public:
+  explicit ZLowSDPA3DLowering(MLIRContext *context,
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
+      : ConvertToLLVMPattern(
+            ZLowSDPA3DOp::getOperationName(), context, lowering_) {
+    this->apiRegistry = apiRegistry;
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    ZLowSDPA3DOp fusedOp = mlir::cast<ZLowSDPA3DOp>(op);
+
+    ZLowSDPA3DOpAdaptor operandAdaptor(operands);
+    Type llvmElementTy = typeConverter->convertType(
+        mlir::cast<MemRefType>(fusedOp.getQ().getType()).getElementType());
+
+    ZTensorHelper zTensorHelper =
+        ZTensorHelper(rewriter, loc, module, apiRegistry);
+
+    // Get zDNN data type.
+    zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
+
+    // Shape memref has 5 dims: {S, M, N, P, Q}.
+    std::vector<Value> dims = getDimsFromShapeMemRefBySize(
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/5);
+    Value S = dims[0], M = dims[1], N = dims[2], P = dims[3], Q = dims[4];
+
+    // Q: 3DS {S, M, N}
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getQ());
+    ZTensor qZTensor =
+        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
+            /*isTransformed=*/true);
+
+    // KT: 3DS {S, N, P} when transposeKT=0, {S, P, N} when transposeKT=1
+    bool transposeKT = fusedOp.getTransposeKT() != 0;
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getKT());
+    ZTensor ktZTensor = zTensorHelper.getZTensor(stickI8Ptr,
+        /*dataType=*/zDNNDataType,
+        /*layout=*/ZDNN_3DS,
+        /*originalDims=*/
+        transposeKT ? SmallVector<Value>{S, P, N} : SmallVector<Value>{S, N, P},
+        /*isTransformed=*/true);
+
+    // Mask: 3DS {S, M, P}
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getMask());
+    ZTensor maskZTensor =
+        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, P},
+            /*isTransformed=*/true);
+
+    // V: 3DS {S, P, Q}
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getV());
+    ZTensor vZTensor =
+        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, P, Q},
+            /*isTransformed=*/true);
+
+    // Output: 3DS {S, M, Q}
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
+    ZTensor outZTensor =
+        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, Q},
+            /*isTransformed=*/true);
+
+    // transposeKT value for runtime.
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    Value transposeKTVal = create.llvm.constant(
+        rewriter.getI64Type(), static_cast<int64_t>(transposeKT ? 1 : 0));
+
+    // Call zdnnx_sdpa_3d runtime function.
+    callApi(rewriter, loc, module, apiRegistry, API::ZDNNX_SDPA3D,
+        {
+            toOpaquePtr(rewriter, loc, module, qZTensor.val),
+            toOpaquePtr(rewriter, loc, module, ktZTensor.val),
+            toOpaquePtr(rewriter, loc, module, maskZTensor.val),
+            toOpaquePtr(rewriter, loc, module, vZTensor.val),
+            transposeKTVal,
+            toOpaquePtr(rewriter, loc, module, outZTensor.val),
+        });
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+private:
+  ApiRegistry apiRegistry;
+};
+
 class ZLowLeakyReluLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowLeakyReluLowering(MLIRContext *context,
@@ -2570,6 +2662,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowGRULowering,
       // Other operations
       ZLowMatMulLowering,
+      ZLowSDPA3DLowering,
       ZLowQuantizedMatMulLowering,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,

@@ -1,9 +1,11 @@
-<?xml version='1.1' encoding='UTF-8'?>
-<flow-definition plugin="workflow-job@1145.v7f2433caa07f">
+<?xml version="1.1" encoding="UTF-8"?>
+<flow-definition plugin="workflow-job@1602.v2a_70b_80a_2396">
   <actions>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.9.3"/>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.9.3">
-      <jobProperties/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@2.2293.v6e7193cec599"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@2.2293.v6e7193cec599">
+      <jobProperties>
+        <string>jenkins.model.BuildDiscarderProperty</string>
+      </jobProperties>
       <triggers/>
       <parameters/>
       <options>
@@ -35,8 +37,17 @@ The &quot;head&quot; branch is the actual branch that is to be merged. The &quot
 The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are building to post the commit status. So if we build the &quot;merge&quot; branch, it would post to the wrong &quot;merge&quot; SHA. The GitHub Pull Request Builder Plugin handles building either branch correctly.</description>
   <keepDependencies>false</keepDependencies>
   <properties>
-    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.6"/>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.34.1">
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.22"/>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>1000</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+        <removeLastBuild>false</removeLastBuild>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.47.0">
       <projectUrl>https://github.com/onnx/onnx-mlir/</projectUrl>
       <displayName></displayName>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
@@ -59,14 +70,14 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
-    <jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl plugin="branch-api@2.7.0">
+    <jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl plugin="branch-api@2.1303.v9f3b_95dc329d">
       <durationName>minute</durationName>
       <count>1</count>
       <userBoost>false</userBoost>
     </jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl>
     <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
       <triggers>
-        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@1.83">
+        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@2.4.3">
           <spec></spec>
           <genericVariables>
             <org.jenkinsci.plugins.gwt.GenericVariable>
@@ -138,11 +149,13 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
           <tokenCredentialId>github-onnx-mlir-to-jenkins-gwt</tokenCredentialId>
           <silentResponse>true</silentResponse>
           <overrideQuietPeriod>false</overrideQuietPeriod>
+          <shouldNotFlattern>false</shouldNotFlattern>
+          <allowSeveralTriggersPerBuild>false</allowSeveralTriggersPerBuild>
         </org.jenkinsci.plugins.gwt.GenericTrigger>
       </triggers>
     </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
   </properties>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2648.va9433432b33c">
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@4390.va_61c07eb_2f72">
     <script>/* Script here should be minimal. It mainly does two things:
  *
  * 1. Check if webhook event is sent by one of the admins
@@ -169,8 +182,13 @@ node {
         set_build_name(&quot;${x_github_event}&quot;)
 
         try {
-            /* User triggering the event is not one of the admins */
-            if (GITHUB_REPO_ADMINS.indexOf(GITHUB_PR_SENDER) &lt; 0) {
+            /* User triggering the event is not one of the admins.
+             * Use exact-token membership: tokenize on &apos; &apos; then check contains()
+             * so that a GitHub username which is a substring of an admin name
+             * cannot pass the gate (f002 fix).
+             */
+             if (!GITHUB_REPO_ADMINS.tokenize().contains(GITHUB_PR_SENDER)) {
+
                 /* Just post the comment once */
                 if (CPU_ARCH == &apos;s390x&apos;)
                     post_pr_comment(&quot;${GITHUB_PR_COMMENT_URL}&quot;,
@@ -266,6 +284,7 @@ def set_environ_vars(event) {
             env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
             env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_MERGED         = &quot;${github_webhook_payload_pull_request_merged}&quot;
+            env.GITHUB_PR_DRAFT          = &quot;${github_webhook_payload_pull_request_draft}&quot;
             break
         case &apos;issue_comment&apos;:
             env.GITHUB_PR_SENDER         = &quot;${github_webhook_payload_sender_login}&quot;

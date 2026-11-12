@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Note: LLVM_ENABLE_PROJECTS is being phased out for runtimes; use LLVM_ENABLE_RUNTIMES instead (e.g. for OpenMP).  
 # Going forward, all LLVM/MLIR-dependent runtimes should be built with LLVM_ENABLE_RUNTIMES, not LLVM_ENABLE_PROJECTS. 
 mkdir llvm-project/build

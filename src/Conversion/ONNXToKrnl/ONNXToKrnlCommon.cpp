@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -696,65 +696,6 @@ bool hasNonIdentityLayout(ValueRange operands) {
 }
 
 //===----------------------------------------------------------------------===//
-// Support functions for parallel region.
-//===----------------------------------------------------------------------===//
-
-// Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
-// which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
-// requirement by definition. If found one, it is parDim and the function
-// returns true. Otherwise parDim is unchanged.
-
-bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
-    ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
-    int64_t &parDim, int64_t minSize) {
-  assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
-  if (firstInclusiveDim < 0)
-    firstInclusiveDim = 0;
-  if (lastExclusiveDim > static_cast<int64_t>(lb.size()))
-    lastExclusiveDim = lb.size();
-  for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
-    IndexExpr tripCount = ub[i] - lb[i];
-    if (!tripCount.isLiteral()) {
-      // Got a dyn dim, assume will be large enough.
-      LLVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
-      parDim = i;
-      return true;
-    }
-    if (tripCount.getLiteral() >= minSize) {
-      // Got a literal dim with large enough trip count.
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Pick dim " << i << " as " << tripCount.getLiteral()
-                 << " greater than " << minSize << "\n");
-      parDim = i;
-      return true;
-    }
-  }
-  return false;
-}
-
-int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
-    std::string msg, const ValueRange &loopDef, ArrayRef<IndexExpr> lbs,
-    ArrayRef<IndexExpr> ubs, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, ArrayRef<int64_t> exclusiveDims, int64_t minSize,
-    bool createKrnlParallel) {
-  int64_t parId = -1;
-  if (findSuitableParallelDimension(
-          lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
-    if (!llvm::is_contained(exclusiveDims, parId)) {
-      if (createKrnlParallel) {
-        assert(parId <= (int64_t)loopDef.size() && "expected loop defs");
-        createKrnl.parallel(loopDef[parId]);
-      }
-      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
-      return parId;
-    }
-  }
-  onnxToKrnlParallelReport(
-      op, false, -1, -1, "no par dim with enough work in " + msg);
-  return -1;
-}
-
-//===----------------------------------------------------------------------===//
 // Support functions for simd.
 //===----------------------------------------------------------------------===//
 
@@ -1111,6 +1052,107 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
             },
             /*elseBuilder=*/nullptr);
       });
+}
+
+//===----------------------------------------------------------------------===//
+// FusedOpInlineFallback
+//===----------------------------------------------------------------------===//
+
+LogicalResult FusedOpInlineFallback::matchAndRewrite(
+    ONNXFusedOp fusedOp, OpAdaptor, ConversionPatternRewriter &rewriter) const {
+  fusedOp.emitWarning()
+      << "no dedicated lowering for onnx.Fused (kind='" << fusedOp.getKind()
+      << "'); inlining body as fallback — add a FusedOpKindLowering subclass";
+  return FusionOpKindHelper::unFuse(rewriter, fusedOp);
+}
+
+//===----------------------------------------------------------------------===//
+// Writing a result into the buffer of an operand.
+//===----------------------------------------------------------------------===//
+
+bool canWriteInPlace(ConversionPatternRewriter &rewriter, Operation *op,
+    unsigned operandIndex, MemRefType resultMemRefType) {
+  // Check the uses on the original operand: see allocOrReuse.
+  Value operand = op->getOperand(operandIndex);
+  if (!operand.hasOneUse())
+    return false;
+  Operation *producer = operand.getDefiningOp();
+  if (!producer || producer->getBlock() != op->getBlock())
+    return false;
+  Value buffer = rewriter.getRemappedValue(operand);
+  if (!buffer || !buffer.getDefiningOp<memref::AllocOp>() ||
+      buffer.getType() != resultMemRefType)
+    return false;
+  for (Value producerOperand : producer->getOperands())
+    if (rewriter.getRemappedValue(producerOperand) == buffer)
+      return false;
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// Copy of a whole buffer, possibly in parallel.
+//===----------------------------------------------------------------------===//
+
+// A parallel copy is split into chunks of this many bytes, one memcpy each.
+static constexpr int64_t memcpyChunkBytes = 1 << 20;
+// Smallest copy, in bytes, worth a parallel region. Measured on an 18-thread
+// CPU: a parallel copy was slower at 1 MB and faster at 17 MB.
+static constexpr int64_t minParallelMemcpyBytes = 8 << 20;
+
+void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
+    Value dest, Value src, DimsExprRef srcDims, bool enableParallel,
+    const std::string &msg) {
+  MultiDialectBuilder<KrnlBuilder, SCFBuilder> create(rewriter, loc);
+  Value numOfElements = getDynamicMemRefSize(rewriter, loc, src);
+  auto emitSerialCopy = [&](const KrnlBuilder &createKrnl) {
+    createKrnl.memcpy(dest, src, numOfElements);
+  };
+  if (!enableParallel) {
+    emitSerialCopy(create.krnl);
+    return;
+  }
+
+  IndexExpr numElems = LitIE(1);
+  for (const IndexExpr &dim : srcDims)
+    numElems = numElems * dim;
+  int64_t eltBytes =
+      getMemRefEltSizeInBytes(mlir::cast<MemRefType>(src.getType()));
+  int64_t chunkElems = std::max<int64_t>(1, memcpyChunkBytes / eltBytes);
+  IndexExpr numChunks = numElems.ceilDiv(chunkElems);
+  auto emitParallelCopy = [&](const KrnlBuilder &createKrnl) {
+    ValueRange loopDef = createKrnl.defineLoops(1);
+    DimsExpr lbs = {LitIE(0)}, ubs = {numChunks};
+    // bodyCost: one iteration copies a chunk of chunkElems elements.
+    auto plan = KrnlParallelPlan::noCollapse(loopDef,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/1,
+        {.minTripCountForParallel = 2, .bodyCost = chunkElems});
+    plan.tryCreateParallel(createKrnl, op, msg, lbs, ubs);
+    createKrnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
+          IndexExprScope chunkScope(createKrnl);
+          IndexExpr start = DimIE(loopInd[0]) * chunkElems;
+          IndexExpr len = IndexExpr::min(SymIE(numElems) - start, chunkElems);
+          Value lenI64 = create.math.cast(
+              createKrnl.getBuilder().getI64Type(), len.getValue());
+          create.krnl.memcpy(
+              dest, src, lenI64, start.getValue(), start.getValue());
+        });
+  };
+
+  int64_t minParallelElems = minParallelMemcpyBytes / eltBytes;
+  if (numElems.isLiteral()) {
+    if (numElems.getLiteral() >= minParallelElems)
+      emitParallelCopy(create.krnl);
+    else
+      emitSerialCopy(create.krnl);
+    return;
+  }
+  IndexExpr isLarge = numElems >= minParallelElems;
+  create.scf.ifThenElse(
+      isLarge.getValue(),
+      [&](const SCFBuilder &scf) { emitParallelCopy(KrnlBuilder(scf)); },
+      [&](const SCFBuilder &scf) { emitSerialCopy(KrnlBuilder(scf)); });
 }
 
 } // namespace onnx_mlir

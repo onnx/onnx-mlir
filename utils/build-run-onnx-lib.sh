@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Build the run-onnx-lib utility
 #
 # When called without parameters, we build the tool for dynamically linking of
@@ -6,8 +7,15 @@
 # When called with one parameter (a compiled model .o or .so), we build the
 # tool with that model statically linked in.
 #
+# The binary is placed under the "bin" subdir of whichever build HOME is in
+# effect (e.g. Debug/bin or Release/bin) -- this script prints the exact path
+# once it has determined it, below.
+#
 # Assumptions:
-# 1) script run in the onnx-mlir/build subdir.
+# 1) If ONNX_MLIR_HOME is set (see RunONNXModel.py for the convention: e.g.
+#    onnx-mlir/build/Debug), the script can be run from any directory.
+# 2) Otherwise, the script must be run from the onnx-mlir/build subdir, and
+#    defaults to the Debug build (Debug/bin, Debug/lib).
 
 if [ -z $ONNX_MLIR_HOME ]; then
   # The build path of onnx-mlir is not provided

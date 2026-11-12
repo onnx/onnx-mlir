@@ -60,3 +60,55 @@ func.func @expand_dyn(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi64>) -> tensor<?x
 // CHECK:           return [[RES_]] : memref<?x?xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @expand_scalar_0D(%arg0: tensor<f32>, %arg1: tensor<2xi64>) -> tensor<?x?xf32>  {
+  %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<f32>, tensor<2xi64>) -> tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-LABEL:  func.func @expand_scalar_0D
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>, [[PARAM_1_:%.+]]: memref<2xi64>) -> memref<?x?xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : memref<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_1_]]{{.}} : memref<2xi64>
+// CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_1_]] : i64 to index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]], [[VAR_3_]]) {{.*}}: memref<?x?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_1_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_0_]](){{.}}[[VAR_1_]], [[VAR_3_]]{{.}}){
+// CHECK:             [[VAR_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_6_]]#0, [[VAR_6_]]#1] : memref<?x?xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @expand_scalar_1D(%arg0: tensor<1xf32>, %arg1: tensor<2xi64>) -> tensor<?x?xf32>  {
+  %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<1xf32>, tensor<2xi64>) -> tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-LABEL:  func.func @expand_scalar_1D
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1xf32>, [[PARAM_1_:%.+]]: memref<2xi64>) -> memref<?x?xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : memref<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_1_]]{{.}} : memref<2xi64>
+// CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_1_]] : i64 to index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]], [[VAR_3_]]) {{.*}}: memref<?x?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[CST_0_]]{{.}} : memref<1xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_1_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_0_]](){{.}}[[VAR_1_]], [[VAR_3_]]{{.}}){
+// CHECK:             [[VAR_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_6_]]#0, [[VAR_6_]]#1] : memref<?x?xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x?xf32>
+// CHECK:         }
+}

@@ -54,12 +54,16 @@ bool isAxisInRange(int64_t &axis, Value val, bool includeRank) {
 // Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is
 // true.  Assert when not in range. Return positive axis.
 int64_t getAxisInRange(int64_t axis, int64_t rank, bool includeRank) {
-  assert(isAxisInRange(axis, rank, includeRank) && "expected axis in range");
+  bool inRange = isAxisInRange(axis, rank, includeRank);
+  assert(inRange && "expected axis in range");
+  (void)inRange;
   return axis;
 }
 
 int64_t getAxisInRange(int64_t axis, Value val, bool includeRank) {
-  assert(isAxisInRange(axis, val, includeRank) && "expected axis in range");
+  bool inRange = isAxisInRange(axis, val, includeRank);
+  assert(inRange && "expected axis in range");
+  (void)inRange;
   return axis;
 }
 

@@ -669,26 +669,40 @@ def FuseTransposePattern:  Pat<
   // Transpose with combined pattern.
   (ONNXTransposeOp $v, (CreateCombinedTransposedPattern $p1, $p2))>;
 
+// Type with the shape of $0 and the element type of $1. The rewritten elmOp
+// takes its shape from the un-transposed input, but must keep its original
+// result element type, which differs from the input's for ops such as Cast
+// and IsNaN.
+def GetShapeOfFirstWithElementTypeOfSecond: NativeCodeCall<
+  "onnx_mlir::getShapeOfFirstWithElementTypeOfSecond($0, $1)"
+>;
+
 class FuseTransposeAndElementwiseUnaryOpPattern<Op elmOp>:  Pat<
   // Transpose of elmOp on a transpose.
-  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1)), $p2),
+  (ONNXTransposeOp (elmOp:$res (ONNXTransposeOp $v, $p1)), $p2),
   // elmOp on Transpose with combined pattern.
-  (ONNXTransposeOp (elmOp $v, (returnType $v)),
-                   (CreateCombinedTransposedPattern $p1, $p2))>;
+  (ONNXTransposeOp
+      (elmOp $v,
+          (returnType (GetShapeOfFirstWithElementTypeOfSecond $v, $res))),
+      (CreateCombinedTransposedPattern $p1, $p2))>;
 
 class FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<Op elmOp>:  Pat<
   // Transpose of elmOp on a transpose.
-  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1), $arg1), $p2),
+  (ONNXTransposeOp (elmOp:$res (ONNXTransposeOp $v, $p1), $arg1), $p2),
   // elmOp on Transpose with combined pattern.
-  (ONNXTransposeOp (elmOp $v, $arg1, (returnType $v)),
-                   (CreateCombinedTransposedPattern $p1, $p2))>;
+  (ONNXTransposeOp
+      (elmOp $v, $arg1,
+          (returnType (GetShapeOfFirstWithElementTypeOfSecond $v, $res))),
+      (CreateCombinedTransposedPattern $p1, $p2))>;
 
 class FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<Op elmOp>:  Pat<
   // Transpose of elmOp on a transpose.
-  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1), $arg1, $arg2), $p2),
+  (ONNXTransposeOp (elmOp:$res (ONNXTransposeOp $v, $p1), $arg1, $arg2), $p2),
   // elmOp on Transpose with combined pattern.
-  (ONNXTransposeOp (elmOp $v, $arg1, $arg2, (returnType $v)),
-                   (CreateCombinedTransposedPattern $p1, $p2))>;
+  (ONNXTransposeOp
+      (elmOp $v, $arg1, $arg2,
+          (returnType (GetShapeOfFirstWithElementTypeOfSecond $v, $res))),
+      (CreateCombinedTransposedPattern $p1, $p2))>;
 
 def FuseTransposeAndAtanPattern :
     FuseTransposeAndElementwiseUnaryOpPattern<ONNXAtanOp>;
@@ -1252,6 +1266,19 @@ def AlwaysFalseWherePattern : Pat<
  (ONNXWhereOp (ONNXEqualOp (ONNXConcatOp $dims, $_), $negative_constant), $true_val, $false_val),
  (replaceWithValue $false_val),
  [(IsNegativeSplatConstant:$negative_constant), (AreAllDimSizes:$dims)]
+>;
+
+// Where(Not(c), x, y) = Where(c, y, x). Normalizing to the un-negated condition
+// removes the Not (once unused) and lets Wheres on c and on Not(c) share the
+// same condition. Swapping x and y keeps the result shape and element type,
+// since Where broadcasts its three operands symmetrically.
+
+// This pattern was found in granite-embedding-97m-multilingual-r2 (sliding-
+// window attention mask) in HuggingFace.
+
+def WhereNotConditionSwapPattern : Pat<
+ (ONNXWhereOp (ONNXNotOp $cond), $true_val, $false_val),
+ (ONNXWhereOp $cond, $false_val, $true_val)
 >;
 
 #endif // ONNX_REWRITE

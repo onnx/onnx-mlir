@@ -1122,6 +1122,52 @@ func.func @test_reshape_dim_not_bijection(%arg0: tensor<?x?x2048xf32>) -> tensor
 // CHECK:         }
 }
 
+// -----
+
+// Literal 0s copy the dynamic data dims at the same index, so the dim at
+// position of -1 is 2560/40.
+func.func @test_reshape_literal_zero(%arg0: tensor<?x?x2560xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[0, 0, 40, -1]> : tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<?x?x2560xf32>, tensor<4xi64>) -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_literal_zero
+// CHECK:           "onnx.Reshape"({{.*}}) <{allowzero = 0 : si64}> : (tensor<?x?x2560xf32>, tensor<4xi64>) -> tensor<?x?x40x64xf32>
+}
+
+// -----
+
+// Mix of a Dim mapped to its data dim and a literal 0.
+func.func @test_reshape_literal_zero_and_dim(%arg0: tensor<?x?x2560xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<0> : tensor<1xi64>
+  %1 = onnx.Constant dense<40> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2560xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%3, %0, %1, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %5 = "onnx.Reshape"(%arg0, %4) {allowzero = 0 : si64} : (tensor<?x?x2560xf32>, tensor<4xi64>) -> tensor<*xf32>
+  "onnx.Return"(%5) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_literal_zero_and_dim
+// CHECK:           "onnx.Reshape"({{.*}}) <{allowzero = 0 : si64}> : (tensor<?x?x2560xf32>, tensor<4xi64>) -> tensor<?x?x40x64xf32>
+}
+
+// -----
+
+// The Dim already maps to data dim 1, so the literal 0 copying data dim 1
+// cannot be ignored too, and the dim at position of -1 stays unknown.
+func.func @test_reshape_literal_zero_same_data_dim_as_dim(%arg0: tensor<?x?x2560xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<0> : tensor<1xi64>
+  %1 = onnx.Constant dense<40> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x2560xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%3, %0, %1, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %5 = "onnx.Reshape"(%arg0, %4) {allowzero = 0 : si64} : (tensor<?x?x2560xf32>, tensor<4xi64>) -> tensor<*xf32>
+  "onnx.Return"(%5) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_literal_zero_same_data_dim_as_dim
+// CHECK:           "onnx.Reshape"({{.*}}) <{allowzero = 0 : si64}> : (tensor<?x?x2560xf32>, tensor<4xi64>) -> tensor<?x?x40x?xf32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
 //===----------------------------------------------------------------------===//
@@ -1659,6 +1705,45 @@ func.func @test_split_7(%arg0 : tensor<16x38x64xf32>) -> tensor<*xf32> {
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() <{value}> : () -> none
   // CHECK-NEXT: [[RES:%.+]]:3 = "onnx.Split"(%arg0, [[CST]]) <{axis = 1 : si64, num_outputs = 3 : si64}> : (tensor<16x38x64xf32>, none) -> (tensor<16x13x64xf32>, tensor<16x13x64xf32>, tensor<16x12x64xf32>)
   // CHECK: onnx.Return [[RES]]#0 : tensor<16x13x64xf32>
+}
+
+// -----
+
+// Split values only known at runtime.
+func.func @test_split_dynamic_sizes(%arg0 : tensor<16x32x64xf32>, %arg1 : tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %0, %1 = "onnx.Split"(%arg0, %arg1) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  "onnx.Return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_dynamic_sizes
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, %arg1) <{axis = 1 : si64}> : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<16x?x64xf32>, tensor<16x?x64xf32>)
+  // CHECK: onnx.Return [[RES]]#0, [[RES]]#1 : tensor<16x?x64xf32>, tensor<16x?x64xf32>
+}
+
+// -----
+
+// A single split value only known at runtime is the remainder of the axis dim.
+func.func @test_split_one_dynamic_size(%arg0 : tensor<16x32x64xf32>, %arg1 : tensor<1xi64>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %cst = onnx.Constant dense<2> : tensor<1xi64>
+  %split = "onnx.Concat"(%cst, %arg1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %0, %1 = "onnx.Split"(%arg0, %split) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  "onnx.Return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_one_dynamic_size
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, {{.*}}) <{axis = 1 : si64}> : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
+  // CHECK: onnx.Return [[RES]]#0, [[RES]]#1 : tensor<16x2x64xf32>, tensor<16x30x64xf32>
+}
+
+// -----
+
+// Two split values only known at runtime stay unknown.
+func.func @test_split_two_dynamic_sizes(%arg0 : tensor<16x32x64xf32>, %arg1 : tensor<1xi64>, %arg2 : tensor<1xi64>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) {
+  %cst = onnx.Constant dense<2> : tensor<1xi64>
+  %split = "onnx.Concat"(%cst, %arg1, %arg2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %0, %1, %2 = "onnx.Split"(%arg0, %split) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<3xi64>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  "onnx.Return"(%0, %1, %2) : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_two_dynamic_sizes
+  // CHECK: [[RES:%.+]]:3 = "onnx.Split"(%arg0, {{.*}}) <{axis = 1 : si64}> : (tensor<16x32x64xf32>, tensor<3xi64>) -> (tensor<16x2x64xf32>, tensor<16x?x64xf32>, tensor<16x?x64xf32>)
 }
 
 // -----
@@ -3865,6 +3950,34 @@ func.func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x10
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for TensorScatter.
+//===----------------------------------------------------------------------===//
+
+// COM: Static shapes: present_cache takes past_cache's shape unchanged.
+func.func @test_tensorscatter_static(%past_cache: tensor<2x4x8x16xf32>, %update: tensor<2x4x2x16xf32>, %write_indices: tensor<2xi64>) -> tensor<*xf32> {
+  %0 = "onnx.TensorScatter"(%past_cache, %update, %write_indices) {axis = -2 : si64, mode = "linear"} : (tensor<2x4x8x16xf32>, tensor<2x4x2x16xf32>, tensor<2xi64>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_tensorscatter_static
+  // CHECK: [[RES:%.+]] = "onnx.TensorScatter"(%arg0, %arg1, %arg2) <{axis = -2 : si64, mode = "linear"}> : (tensor<2x4x8x16xf32>, tensor<2x4x2x16xf32>, tensor<2xi64>) -> tensor<2x4x8x16xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<2x4x8x16xf32>
+}
+
+// -----
+
+// COM: Dynamic batch dimension: present_cache still takes past_cache's shape.
+func.func @test_tensorscatter_dynamic(%past_cache: tensor<?x4x8x16xf32>, %update: tensor<?x4x2x16xf32>, %write_indices: tensor<?xi64>) -> tensor<*xf32> {
+  %0 = "onnx.TensorScatter"(%past_cache, %update, %write_indices) {axis = -2 : si64, mode = "circular"} : (tensor<?x4x8x16xf32>, tensor<?x4x2x16xf32>, tensor<?xi64>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_tensorscatter_dynamic
+  // CHECK: [[RES:%.+]] = "onnx.TensorScatter"(%arg0, %arg1, %arg2) <{axis = -2 : si64, mode = "circular"}> : (tensor<?x4x8x16xf32>, tensor<?x4x2x16xf32>, tensor<?xi64>) -> tensor<?x4x8x16xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<?x4x8x16xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for MaxRoiPool.
 //===----------------------------------------------------------------------===//
 func.func @test_maxroipool(%arg0: tensor<1x3x64x64xf32>, %arg1: tensor<1x5xf32>) -> tensor<*xf32> {
@@ -4424,3 +4537,47 @@ func.func @test_random_uniform_static_bf16() -> tensor<*xbf16> {
 }
 
 //===----------------------------------------------------------------------===//
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for DeformConv. The output shape follows the same
+/// formula as Conv; `offset` and `mask` only alter the sampling locations.
+//===----------------------------------------------------------------------===//
+
+func.func @test_deform_conv_no_bias_no_mask(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x4x4xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2], pads = [1, 1, 1, 1]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x4x4xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_deform_conv_no_bias_no_mask
+  // CHECK: [[RES:%.+]] = "onnx.DeformConv"({{.*}}) {{.*}} -> tensor<1x1x4x4xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x1x4x4xf32>
+}
+
+// -----
+
+/// group, offset_group, strides and dilations.
+
+func.func @test_deform_conv_groups(%arg0 : tensor<1x4x8x8xf32>, %arg1 : tensor<6x2x3x3xf32>, %arg2 : tensor<1x36x3x3xf32>, %arg3 : tensor<6xf32>, %arg4 : tensor<1x18x3x3xf32>) -> tensor<*xf32> {
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %arg3, %arg4) {group = 2 : si64, offset_group = 2 : si64, kernel_shape = [3, 3], strides = [2, 2]} : (tensor<1x4x8x8xf32>, tensor<6x2x3x3xf32>, tensor<1x36x3x3xf32>, tensor<6xf32>, tensor<1x18x3x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_deform_conv_groups
+  // CHECK: [[RES:%.+]] = "onnx.DeformConv"({{.*}}) {{.*}} -> tensor<1x6x3x3xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x6x3x3xf32>
+}
+
+// -----
+
+/// Unknown batch and spatial dimensions.
+
+func.func @test_deform_conv_unknown_dims(%arg0 : tensor<?x1x?x?xf32>, %arg1 : tensor<5x1x2x2xf32>, %arg2 : tensor<?x8x?x?xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) : (tensor<?x1x?x?xf32>, tensor<5x1x2x2xf32>, tensor<?x8x?x?xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_deform_conv_unknown_dims
+  // CHECK: [[RES:%.+]] = "onnx.DeformConv"({{.*}}) {{.*}} -> tensor<?x5x?x?xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<?x5x?x?xf32>
+}

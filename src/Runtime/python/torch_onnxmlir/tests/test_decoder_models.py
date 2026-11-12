@@ -49,11 +49,10 @@ class TestDecoderModel(TorchOMTestCase):
         model.eval()
 
         # Compile the model for NNPA.
-        # TODO: remove --disable-fused-op once it works with these models.
         om_options = {
             "compiler_image_name": COMPILER_IMAGE_NAME,
             "compiler_path": COMPILER_PATH,
-            "compile_options": "-O3 -march=z16 -maccel=NNPA --disable-fused-op",
+            "compile_options": "-O3 -march=z16 -maccel=NNPA",
         }
         model.forward = torch.compile(
             model.forward,

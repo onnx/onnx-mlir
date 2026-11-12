@@ -72,12 +72,14 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
                                                               //
+    auto plan = KrnlParallelPlan::noCollapse(
+        outerLoops, /*first*/ 0, /*last excl*/ 1, /*cost*/ {16});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "matmul generic", outerLoops,
-          loopLbs, loopUbs, 0, 1, {}, /*min iter for going parallel*/ 16);
+      plan.tryCreateParallel(
+          create.krnl, op, "matmul generic", loopLbs, loopUbs);
 
     // Non-reduction loop iterations: output-rank.
-    create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), loopLbs, loopUbs,
         [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
@@ -314,11 +316,14 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     mlir::SmallVector<int64_t, 4> blockSizes = {iRegTile, jRegTile, kRegTile};
     mlir::SmallVector<Value, 4> outerLoops, innerLoops;
     create.krnl.blockAndPermute(origLoops, blockSizes, outerLoops, innerLoops);
+    // Blocked/permuted refs can never collapse. Plan holds all of outerLoops,
+    // the iterate's own list; the window picks the outermost.
+    auto plan = KrnlParallelPlan::noCollapse(
+        outerLoops, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4 * iRegTile});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "matmul no broadcast",
-          {outerLoops[0]}, {zeroIE}, {dimI}, 0, 1, {},
-          /*min iter for going parallel*/ 4 * iRegTile);
-    create.krnl.iterate(origLoops, outerLoops, lbs, ubs,
+      plan.tryCreateParallel(
+          create.krnl, op, "matmul no broadcast", {zeroIE}, {dimI});
+    create.krnl.iterate(origLoops, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               innerLoops, indices, ubs, blockSizes, {}, {}, {}, simdize,
@@ -382,13 +387,17 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     SmallVector<Value, 4> broadcastUB;
     for (int64_t i = 0; i < broadcastRank; ++i)
       broadcastUB.emplace_back(create.mem.dim(C, i));
+    // Decision is over the outermost bound only; plan holds the whole
+    // broadcast nest, which is what the iterate consumes.
+    auto plan = KrnlParallelPlan::noCollapse(
+        broadcastLoop, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
     if (enableParallel) {
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)),
           ub(1, shapeHelper.getOutputDims()[0]);
-      tryCreateKrnlParallel(create.krnl, op, "matmul no broadcast",
-          broadcastLoop, lb, ub, 0, 1, {}, /*min iter for going parallel*/ 4);
+      plan.tryCreateParallel(create.krnl, op, "matmul no broadcast", lb, ub);
     }
-    create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
+    create.krnl.iterate(broadcastLoop, plan.optimizedLoopDef(), broadcastLB,
+        broadcastUB,
         [&](const KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
           MultiDialectBuilder<KrnlBuilder> create(createKrnl);
           // I, J, K loop blocked by reg tiles.

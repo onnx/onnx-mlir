@@ -90,7 +90,7 @@ static std::string getOutputBasenameFromFlags(
       } else
         fprintf(
             stderr, "Parsing `-o=` option, expected a name. Use default.\n");
-    } else if (flagVect[i].find("-o") == 0) {
+    } else if (flagVect[i] == "-o") {
       if (i < num - 1) {
         return flagVect[i + 1];
         break;

@@ -29,14 +29,16 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpFusionHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ZHighFusionOpHelper.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpTransform.hpp"
 #include "src/Pass/Passes.hpp"
 
-#define DEBUG_TYPE "fusion-op-stick-unstick"
+#define DEBUG_TYPE "op-fusion"
 
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
@@ -526,22 +528,6 @@ public:
 //===----------------------------------------------------------------------===//
 // Patterns Layout Transform.
 
-bool hasStaticInnermostDimWithMod(Value val, int64_t mod) {
-  // First constraint for ZHighExtendedLayoutTransformOp
-  if (!hasShapeAndRank(val))
-    return false;
-  ShapedType type = mlir::cast<ShapedType>(val.getType());
-  auto shape = type.getShape();
-  int64_t rank = type.getRank();
-  if (rank == 0)
-    return false; // Is a scalar.
-  if (shape[rank - 1] == ShapedType::kDynamic)
-    return false; // Non-static.
-  if (mod > 1 && shape[rank - 1] % mod != 0)
-    return false; // Does not satisfy mod constraint.
-  return true;
-}
-
 bool doesTransposeLeaveInnermostInPlace(mlir::ArrayAttr &permute) {
   int64_t rank = ArrayAttrSize(permute);
   return ArrayAttrIntVal(permute, rank - 1) == rank - 1;
@@ -675,14 +661,14 @@ public:
             inputData, /*nhwc*/ false))
       return notifyFailure(
           layoutTransform, nullptr, "Compiler unsupported zTensor input");
-    if (!hasStaticInnermostDimWithMod(inputData, 64))
+    if (getExtendedLayoutTransformInnerTile(inputData.getType()) == 0)
       return notifyFailure(layoutTransform, nullptr,
-          "Compiler unsupported innermost dim (static, mod 64)");
+          "Compiler unsupported innermost dim (static, mod 64 or 32)");
 
     // Look for a reshape split.
     resultVal = layoutTransform.getOutput();
     std::string msg;
-    Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    Operation *reshapeSplitOp = usedOnlyByOpType<ONNXReshapeOp>(resultVal);
     bool reshapeMayBeMerge = false;
     if (reshapeSplitOp) {
       ONNXReshapeOp reshapeSplit = mlir::cast<ONNXReshapeOp>(reshapeSplitOp);
@@ -699,7 +685,7 @@ public:
     if (!reshapeMayBeMerge) {
       // Check transpose if we got a split; if we may have potentially a merge,
       // we cannot accommodate a transpose.
-      transposeOp = usedOnlyBy<ONNXTransposeOp>(resultVal);
+      transposeOp = usedOnlyByOpType<ONNXTransposeOp>(resultVal);
       if (transposeOp) {
         ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
         transposePattern = transpose.getPerm();
@@ -715,7 +701,7 @@ public:
 
     // Check reshape merge.
     bool terminateMatch = false;
-    Operation *reshapeMergeOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    Operation *reshapeMergeOp = usedOnlyByOpType<ONNXReshapeOp>(resultVal);
     if (reshapeMergeOp) {
       ONNXReshapeOp reshapeMerge = mlir::cast<ONNXReshapeOp>(reshapeMergeOp);
       if (!locateReshapeMerge(reshapeMerge, reshapeMergeAxis, msg)) {
@@ -733,8 +719,9 @@ public:
     Operation *finalLayoutTransformOp = nullptr;
     Operation *dlf16To32Op = nullptr;
     if (!terminateMatch) {
-      finalLayoutTransformOp = usedOnlyBy<ONNXLayoutTransformOp>(resultVal);
-      dlf16To32Op = usedOnlyBy<ZHighDLF16ToF32Op>(resultVal);
+      finalLayoutTransformOp =
+          usedOnlyByOpType<ONNXLayoutTransformOp>(resultVal);
+      dlf16To32Op = usedOnlyByOpType<ZHighDLF16ToF32Op>(resultVal);
       if (finalLayoutTransformOp) {
         ONNXLayoutTransformOp finalLayoutTransform =
             mlir::cast<ONNXLayoutTransformOp>(finalLayoutTransformOp);
@@ -831,41 +818,49 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// FusedOp variant of PatternsForExtendedLayoutTransform.
-//
-// Creates an ONNXFusedOp(kind="zhigh.extended_layout_transform") in place of
-// ZHighExtendedLayoutTransformOp.  The body region is IsolatedFromAbove:
+// FusedOp patterns: match an anchor op, detect a fusible chain starting from
+// it, and replace the chain with an ONNXFusedOp of the corresponding kind.
+// The body region is IsolatedFromAbove:
 // - The source ZTensor is threaded in as block argument 0.
 // - Constant-producing ops needed by inner ops (e.g. ONNXReshapeOp's shape
 //   tensor) are cloned inside the region rather than threaded as inputs.
 // - ONNXYieldOp terminates the body, yielding the final result value.
 //
-// This class inherits from PatternsForExtendedLayoutTransform to reuse its
-// matching helpers (locateReshapeSplit, locateReshapeMerge, locatePattern).
+// FusedPatternForOpKind is generic, non-accelerator infrastructure; see
+// src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp.
 //===----------------------------------------------------------------------===//
 
-// Walk the use-def chain from initialLT's output to finalResult, collecting
-// each single-use op in order.  locatePattern's usedOnlyBy<> checks already
-// guarantee exactly one use at each step.
+// Anchors on ONNXLayoutTransformOp; ExtLayoutTransformFusionHelper walks
+// forward through the optional Reshape/Transpose/Reshape chain, ending in an
+// optional LayoutTransform, or in an optional DLF16ToF32 followed by an
+// optional scalar Mul.
+using FusedPatternsForExtendedLayoutTransform =
+    FusedPatternForOpKind<ONNXLayoutTransformOp,
+        ExtLayoutTransformFusionHelper>;
 
-class FusedPatternsForExtendedLayoutTransform
-    : public PatternsForExtendedLayoutTransform {
-public:
-  FusedPatternsForExtendedLayoutTransform(
-      MLIRContext *context, DimAnalysis *dimAnalysis)
-      : PatternsForExtendedLayoutTransform(context, dimAnalysis) {}
+// Anchors on ONNXUnsqueezeOp (head of the chain); ExpandMulStickFusionHelper
+// walks forward through Mul? -> Expand -> Reshape -> ZHighStickOp.
+using FusedPatternsForExpandMulStick =
+    FusedPatternForOpKind<ONNXUnsqueezeOp, ExpandMulStickFusionHelper>;
 
-  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
-      PatternRewriter &rewriter) const override {
-    ExtLayoutTransformFusion fusion;
-    if (!fusion.detectIfBeneficial(dimAnalysis, layoutTransformOp))
-      return failure();
+// Anchors on ONNXConcatOp (head of the chain); ConcatExpandStickFusionHelper
+// walks forward through Unsqueeze -> F32ToDLF16 -> Expand -> Reshape ->
+// LayoutTransform, or Unsqueeze -> Mul? -> Expand -> Reshape -> ZHighStickOp.
+using FusedPatternsForConcatExpandStick =
+    FusedPatternForOpKind<ONNXConcatOp, ConcatExpandStickFusionHelper>;
 
-    Location loc = layoutTransformOp.getLoc();
-    fusion.fuse(rewriter, loc);
-    return success();
-  }
-};
+// Anchors on ZHighUnstickOp (head of the chain); UnstickSplitHeadsFusionHelper
+// walks forward through Reshape -> optional Transpose -> Split.
+using FusedPatternsForUnstickSplitHeads =
+    FusedPatternForOpKind<ZHighUnstickOp, UnstickSplitHeadsFusionHelper>;
+
+// Anchors on the ONNXAddOp / ONNXSubOp join; MulAddStickFusionHelper walks
+// back to the two Muls feeding it, then forward through an optional scalar
+// Mul -> Reshape -> ZHighStickOp.
+using FusedPatternsForMulAddStick =
+    FusedPatternForOpKind<ONNXAddOp, MulAddStickFusionHelper>;
+using FusedPatternsForMulSubStick =
+    FusedPatternForOpKind<ONNXSubOp, MulAddStickFusionHelper>;
 
 //===----------------------------------------------------------------------===//
 // Pass.
@@ -908,13 +903,62 @@ struct FusionOpStickUnstick
     dimAnalysis->analyze();
 
     ConversionTarget target(getContext());
+
+    // Phase ordering. ConcatExpandStickFusionHelper's chain (anchored on
+    // ONNXConcatOp) can subsume ExpandMulStickFusionHelper's chain entirely
+    // (a Concat heading the same Unsqueeze->Mul?->Expand->Reshape->Stick
+    // tail that ExpandMulStickFusionHelper matches on its own). The two
+    // anchor on different op types, so mlir::PatternBenefit cannot express
+    // this precedence: PatternApplicator only ranks patterns that already
+    // compete for the *same* anchor op type (it looks candidates up by
+    // op->getName() -- see mlir/lib/Rewrite/PatternApplicator.cpp), and
+    // this pass's default (bottom-up) worklist traversal would otherwise
+    // let ExpandMulStickFusionHelper fire on the Unsqueeze before the
+    // Concat is ever visited, permanently losing the larger fusion
+    // opportunity (the chain ops get cloned into the new FusedOp body and
+    // the originals erased, so the Concat's Unsqueeze user is gone by the
+    // time it would be revisited). Instead, run
+    // FusedPatternsForConcatExpandStick to its own fixpoint first, in a
+    // separate applyPatternsGreedily call, so it always gets first crack at
+    // every ONNXConcatOp in the module before any other pattern can consume ops
+    // out from under it. See the kMaxOpCount contract note in
+    // FusionOpHelper.hpp and the doc comment on
+    // ConcatExpandStickFusionHelper::kMaxOpCount for the general rule this
+    // instantiates.
+    if (!disableFusedOpOption && !disableFusedOp) {
+      RewritePatternSet concatFirstPatterns(&getContext());
+      concatFirstPatterns.insert<FusedPatternsForConcatExpandStick>(
+          &getContext(), dimAnalysis);
+      if (failed(applyPatternsGreedily(module, std::move(concatFirstPatterns))))
+        return signalPassFailure();
+    }
+
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
-    if (!disableFusedOpOption && !disableFusedOp)
+    if (!disableFusedOpOption && !disableFusedOp) {
       patterns.insert<FusedPatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
-    else
+      patterns.insert<FusedPatternsForExpandMulStick>(
+          &getContext(), dimAnalysis);
+      // Anchored on ZHighUnstickOp, like PatternsStartingFromUnstick, but
+      // the two never compete: that one needs an elementwise consumer of the
+      // unstick, this one a Reshape. Its benefit (kMaxOpCount) is also higher.
+      patterns.insert<FusedPatternsForUnstickSplitHeads>(
+          &getContext(), dimAnalysis);
+      // No other pattern anchors on Add / Sub. The required Reshape before
+      // the Stick also keeps PatternsEndingWithStick from fusing the chain's
+      // last compute op with the Stick first.
+      patterns.insert<FusedPatternsForMulAddStick>(&getContext(), dimAnalysis);
+      patterns.insert<FusedPatternsForMulSubStick>(&getContext(), dimAnalysis);
+      // Merge in the general (non-accelerator-specific) fusion kinds here
+      // too, so NNPA builds only ever run one fusion pass, at the point
+      // this pass already forms fused ops (late, after most optimizations).
+      // See FusionOpTransform.hpp for the CPU-only counterpart, which this
+      // pass supersedes whenever NNPA is active (targetCPU is false then).
+      onnx_mlir::populateONNXFusionOpPatterns(
+          patterns, &getContext(), dimAnalysis);
+    } else
       patterns.insert<PatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
 

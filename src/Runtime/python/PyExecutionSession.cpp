@@ -16,6 +16,7 @@
 #include "PyExecutionSession.hpp"
 #include "PyFloat16.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
+#include "src/Runtime/OMTensorInternal.h"
 
 #define OM_DRIVER_TIMING 0 /* 1 for timing, 0 for no timing/overheads */
 #include "src/Runtime/OMInstrumentHelper.h"

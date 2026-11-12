@@ -208,6 +208,16 @@ void UnifiedStickSupport::afterCompute(KrnlBuilder &kb,
   }
 }
 
+void UnifiedStickSupport::storeConvertedDLF16(KrnlBuilder &kb, Value dlf16Vec,
+    IndexExpr offsetWithinStick, int64_t offsetWithinVector) {
+  assert(isWrite && isStick && !isBroadcast && !isBuffer &&
+         "storeConvertedDLF16 only valid for a plain stick write reference");
+  MultiDialectBuilder<VectorBuilder> create(kb);
+  IndexExpr currOffset = offsetWithinStick + (archVL * offsetWithinVector);
+  DimsExpr accessFct = {DimIE(stickOffset), currOffset};
+  create.vec.storeIE(dlf16Vec, memRef, accessFct);
+}
+
 void UnifiedStickSupport::get4xF32Vals(Value &highVal, Value &lowVal) {
   highVal = this->highVal;
   lowVal = this->lowVal;

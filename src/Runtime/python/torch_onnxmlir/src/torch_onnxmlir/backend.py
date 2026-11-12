@@ -10,8 +10,10 @@
 #
 ################################################################################
 
+import hashlib
 import io
 import os
+import re as _re
 import sys
 import tempfile
 import time
@@ -45,7 +47,7 @@ from .sessioncache import (
     ONNX_FILE_EXTS,
     OM_COMPILED_FILE_EXTS,
 )
-from . import config, fx_utils, onnx_utils
+from . import config, explain, fx_utils, metrics
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -90,6 +92,30 @@ logger = logging.getLogger(__name__)
 global_session_cache = None
 
 global_uncompilable_graphs = set()
+
+
+def _get_accelerator(compile_options: str):
+    """Return the accelerator name from compile options, or None for CPU."""
+    m = _re.search(r"-{1,2}maccel[=\s]+(\w+)", compile_options)
+    if m:
+        return m.group(1)
+    cfg_m = _re.search(r"--config-file[=\s]+(\S+)", compile_options)
+    if cfg_m:
+        import json
+
+        config_path = cfg_m.group(1)
+        try:
+            with open(config_path, "r") as f:
+                cfg = json.load(f)
+            opts = cfg.get("compile_options", [])
+            if isinstance(opts, list):
+                for opt in opts:
+                    m2 = _re.search(r"-{1,2}maccel[=\s]+(\w+)", opt)
+                    if m2:
+                        return m2.group(1)
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    return None
 
 
 # Check if the graph has no inputs or outputs or not.
@@ -145,10 +171,14 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
     # Switch back to the eager mode if the graph has no inputs or outputs.
     if has_no_inputs_or_outputs(gm):
+        if explain.is_enabled():
+            metrics.global_metrics_collector.record_eager_fallback("no_inputs_outputs")
         return eager_forward_fn(gm)
 
     # Switch back to the eager mode if the graph has unsupported onnx ops.
     if has_unsupported_onnx_ops(gm):
+        if explain.is_enabled():
+            metrics.global_metrics_collector.record_eager_fallback("unsupported_ops")
         return eager_forward_fn(gm)
 
     # Options provided at torch.compile will determine how the torch model
@@ -202,6 +232,80 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
     def __init__(self, gm: torch.fx.GraphModule, compile_options) -> None:
         self.gm = gm
         self.compile_options = compile_options
+
+
+def _stable_args_str(args) -> str:
+    """
+    Return a deterministic string representation of a node's args or kwargs so
+    that literal constants (ints, floats, strings, bools, None, tuples/lists of
+    those) are captured in the cache key.
+
+    torch.fx.Node and torch.SymInt arguments are represented by their stable
+    name / string form (object identity is not used).  torch.Tensor arguments
+    are represented by their metadata (shape + dtype), not their values, because
+    parameter *values* are captured separately via _tensor_sha256 on the
+    get_attr node — the same tensor should not be hashed twice.
+    """
+    if isinstance(args, dict):
+        items = sorted(args.items())
+        return "{" + ",".join(f"{k}:{_stable_args_str(v)}" for k, v in items) + "}"
+    if isinstance(args, (list, tuple)):
+        inner = ",".join(_stable_args_str(a) for a in args)
+        return f"[{inner}]" if isinstance(args, list) else f"({inner})"
+    if isinstance(args, torch.fx.Node):
+        return args.name
+    if isinstance(args, torch.SymInt):
+        return str(args)
+    if isinstance(args, torch.Tensor):
+        # Represent by shape+dtype only; full value hashed elsewhere for params.
+        return f"tensor({list(args.shape)},{args.dtype})"
+    # Primitives: int, float, str, bool, None, types.
+    return repr(args)
+
+
+# Tensors with at most this many elements are hashed in full.
+# Larger tensors use strided sampling (see _tensor_sha256).
+# Exposed via config so users can tune it.
+_PARAM_FULL_HASH_LIMIT = 1024  # elements
+
+
+def _tensor_sha256(t: torch.Tensor) -> str:
+    """
+    Return a hex SHA-256 digest that is stable, value-sensitive, and bounded
+    in cost for large tensors.
+
+    Strategy:
+      - Small tensors  (numel <= _PARAM_FULL_HASH_LIMIT): hash all bytes.
+        Full coverage, negligible cost.
+      - Large tensors  (numel >  _PARAM_FULL_HASH_LIMIT): hash a fixed set of
+        strided samples plus the tensor's shape and dtype as a header.
+
+        The stride is chosen so that exactly _PARAM_FULL_HASH_LIMIT evenly
+        spaced elements are sampled across the flattened tensor.  The sample
+        positions are determined solely by the tensor's own size, so:
+          * the digest is deterministic (same tensor → same hash), and
+          * the positions are NOT the first N values, which defeats the
+            fixed-prefix attack that motivated f026.
+
+    Both branches feed into SHA-256, so the output is always a 64-char hex
+    string regardless of which path is taken.
+    """
+    h = hashlib.sha256()
+    flat = t.detach().contiguous().flatten()
+    numel = flat.numel()
+    # Always include shape + dtype so tensors of different shapes never collide
+    # even if their sampled values happen to match.
+    header = f"{list(t.shape)}:{t.dtype}:{numel}".encode()
+    h.update(header)
+    if numel <= _PARAM_FULL_HASH_LIMIT:
+        # Full hash — cheap for small parameters (embeddings, biases, …).
+        h.update(flat.numpy().tobytes())
+    else:
+        # Strided sample — bounded cost for large weight matrices.
+        stride = max(1, numel // _PARAM_FULL_HASH_LIMIT)
+        sampled = flat[::stride].numpy().tobytes()
+        h.update(sampled)
+    return h.hexdigest()
 
 
 def generate_hash_key(
@@ -267,24 +371,35 @@ def generate_hash_key(
                 placeholder_counter += 1
             else:
                 node_info.append(f"{node.op}_{torch.typename(node.target)}")
+                # Include node args/kwargs so that literal constants embedded in
+                # calls (reshape dims, axis indices, scalar thresholds, etc.) are
+                # part of the key.  Two graphs with identical topology but different
+                # literal values must NOT collide (security: f026).
+                node_info.append(_stable_args_str(node.args))
+                if node.kwargs:
+                    node_info.append(_stable_args_str(node.kwargs))
                 # Append information from input nodes.
                 for inode in node._input_nodes.keys():
                     if inode.op == "get_attr":
+                        # gm._parameters only holds *direct* parameters of the
+                        # top-level GraphModule; nested parameters (e.g.
+                        # "linear.weight" from an nn.Linear sub-module) are not
+                        # present there.  Use get_parameter() which follows the
+                        # dotted path through sub-modules, falling back to None
+                        # for non-parameter get_attr targets (buffers, constants).
                         try:
-                            t = gm._parameters[inode.target]
-                        except KeyError:
+                            t = gm.get_parameter(inode.target)
+                        except AttributeError:
                             t = None
                         if t is not None and isinstance(t, torch.nn.Parameter):
-                            sample_values = [
-                                str(s)
-                                for s in t.view(-1)[
-                                    : config.sample_parameter_values_limit
-                                ].tolist()
-                            ]
-                            sample_str = ".".join(sample_values)
+                            # Hash the full parameter bytes instead of sampling a
+                            # few values.  Sampling only 3 values allows an
+                            # attacker who knows the model's topology and the first
+                            # three weight values to craft a colliding key (f026).
+                            param_hash = _tensor_sha256(t)
                         else:
-                            sample_str = "."
-                        node_info.append(f"{inode.name}.{sample_str}")
+                            param_hash = "."
+                        node_info.append(f"{inode.name}.{param_hash}")
                     else:
                         node_info.append(f"{inode.name}")
             graph_info.append(";".join(node_info))
@@ -304,7 +419,7 @@ def generate_hash_key(
         details = OMFxGraphHashDetails(gm, compile_options)
         key = pickler.get_hash(details)
 
-    key = "_om_" + key
+    key = ("_om_profile_" if config._get_profiling_enabled() else "_om_") + key
     logger.info(
         f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}"
     )
@@ -321,6 +436,22 @@ class TorchONNXMLIR:
 
         # Indice of the actual example inputs if the graph's signature is changed.
         self.example_inputs_indices = None
+
+        # When profiling is enabled, inject --profile-ir-with-sig into
+        # compile_options before cache key generation so profiling-compiled
+        # models get a separate cache key from non-profiling ones.
+        if config._get_profiling_enabled() and kwargs.get("options") is not None:
+            co = kwargs["options"].get("compile_options", "")
+            if "--profile-ir" not in co:
+                kwargs = dict(kwargs)
+                kwargs["options"] = dict(kwargs["options"])
+                profile_ir = config.profiling_profile_ir
+                if profile_ir is None:
+                    accel = _get_accelerator(co)
+                    profile_ir = "ZHigh" if accel == "NNPA" else "Onnx"
+                kwargs["options"]["compile_options"] = (
+                    co + " --profile-ir-with-sig=" + profile_ir
+                )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
@@ -389,13 +520,29 @@ class TorchONNXMLIR:
 
     def forward(self, *example_inputs):
         global global_uncompilable_graphs
+        first_compilation = False
+        compilation_start = None
+        is_cache_hit = False
+
         if self.cached_session is None:
             if self.cache_key in global_uncompilable_graphs:
                 logger.info("Found the uncompilable model. Switch to the eager mode")
+                if explain.is_enabled():
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "previously_failed", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
             if self.example_inputs_indices == []:
                 logger.info("Model has no input. Switch to the eager mode")
+                if explain.is_enabled():
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "no_inputs", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
+
+            # Start timing compilation
+            if explain.is_enabled():
+                compilation_start = time.perf_counter()
 
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
@@ -419,6 +566,10 @@ class TorchONNXMLIR:
             if not succeeded:
                 logger.info("Failed to export the model. Switch to the eager mode.")
                 global_uncompilable_graphs.add(self.cache_key)
+                if explain.is_enabled():
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "export_failed", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
             # Save the onnx model.
             if config.keep_onnx_files:
@@ -447,11 +598,22 @@ class TorchONNXMLIR:
                     "Failed to compile the onnx model. Switch to the eager mode."
                 )
                 global_uncompilable_graphs.add(self.cache_key)
+                if explain.is_enabled():
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "compilation_failed", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
 
             # Create a session for running the onnx model.
             # This session is cached for next use.
             sess = InferenceSession(compiled_model, tag=tag)
+
+            # Record compilation time
+            if explain.is_enabled() and compilation_start is not None:
+                compilation_time = time.perf_counter() - compilation_start
+                metrics.global_metrics_collector.record_compilation(
+                    self.cache_key, compilation_time
+                )
 
             # Replace the victim cache entry.
             cache_value = CacheValue(
@@ -461,10 +623,12 @@ class TorchONNXMLIR:
             )
 
             global_session_cache.put(self.cache_key, cache_value)
+            first_compilation = True
         else:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
             sess = self.cached_session.sess
+            is_cache_hit = True
 
         # onnx_mlir accepts numpy arrays as inputs and outputs.
         om_inputs = [arg.contiguous().numpy() for arg in example_inputs]
@@ -472,9 +636,56 @@ class TorchONNXMLIR:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
             logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
-        start = time.perf_counter()
-        om_outputs = sess.run(om_inputs)
-        logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
+
+        # Measure inference time
+        if explain.is_enabled():
+            inference_start = time.perf_counter()
+
+        if logger.isEnabledFor(logging.INFO):
+            start = time.perf_counter()
+        if config._get_profiling_enabled():
+            from . import sessioncache
+
+            prof_path = os.path.join(
+                sessioncache.cache_dir(), self.cache_key, "profile.prof"
+            )
+            _prev_env = os.environ.get("ONNX_MLIR_INSTRUMENT_FILE")
+            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = prof_path
+            try:
+                om_outputs = sess.run(om_inputs)
+            finally:
+                if _prev_env is not None:
+                    os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = _prev_env
+                else:
+                    os.environ.pop("ONNX_MLIR_INSTRUMENT_FILE", None)
+        else:
+            om_outputs = sess.run(om_inputs)
+        if logger.isEnabledFor(logging.INFO):
+            logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
+
+        # Record inference metrics
+        if explain.is_enabled():
+            inference_time = time.perf_counter() - inference_start
+            metrics.global_metrics_collector.record_inference(
+                self.cache_key, inference_time, is_cache_hit
+            )
+            if config._get_profiling_enabled():
+                metrics.global_metrics_collector.record_input_shapes(
+                    self.cache_key,
+                    [list(arg.shape) for arg in example_inputs],
+                )
+
+        # Generate test_data_set if required.
+        if config.regenerate_test_data_set or (
+            config.generate_test_data_set and first_compilation
+        ):
+            global_session_cache.write_tensor_to_disk(
+                self.cache_key, "input", om_inputs
+            )
+            global_session_cache.write_tensor_to_disk(
+                self.cache_key, "output", om_outputs
+            )
+
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_tensor_example_inputs(self, example_inputs):
@@ -605,7 +816,7 @@ class TorchONNXMLIR:
         return constant_values
 
     def export_gm_to_onnx(self, example_inputs):
-        model_name = self.default_model_name + str(self.tag) + ".onnx"
+        model_name = self.default_model_name + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.build_dynamic_shapes_for_export()
 
@@ -614,38 +825,33 @@ class TorchONNXMLIR:
 
         succeeded = False
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_onnx = os.path.join(tmpdir, "tmp_model.onnx")
-            try:
-                torch.onnx.export(
-                    self.gm,
-                    example_inputs,
-                    tmp_onnx,
-                    input_names=input_names,
-                    dynamic_shapes=dynamic_shapes,
-                    dynamo=True,
-                    # dynamic_axes=dynamic_shapes,
-                    # dynamo=False,
-                    report=False,
-                )
+        try:
+            torch.onnx.export(
+                self.gm,
+                example_inputs,
+                self.onnx_model,
+                input_names=input_names,
+                dynamic_shapes=dynamic_shapes,
+                dynamo=True,
+                # dynamic_axes=dynamic_shapes,
+                # dynamo=False,
+                report=False,
+            )
 
-                # Sanitize the onnx model and save it to disk.
-                onnx_utils.sanitize_onnx(tmp_onnx, self.onnx_model)
-
-                succeeded = True
-            except torch.onnx.errors.UnsupportedOperatorError as e:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"ONNX export unsupported: {e}")
-                    logger.debug(f"Fx Graph: {self.gm}")
-            except Exception as e:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"ONNX export failure: {e}")
-                    logger.debug(f"Fx Graph: {self.gm}")
+            succeeded = True
+        except torch.onnx.errors.UnsupportedOperatorError as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export unsupported: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
+        except Exception as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export failure: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
 
         return succeeded
 
     def cleanup_onnxmlir_files(self, tag_id):
-        base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
+        base = os.path.join(self.workdir.name, self.default_model_name)
         old_files = [base + ext for ext in ONNX_FILE_EXTS + OM_COMPILED_FILE_EXTS]
         for f in old_files:
             if os.path.exists(f):

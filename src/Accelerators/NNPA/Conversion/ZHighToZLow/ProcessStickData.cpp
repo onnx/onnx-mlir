@@ -4,7 +4,7 @@
 
 //====---------- ProcessStickData.cpp - Process Stick data ----------------===//
 //
-// Copyright 2024-2025 The IBM Research Authors.
+// Copyright 2024-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -74,11 +74,15 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   int64_t parId = 0;
   int64_t threadNum = 1;
   if (enableParallel) {
-    int64_t parId = tryCreateKrnlParallel(create.krnl, op,
-        "simd min/max for DQL in parallel", {}, lbs, ubs, 0, rank - 1, {},
-        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
-    if (parId == -1) {
+    // The window excludes the innermost level: E1 is iterated as sticks below,
+    // so splitting it across threads would cut a stick in two.
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ rank - 1, /*cost*/ {8});
+    parId =
+        plan.findParallelDim(op, "simd min/max for DQL in parallel", lbs, ubs);
+    if (parId == NO_PAR_FOUND) {
       enableParallel = false;
+      parId = 0; // Reset parId  to 0 for sequential.
     } else {
       threadNum = 8; // TODO use more flexible value.
     }
@@ -113,8 +117,10 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 
   // Reduction into these temps.
   IndexExpr tNum = LitIE(threadNum);
+  // Explicitly parallel loop: tid, and lb/ub associated with this tid.
   create.krnl.forExplicitParallelLoopIE(lbs[parId], ubs[parId], tNum,
       [&](const KrnlBuilder &ck, ValueRange loopInd) {
+        // loopInd: threadId, lb, ub.
         IndexExprScope scope(ck);
         IndexExpr t = DimIE(loopInd[0]);
         DimsExpr currDims = DimListIE(dims);
@@ -230,10 +236,11 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    parId = tryCreateKrnlParallel(create.krnl, op,
-        "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
-        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
-    if (parId == -1)
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    parId = plan.findParallelDim(
+        op, "compiler-generated stickify", tiledLbs, tiledUbs);
+    if (parId == NO_PAR_FOUND)
       enableParallel = false;
   }
 
@@ -551,16 +558,18 @@ template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
 struct FuzedStickUnstickGenericLayerNormaOpLowering
     : public OpConversionPattern<OP_TYPE> {
   FuzedStickUnstickGenericLayerNormaOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
       : OpConversionPattern<OP_TYPE>(typeConverter, ctx),
         disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             OP_TYPE::getOperationName());
+    this->enableCollapse = this->enableParallel && enableCollapse;
   }
 
-  bool disableSaturation, enableParallel;
+  bool disableSaturation, enableParallel, enableCollapse;
 
   using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
   using MDBuilder =
@@ -653,17 +662,29 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     create.krnl.blockAndPermute(loopDefs, {B}, outerOptLoops, innerOptLoops);
     // Handle Parallel
     bool useParallel = false;
+    // Parallelize a loop in [0, min(2, outer loop nums)), or a group of
+    // adjacent outer loops collapsed into one, the blocked E2 loop included:
+    // krnl.collapse accepts the tile loop of a krnl.block, which outerOptLoops
+    // holds for E2. Without a group, a dynamic batch takes the region and runs
+    // on one thread at batch 1, while E2 holds all the work.
+    //
+    // The plan is handed E2's bound in tiles, ceil(E2 / B): that is the tile
+    // loop's trip count, and what a collapsed E2 iterates. bodyCost: one
+    // iteration normalizes B rows of E1 values, reading each value a few times.
+    int64_t outerRank = ubs.size();
+    int64_t parRank = std::min(outerRank, static_cast<int64_t>(2));
+    KrnlParallelPlan plan(outerOptLoops, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parRank,
+        /*collapseLastExclusiveDim=*/outerRank,
+        {.minTripCountForParallel = 4, .bodyCost = B * E1.getLiteral()});
     if (enableParallel) {
-      // Parallelize one loop from 0 to (exclusively) min(2, outer loop nums).
-      int parRank = ubs.size();
-      if (parRank > 2)
-        parRank = 2;
-      SmallVector<IndexExpr, 2> parLbs(parRank, LitIE(0));
-      SmallVector<IndexExpr, 2> parUbs =
-          firstFew<IndexExpr, 2>(ubs, parRank - 1 /*inclusive*/);
-      if (tryCreateKrnlParallel(create.krnl, op, "layer-norm", outerOptLoops,
-              parLbs, parUbs, 0, parRank, {}, 4,
-              /*createKrnlParallel=*/true) != -1)
+      // LBs and UBs are here only used to determine when/where parallelism is
+      // good; not used in the actual LB/UB of the actual loops.
+      DimsExpr parLbs(outerRank, LitIE(0));
+      DimsExpr parUbs(ubs);
+      parUbs[outerRank - 1] = parUbs[outerRank - 1].ceilDiv(B);
+      if (plan.tryCreateParallel(
+              create.krnl, op, "layer-norm", parLbs, parUbs) != NO_PAR_FOUND)
         useParallel = true;
     }
 
@@ -677,7 +698,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       redMemRef2 = create.mem.alignedAlloc(redType);
     }
 
-    create.krnl.iterateIE(loopDefs, outerOptLoops, lbs, ubs,
+    create.krnl.iterateIE(loopDefs, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange outerLoopInd) {
           MDBuilder create(ck);
           IndexExprScope middleScope(ck);
@@ -947,7 +968,7 @@ using ONNXFuzedStickUnstickRMSLayerNormalizationOpLowering =
 namespace zhigh {
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    bool enableParallel, bool disableSaturation) {
+    bool enableParallel, bool enableCollapse, bool disableSaturation) {
 // Add the insert patterns for all elementwise types regardless of unary, binary
 // or variadic.
 #define ELEMENTWISE_ALL(_OP_TYPE)                                              \
@@ -957,9 +978,9 @@ void populateONNXWithNNPALayoutToKrnlConversionPattern(
 
   // Add normalization patterns.
   patterns.insert<ONNXFuzedStickUnstickLayerNormalizationOpLowering>(
-      typeConverter, ctx, enableParallel, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   patterns.insert<ONNXFuzedStickUnstickRMSLayerNormalizationOpLowering>(
-      typeConverter, ctx, enableParallel, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
 }
 
 } // namespace zhigh

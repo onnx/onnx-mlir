@@ -4,229 +4,528 @@
 
 //===------------------- NonZero.cpp - Lowering NonZero Op ----------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the ONNX NonZero Operator to Krnl dialect.
+// This file lowers the ONNX NonZero Operator to Krnl dialect, as a flat-tiled
+// stream compaction. See rewriteBlockCompaction.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
 
 struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
-  ONNXNonZeroOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+      MathBuilder, MemRefBuilder, SCFBuilder, VectorBuilder>;
 
-  /// Given an input of shape (3, 2):
-  /// [[2, 1],
-  /// [0, 2],
-  /// [0, 1]]
-  ///
-  /// Output will be: [[0, 0, 1, 1], [0, 1, 1, 1]]
-  /// The output's shape is (2, 4) where 2 is the input's rank, 4 is the number
-  /// of nonzero values in the input.
-  ///
-  /// Step 1: Compute a 0-1 matrix:
-  /// [[1, 1],
-  /// [0, 1],
-  /// [0, 1]]
-  ///
-  /// Step 2: Compute reduction sum for each dimension:
-  /// rsum0 = ReduceSum(axis = 1) = [2, 1, 1]
-  /// rsum1 = ReduceSum(axis = 0) = [1, 3]
-  ///
-  /// Step 3: Compute the number of nonzero for allocating the output buffer.
-  ///
-  /// Step 4: Compute output for each dimension, e.g. for dimension 0:
-  /// ```
-  ///   k = 0
-  ///   for i range(len(rsum0)):
-  ///     d = rsum0[i]
-  ///     for j in range(d):
-  ///       out[0][k+j] = i
-  ///     k += d
-  /// ```
-  ///
-  /// Note: in the following implementation:
-  /// - Step1, Step2, and Step 3 are done with a single nested loop so the 0-1
-  /// matrix is not generated explicitly.
-  ///
-  /// - Computation in Step 4 is optimized for trip count, but invalid when
-  /// using 'affine.for'. 'affine.for' does not allow using 'affine.for'
-  /// operands as bounds in another 'affine.for'. More info:
-  /// llvm-project/mlir/test/Dialect/Affine/invalid.mlir
-  ///
-  /// Thus, We rewrite the loop in Step 4 into an affine-compatible one as
-  /// follows:
-  /// ```
-  /// for i in range(nonzeroCount):
-  ///   p = -1, s = 0
-  ///   for j in range(len(rsum0)):
-  ///      s += rsum0[j]
-  ///      p = (i < s and p == -1) ? j : p
-  ///   out[0][i] = p
-  /// ```
+  // Number of blocks aimed for; the tile size is derived from it
+  // (selectTileSize).
+  static constexpr int64_t targetBlockNum = 64;
+  // Tile size used when the shape is not fully static.
+  static constexpr int64_t defaultTileSize = 1024;
+  // Lower and upper bounds on the tile size search.
+  static constexpr int64_t minTileSize = 64;
+  static constexpr int64_t maxTileProbes = 4096;
+  // Minimum block count for the block loops to be parallelized.
+  static constexpr int64_t minBlocksForPar = 8;
 
-  LogicalResult matchAndRewrite(ONNXNonZeroOp noneZeroOp,
+  bool enableSIMD = false;
+  bool enableParallel = false;
+
+  ONNXNonZeroOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableSIMD, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXNonZeroOp::getOperationName());
+  }
+
+  LogicalResult matchAndRewrite(ONNXNonZeroOp nonZeroOp,
       ONNXNonZeroOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Operation *op = noneZeroOp.getOperation();
+    return rewriteBlockCompaction(nonZeroOp, adaptor, rewriter);
+  }
+
+private:
+  //===--------------------------------------------------------------------===//
+  // New implementation: flat-tiled stream compaction.
+  //===--------------------------------------------------------------------===//
+  //
+  // NonZero is a stream compaction: scan X in row-major order and, for every
+  // nonzero element, append its coordinates to the output. The output has shape
+  // [R, N] where N is a runtime value, so out[a][k] is the a-th coordinate of
+  // the k-th nonzero.
+  //
+  // X is viewed as one flat run of M = D[0]*...*D[R-1] elements, cut into
+  // blocks of `tileSize`. Flat index order *is* row-major order, so blocks are
+  // visited in the order the ONNX spec requires and each block owns a
+  // contiguous, increasing range of output columns.
+  //
+  // Blocks do not respect row boundaries: a block is tileSize elements of the
+  // flat run, whatever rows those fall in.
+  //
+  //   pass 1 (parallel over blocks)
+  //       nzPerBlock[b+1] = number of nonzeros in block b
+  //   pass 2 (serial, NB+1 iterations)
+  //       in-place inclusive scan. Because pass 1 wrote the counts shifted up
+  //       by one, the result is the *exclusive* prefix sum, so afterwards
+  //         nzPerBlock[b]   = first output column owned by block b
+  //         nzPerBlock[b+1] = one past the last column owned by block b
+  //         nzPerBlock[NB]  = N
+  //   pass 3 (parallel over blocks)
+  //       block b writes only columns [nzPerBlock[b], nzPerBlock[b+1]), which
+  //       are disjoint across blocks, so no synchronization is needed.
+  //
+  // Coordinates are regenerated from the flat index by successive division (see
+  // storeCoordinates), inside the "is it nonzero" test, so once per nonzero.
+  //
+  // Pass 1 is vectorized with krnl.simdReduceIE when the element type has
+  // vector support. Pass 3 is still scalar.
+  LogicalResult rewriteBlockCompaction(ONNXNonZeroOp nonZeroOp,
+      ONNXNonZeroOpAdaptor adaptor, ConversionPatternRewriter &rewriter) const {
+    Operation *op = nonZeroOp.getOperation();
     Location loc = ONNXLoc<ONNXNonZeroOp>(op);
-
-    // Builder helper.
     IndexExprScope outerScope(&rewriter, loc);
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
-        MemRefBuilder>
-        create(rewriter, loc);
+    MDBuilder create(rewriter, loc);
 
-    // Frequently used MemRefType.
     Value X = adaptor.getX();
     MemRefType xMemRefType = mlir::cast<MemRefType>(X.getType());
-    // Convert the output type to MemRefType.
+    int64_t xRank = xMemRefType.getRank();
+    Type xElementType = xMemRefType.getElementType();
+
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
     MemRefType resMemRefType = mlir::cast<MemRefType>(convertedType);
-    int64_t xRank = xMemRefType.getRank();
-
-    // Frequently used element types.
-    Type indexTy = rewriter.getIndexType();
-    Type xElementType = xMemRefType.getElementType();
     Type resElementType = resMemRefType.getElementType();
 
-    // Constant values.
+    Type indexTy = rewriter.getIndexType();
+    Type i1Ty = rewriter.getI1Type();
+    MemRefType scalarIndexType = MemRefType::get({}, indexTy);
     Value iZero = create.math.constantIndex(0);
     Value iOne = create.math.constantIndex(1);
-    Value iMinusOne = create.math.constantIndex(-1);
-    Value zero = create.math.constant(xElementType, 0);
+    Value xZero = create.math.constant(xElementType, 0);
+    Value falseVal = create.math.constant(i1Ty, 0);
+    Value trueVal = create.math.constant(i1Ty, 1);
 
-    // Bounds for the input tensor.
-    SmallVector<IndexExpr, 4> xLbs(xRank, LitIE(0));
-    SmallVector<IndexExpr, 4> xUbs;
-    create.krnlIE.getShapeAsDims(X, xUbs);
-
-    // Emit a variable for the total number of nonzero values.
-    // Scalar, ok to use alloca.
-    Value nonzeroCount = create.mem.alloca(MemRefType::get({}, indexTy));
-    create.krnl.store(iZero, nonzeroCount);
-
-    // Emit alloc and dealloc for reduction sum along each dimension.
-    // MemRefType: [Dxi64] where D is the dimension size.
-    SmallVector<Value, 4> rsumMemRefs;
-    for (int i = 0; i < xRank; ++i) {
-      // Alloc and dealloc.
-      IndexExpr xBound = create.krnlIE.getShapeAsDim(X, i);
-      SmallVector<IndexExpr, 1> dimIE(1, xBound);
-      int64_t dim =
-          dimIE[0].isLiteral() ? dimIE[0].getLiteral() : ShapedType::kDynamic;
-      Value alloc =
-          create.mem.alignedAlloc(MemRefType::get({dim}, indexTy), dimIE);
-      // Initialize to zero.
-      ValueRange initLoopDef = create.krnl.defineLoops(1);
-      create.krnl.iterate(initLoopDef, initLoopDef, {iZero},
-          {xBound.getValue()},
-          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
-            createKrnl.store(iZero, alloc, loopInd);
-          });
-      rsumMemRefs.emplace_back(alloc);
+    // Rank 0 is degenerate: the result has zero rows, so there are no
+    // coordinates to write and only the dynamic dimension has to be computed.
+    // Note numpy rejects nonzero() on a 0-d array outright, so there is no
+    // reference semantics to match here beyond not crashing.
+    if (xRank == 0) {
+      Value x = create.krnl.load(X, {});
+      Value n = create.math.select(create.math.eq(x, xZero), iZero, iOne);
+      SmallVector<IndexExpr, 2> outDims0;
+      outDims0.emplace_back(LitIE(0));
+      outDims0.emplace_back(DimIE(n));
+      Value res0 = create.mem.alignedAlloc(resMemRefType, outDims0);
+      rewriter.replaceOp(op, res0);
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vectorLength*/ 0,
+          /*simdLoopTripCount*/ 0, "rank 0");
+      return success();
     }
 
-    // Emit a loop for counting the total number of nonzero values, and
-    // the reduction sum for each dimension.
-    ValueRange rsumLoopDef = create.krnl.defineLoops(xMemRefType.getRank());
-    create.krnl.iterateIE(rsumLoopDef, rsumLoopDef, xLbs, xUbs,
-        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MathBuilder createMath(createKrnl);
-          Value x = createKrnl.load(X, loopInd);
-          Value eqCond = createMath.eq(x, zero);
-          Value zeroOrOne = createMath.select(eqCond, iZero, iOne);
-          // Count the total number of nonzero values.
-          Value total = createKrnl.load(nonzeroCount);
-          total = createMath.add(total, zeroOrOne);
-          createKrnl.store(total, nonzeroCount);
-          // Reduction sum of the number of nonzero values for each dimension.
-          for (int64_t i = 0; i < xRank; ++i) {
-            Value sum = createKrnl.load(rsumMemRefs[i], loopInd[i]);
-            sum = createMath.add(sum, zeroOrOne);
-            createKrnl.store(sum, rsumMemRefs[i], loopInd[i]);
+    // Input dims, as IndexExpr and as Values. The loop bodies below use the
+    // Values: they are in nested regions, where an IndexExpr from this scope is
+    // not usable.
+    DimsExpr xDims;
+    create.krnlIE.getShapeAsDims(X, xDims);
+    SmallVector<Value, 4> xDimVals;
+    for (int64_t a = 0; a < xRank; ++a)
+      xDimVals.emplace_back(xDims[a].getValue());
+
+    // Total element count.
+    IndexExpr mIE = LitIE(1);
+    for (int64_t a = 0; a < xRank; ++a)
+      mIE = mIE * xDims[a];
+    Value mVal = mIE.getValue();
+
+    // SIMD for the counting pass. Vectorized when the element type has vector
+    // support; i1 does not, so a bool input counts scalar. VL comes from the
+    // input type rather than from the accumulator: this pass is memory bound,
+    // so bytes per load is what matters, and a wider accumulator only costs
+    // registers.
+    int64_t VL = VectorMachineSupport::getArchVectorLength(
+        GenericOps::ArithmeticGop, xElementType);
+    bool doSimd = enableSIMD && VL > 1;
+    if (!doSimd)
+      VL = 1;
+
+    // Tile size, and whether a short final block is possible. staticSize is M',
+    // the product of the static dims only. M = M' * (product of the dynamic
+    // dims), so a tile dividing M' divides M, and needTail is false.
+    int64_t staticSize;
+    bool allStatic =
+        MemRefBuilder::getStaticMemSize(xMemRefType, staticSize, xRank);
+    int64_t tileSize = selectTileSize(staticSize, allStatic, VL);
+    bool needTail = (staticSize % tileSize) != 0;
+    // With VL dividing the tile, a full block is entirely SIMD: simdReduceIE
+    // emits no scalar remainder loop at all.
+    bool fullySimd = tileSize % VL == 0;
+
+    IndexExpr nbIE = mIE.ceilDiv(tileSize);
+    IndexExpr nbPlus1IE = nbIE + 1;
+    Value tVal = create.math.constantIndex(tileSize);
+
+    // Report the tile size, the block count, and which constraint picked the
+    // tile; none of that is visible in the generated IR.
+    LLVM_DEBUG({
+      const char *why;
+      if (!allStatic)
+        why = "dynamic shape, fixed default";
+      else if (staticSize > 0 &&
+               staticSize <=
+                   std::max(minTileSize, static_cast<int64_t>(llvm::divideCeil(
+                                             staticSize, targetBlockNum))))
+        why = "input fits in one block";
+      else if (llvm::divideCeil(staticSize, targetBlockNum) <
+               (uint64_t)minTileSize)
+        why = "min tile floor, so NB is below target";
+      else
+        why = "block-count target";
+      llvm::dbgs() << "NonZero flat tiling: rank " << xRank << ", M' "
+                   << staticSize << (allStatic ? " (exact)" : " (static part)")
+                   << ", tileSize " << tileSize << " (" << why << ")"
+                   << ", tail path " << needTail << ", NB "
+                   << (nbIE.isLiteral() ? nbIE.getLiteral() : -1) << ", VL "
+                   << VL
+                   << (doSimd ? (fullySimd ? " (fully simd)"
+                                           : " (simd + leftover)")
+                              : " (no simd)")
+                   << "\n";
+    });
+
+    // A flat 1-D view of X, walked by flat index by both scans. Rank 1 is
+    // already flat and the helper returns X unchanged.
+    //
+    // Do not use memref.collapse_shape here: expanding one later emits an
+    // affine.delinearize_index, which ConvertKrnlToLLVMPass fails to legalize.
+    DimsExpr flatDims;
+    Value xFlat = create.mem.reshapeToFlatInnermost(
+        X, xDims, flatDims, /*flatten*/ xRank);
+
+    // nzPerBlock[0..NB]. Generally dynamically sized, so heap allocated.
+    int64_t nbPlus1Lit =
+        nbPlus1IE.isLiteral() ? nbPlus1IE.getLiteral() : ShapedType::kDynamic;
+    SmallVector<IndexExpr, 1> nzDims(1, nbPlus1IE);
+    Value nzPerBlock =
+        create.mem.alignedAlloc(MemRefType::get({nbPlus1Lit}, indexTy), nzDims);
+    // Slots 1..NB are written unconditionally by pass 1; slot 0 is seeded by
+    // pass 2. No initialization is needed here.
+
+    bool doPar = enableParallel &&
+                 (!nbIE.isLiteral() || nbIE.getLiteral() >= minBlocksForPar);
+    onnxToKrnlParallelReport(op, doPar, /*loopLevel*/ 0, LitIE(0), nbIE,
+        doPar ? "block loop" : "too few blocks");
+
+    // Each pass keeps one running scalar: pass 1 a nonzero count, pass 2 the
+    // scan total, pass 3 the output column. The three uses do not overlap in
+    // time, so one alloca outside the loops serves all of them. Pass 2 always
+    // uses it.
+    //
+    // When the block loops are parallel, passes 1 and 3 allocate inside the
+    // block body instead: one alloca outside would be shared by every thread.
+    // ProcessScfParallelPrivate wraps parallel bodies in memref.alloca_scope,
+    // so an alloca there is thread private and reclaimed per iteration.
+    Value seqTmp = create.mem.alloca(scalarIndexType);
+    auto runningTmp = [&](const MDBuilder &create) {
+      return doPar ? create.mem.alloca(scalarIndexType) : seqTmp;
+    };
+
+    //===------------------------------------------------------------------===//
+    // Pass 1: count the nonzeros of every block.
+    //===------------------------------------------------------------------===//
+    // The accumulator is i64, not the input type: a count does not fit in an i1
+    // or an i8 lane, and i64 matches the index type that nzPerBlock holds.
+    Type accTy = rewriter.getIntegerType(64);
+    Value accZero = create.math.constant(accTy, 0);
+    Value accOne = create.math.constant(accTy, 1);
+    // simdReduceIE keeps VL partial sums in a temp, reduced to a scalar at the
+    // end. Allocated per block when parallel, once otherwise, as for seqTmp.
+    MemRefType simdTmpType = MemRefType::get({VL}, accTy);
+    // Assigned in an if, not a ternary: the ternary's common type would be
+    // memref::AllocaOp, so the null branch would build a null op and converting
+    // that to a Value dereferences it.
+    Value seqSimdTmp;
+    if (doSimd && !doPar)
+      seqSimdTmp = create.mem.alignedAlloca(simdTmpType);
+
+    onnxToKrnlSimdReport(op, doSimd, doSimd ? VL : 0, tileSize,
+        doSimd ? "counting pass" : "no simd for this element type");
+
+    create.krnl.forLoopIE(LitIE(0), nbIE, /*step*/ 1, doPar,
+        [&](const KrnlBuilder &kb, ValueRange blockInd) {
+          MDBuilder create(kb);
+          IndexExprScope blockScope(create.krnl);
+          Value b = blockInd[0];
+          Value lo = create.math.mul(b, tVal);
+          DimsExpr outputAF = {DimIE(b) + 1};
+
+          // Count exactly tileSize elements from lo, in SIMD.
+          auto countFullSimd = [&](const MDBuilder &create) {
+            Value tmp =
+                doPar ? create.mem.alignedAlloca(simdTmpType) : seqSimdTmp;
+            DimsExpr inputAF = {DimIE(lo)}, tmpAF = {LitIE(0)};
+            create.krnl.simdReduceIE(LitIE(0), LitIE(tileSize), VL, fullySimd,
+                {xFlat}, {inputAF}, {tmp}, {tmpAF}, {nzPerBlock}, {outputAF},
+                {accZero},
+                {[&](const KrnlBuilder &kb, Value in, Value acc, int64_t vl) {
+                  MathBuilder createMath(kb);
+                  // eq against zero inverted by the select, not neq:
+                  // MathBuilder::neq emits arith.cmpf ONE for floats, which is
+                  // false for NaN, and ONNX counts NaN as nonzero.
+                  Value inc = createMath.select(
+                      createMath.eq(in, xZero), accZero, accOne);
+                  return createMath.add(acc, inc);
+                }},
+                {[&](const KrnlBuilder &kb, Value acc, int64_t vl) {
+                  MDBuilder create(kb);
+                  Value sum = create.vec.reduction(
+                      VectorBuilder::CombiningKind::ADD, acc);
+                  return create.math.cast(indexTy, sum);
+                }});
+          };
+
+          // Scalar count, bound checked or not, into the running scalar.
+          auto countScalar = [&](const MDBuilder &create, bool guarded) {
+            Value cnt = runningTmp(create);
+            create.krnl.store(iZero, cnt);
+            emitScan(create, lo, tVal, mVal, guarded,
+                [&](const MDBuilder &create, Value m) {
+                  Value x = create.krnl.load(xFlat, {m});
+                  Value inc =
+                      create.math.select(create.math.eq(x, xZero), iZero, iOne);
+                  create.krnl.store(
+                      create.math.add(create.krnl.load(cnt), inc), cnt);
+                });
+            create.krnl.store(
+                create.krnl.load(cnt), nzPerBlock, {create.math.add(b, iOne)});
+          };
+
+          auto countFull = [&](const MDBuilder &create) {
+            if (doSimd)
+              countFullSimd(create);
+            else
+              countScalar(create, /*guarded*/ false);
+          };
+
+          if (!needTail) {
+            countFull(create);
+            return;
           }
+          // A short final block cannot be vectorized over the full tile, so it
+          // takes the bound-checked scalar path.
+          create.scf.ifThenElse(
+              create.math.sle(create.math.add(lo, tVal), mVal),
+              [&](const SCFBuilder &sb) {
+                MDBuilder c(sb);
+                countFull(c);
+              },
+              [&](const SCFBuilder &sb) {
+                MDBuilder c(sb);
+                countScalar(c, /*guarded*/ true);
+              });
         });
 
-    // Emit alloc and dealloc for the result of this operation.
-    // MemRefType : [RxNxi64] where R is the input's rank, N is the number of
-    // non zero values.
-    Value numberOfZeros = create.krnl.load(nonzeroCount);
-    SmallVector<IndexExpr, 2> dimExprs;
-    dimExprs.emplace_back(LitIE(xRank));
-    dimExprs.emplace_back(DimIE(numberOfZeros));
-    Value resMemRef = create.mem.alignedAlloc(resMemRefType, dimExprs);
+    //===------------------------------------------------------------------===//
+    // Pass 2: exclusive prefix sum, then allocate the output.
+    //===------------------------------------------------------------------===//
+    // Serial, NB+1 iterations, i.e. one per tileSize input elements.
+    //
+    // Slot 0 is seeded here. With the counts shifted up by one, an inclusive
+    // scan from a zero at slot 0 gives the exclusive prefix sum. Pass 3 reads
+    // slot 0 as block 0's first output column; when NB == 0 it is the only slot
+    // read.
+    create.krnl.store(iZero, nzPerBlock, {iZero});
+    Value runMem = seqTmp;
+    create.krnl.store(iZero, runMem);
+    create.krnl.forLoopIE(LitIE(0), nbPlus1IE, /*step*/ 1, /*parallel*/ false,
+        [&](const KrnlBuilder &kb, ValueRange scanInd) {
+          MathBuilder createMath(kb);
+          Value b = scanInd[0];
+          Value run = createMath.add(kb.load(runMem), kb.load(nzPerBlock, {b}));
+          kb.store(run, runMem);
+          kb.store(run, nzPerBlock, {b});
+        });
+    // After the scan runMem holds nzPerBlock[NB], the total nonzero count.
+    Value n = create.krnl.load(runMem);
 
-    // Emit code to compute the output for each dimension.
-    // ```
-    // for i in range(nonzeroCount):
-    //   p = -1, s = 0
-    //   for j in range(len(rsum0)):
-    //      s += rsum0[j]
-    //      p = (i < s and p == -1) ? j : p
-    //   out[0][i] = p
-    // ```
+    SmallVector<IndexExpr, 2> outDims;
+    outDims.emplace_back(LitIE(xRank));
+    outDims.emplace_back(DimIE(n));
+    Value resMemRef = create.mem.alignedAlloc(resMemRefType, outDims);
 
-    // Scalars, ok to use alloca.
-    Value pos = create.mem.alloca(MemRefType::get({}, indexTy));
-    Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
-    ValueRange iLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
-        [&](const KrnlBuilder &ck, ValueRange iLoopInd) {
-          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
-              MemRefBuilder>
-              create(ck);
-          Value i(iLoopInd[0]);
-          for (int64_t axis = 0; axis < xRank; ++axis) {
-            Value axisVal = create.math.constantIndex(axis);
-            Value rsumBoundsVal = rsumMemRefs[axis];
-            IndexExpr rsumBounds0 =
-                create.krnlIE.getShapeAsDim(rsumBoundsVal, 0);
-
-            create.krnl.store(iMinusOne, pos);
-            create.krnl.store(iZero, sum);
-
-            ValueRange jLoopDef = create.krnl.defineLoops(1);
-            create.krnl.iterate(jLoopDef, jLoopDef, {iZero},
-                {rsumBounds0.getValue()},
-                [&](const KrnlBuilder &createKrnl, ValueRange jLoopInd) {
-                  MathBuilder createMath(createKrnl);
-                  Value j(jLoopInd[0]);
-                  Value o = createKrnl.load(rsumMemRefs[axis], {j});
-                  Value s = createKrnl.load(sum);
-                  Value p = createKrnl.load(pos);
-                  s = createMath.add(s, o);
-                  Value andCond = createMath.andi(
-                      createMath.slt(i, s), createMath.eq(p, iMinusOne));
-                  p = createMath.select(andCond, j, p);
-                  createKrnl.store(p, pos);
-                  createKrnl.store(s, sum);
-                });
-            Value p = create.krnl.load(pos);
-            p = create.math.cast(resElementType, p);
-            create.krnl.store(p, resMemRef, {axisVal, i});
-          }
+    //===------------------------------------------------------------------===//
+    // Pass 3: write the coordinates.
+    //===------------------------------------------------------------------===//
+    create.krnl.forLoopIE(LitIE(0), nbIE, /*step*/ 1, doPar,
+        [&](const KrnlBuilder &kb, ValueRange blockInd) {
+          MDBuilder create(kb);
+          Value b = blockInd[0];
+          Value kStart = create.krnl.load(nzPerBlock, {b});
+          Value kEnd = create.krnl.load(nzPerBlock, {create.math.add(b, iOne)});
+          Value kMem = runningTmp(create);
+          // Skip blocks that pass 1 found empty, so their data is not
+          // rescanned.
+          create.scf.ifThenElse(
+              create.math.slt(kStart, kEnd), [&](const SCFBuilder &createSCF) {
+                MDBuilder create(createSCF);
+                Value lo = create.math.mul(b, tVal);
+                create.krnl.store(kStart, kMem);
+                emitBlockScan(create, lo, tVal, mVal, needTail,
+                    [&](const MDBuilder &create, Value m) {
+                      Value x = create.krnl.load(xFlat, {m});
+                      // eq inverted by the select, as in pass 1.
+                      Value isNonZero = create.math.select(
+                          create.math.eq(x, xZero), falseVal, trueVal);
+                      create.scf.ifThenElse(
+                          isNonZero, [&](const SCFBuilder &b2) {
+                            MDBuilder c(b2);
+                            Value k = c.krnl.load(kMem);
+                            storeCoordinates(c, m, xDimVals, xRank,
+                                resElementType, resMemRef, k);
+                            c.krnl.store(c.math.add(k, iOne), kMem);
+                          });
+                    });
+              });
         });
 
     rewriter.replaceOp(op, resMemRef);
-    onnxToKrnlSimdReport(op);
     return success();
+  }
+
+  // Pick the elements-per-block: aim for targetBlockNum blocks, then take a
+  // divisor of staticSize (M') near the tile size that implies, searching
+  // outward in both directions. A divisor of M' also divides M, so needTail is
+  // then false.
+  //
+  // Among those, a tile that is also a multiple of VL is preferred, because
+  // then a full block is entirely SIMD and simdReduceIE emits no scalar
+  // remainder. Such a tile exists only when VL divides M', so this is a
+  // preference and not a requirement -- and the right way round of the two:
+  // giving up divisibility by M' would leave one short block of up to T
+  // elements scalar (~1/targetBlockNum of the input), whereas giving up
+  // divisibility by VL leaves only (T mod VL) elements per block, which is
+  // smaller by orders of magnitude.
+  static int64_t selectTileSize(
+      int64_t staticSize, bool allStatic, int64_t VL) {
+    // Not fully static: M' is unrelated to the real element count, so use the
+    // fixed tile as the target. The divisor search below still applies.
+    int64_t target = defaultTileSize;
+    if (allStatic) {
+      int64_t perBlock =
+          static_cast<int64_t>(llvm::divideCeil(staticSize, targetBlockNum));
+      target = std::max(minTileSize, perBlock);
+    }
+    // A fully static input no bigger than one tile is exactly one block.
+    if (allStatic && staticSize > 0 && staticSize <= target)
+      return staticSize;
+    // A tile larger than M' cannot divide it. First pass insists on a multiple
+    // of VL, second pass drops that.
+    if (staticSize > 0)
+      for (int64_t vlStep : {VL, (int64_t)1})
+        for (int64_t d = 0; d < maxTileProbes; ++d)
+          for (int64_t t : {target - d, target + d}) {
+            if (t < minTileSize || t > staticSize)
+              continue;
+            if (t % vlStep == 0 && staticSize % t == 0)
+              return t;
+            if (d == 0)
+              break; // target probed once, not twice.
+          }
+    // No divisor found: use the target, and needTail will be true.
+    return target;
+  }
+
+  // One scalar scan of the tileSize elements starting at flat index lo,
+  // invoking bodyFn on each. The trip count is the constant tileSize either
+  // way; when guarded, each element is bound checked against mVal, which is
+  // what makes the same constant-bounded loop usable for a short final block.
+  static void emitScan(const MDBuilder &create, Value lo, Value tVal,
+      Value mVal, bool guarded,
+      function_ref<void(const MDBuilder &, Value)> bodyFn) {
+    Value zero = create.math.constantIndex(0);
+    ValueRange oLoop = create.krnl.defineLoops(1);
+    create.krnl.iterate(oLoop, oLoop, {zero}, {tVal},
+        [&](const KrnlBuilder &ck, ValueRange oInd) {
+          MDBuilder c(ck);
+          Value m = c.math.add(lo, oInd[0]);
+          if (!guarded) {
+            bodyFn(c, m);
+            return;
+          }
+          c.scf.ifThenElse(c.math.slt(m, mVal), [&](const SCFBuilder &b) {
+            MDBuilder c2(b);
+            bodyFn(c2, m);
+          });
+        });
+  }
+
+  // emitScan, plus a per-block test selecting the bound-checked variant for a
+  // short final block when one is possible at all.
+  static void emitBlockScan(const MDBuilder &create, Value lo, Value tVal,
+      Value mVal, bool needTail,
+      function_ref<void(const MDBuilder &, Value)> bodyFn) {
+    if (!needTail) {
+      emitScan(create, lo, tVal, mVal, /*guarded*/ false, bodyFn);
+      return;
+    }
+    create.scf.ifThenElse(
+        create.math.sle(create.math.add(lo, tVal), mVal),
+        [&](const SCFBuilder &b) {
+          MDBuilder c(b);
+          emitScan(c, lo, tVal, mVal, /*guarded*/ false, bodyFn);
+        },
+        [&](const SCFBuilder &b) {
+          MDBuilder c(b);
+          emitScan(c, lo, tVal, mVal, /*guarded*/ true, bodyFn);
+        });
+  }
+
+  // Regenerate the R coordinates of flat index m and store them into column k,
+  // one per output row.
+  //
+  // Successive division from the innermost axis outward, R-1 divisions in
+  // total. The remainder is t - (t / D)*D rather than a separate modulo, so
+  // each level costs one division. At rank 1 the loop does not run and the flat
+  // index is the coordinate.
+  //
+  // Do not use affine.delinearize_index for this: ConvertKrnlToLLVMPass fails
+  // to legalize it, as the AffineToStd pattern set it installs does not cover
+  // it.
+  static void storeCoordinates(const MDBuilder &create, Value m,
+      ArrayRef<Value> xDimVals, int64_t xRank, Type resElementType,
+      Value resMemRef, Value k) {
+    Value t = m;
+    for (int64_t a = xRank - 1; a >= 1; --a) {
+      Value aVal = create.math.constantIndex(a);
+      Value quot = create.math.floorDiv(t, xDimVals[a]);
+      Value rem = create.math.sub(t, create.math.mul(quot, xDimVals[a]));
+      create.krnl.store(
+          create.math.cast(resElementType, rem), resMemRef, {aVal, k});
+      t = quot;
+    }
+    // The outermost coordinate is the remaining quotient.
+    Value zero = create.math.constantIndex(0);
+    create.krnl.store(
+        create.math.cast(resElementType, t), resMemRef, {zero, k});
   }
 };
 
 void populateLoweringONNXNonZeroOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXNonZeroOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
+    bool enableParallel) {
+  patterns.insert<ONNXNonZeroOpLowering>(
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir
