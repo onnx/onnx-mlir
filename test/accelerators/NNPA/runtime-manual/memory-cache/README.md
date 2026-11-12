@@ -17,6 +17,10 @@ the cache, and on each new platform (Linux on Z, z/OS).
 test/accelerators/NNPA/runtime-manual/memory-cache/run.sh
 ```
 
+`./run.sh`, `sh run.sh` and `. run.sh` (from bash) all work, from any working
+directory; the script finds the sources relative to its own location, and runs
+in a subshell so that nothing leaks into the calling shell.
+
 The script builds into `$TMPDIR/om-memory-cache-test` (or `/tmp/...`), and
 prints PASS or FAIL per test. Settings:
 

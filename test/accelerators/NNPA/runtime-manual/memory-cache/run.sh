@@ -4,9 +4,20 @@
 # Manual tests of the NNPA runtime memory cache (OMMemoryCache.c). Not part of
 # any CI target; see README.md in this directory.
 
+# Works when run (./run.sh, sh run.sh) and when sourced (. run.sh): the body
+# runs in a subshell, so nothing leaks into the caller's shell, and the script
+# finds its directory from BASH_SOURCE when sourced from bash.
+omMemoryCacheTests() (
 set -u
-here=$(cd "$(dirname "$0")" && pwd)
-src=$(cd "$here/../../../../../src/Accelerators/NNPA/Runtime" && pwd)
+script=${BASH_SOURCE:-$0}
+here=$(cd "$(dirname "$script")" && pwd)
+src="$here/../../../../../src/Accelerators/NNPA/Runtime"
+if [ ! -f "$src/OMMemoryCache.c" ]; then
+  echo "error: OMMemoryCache.c not found under $src" >&2
+  echo "run this script from its directory in an onnx-mlir checkout" >&2
+  exit 2
+fi
+src=$(cd "$src" && pwd)
 out=${TMPDIR:-/tmp}/om-memory-cache-test
 mkdir -p "$out"
 CC=${CC:-cc}
@@ -74,3 +85,6 @@ else
   echo "SOME TESTS FAILED (outputs in $out)"
 fi
 exit "$fail"
+)
+
+omMemoryCacheTests
