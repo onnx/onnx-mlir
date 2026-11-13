@@ -52,8 +52,8 @@ extern "C" {
  * inference ends. Requests between 128 KB and 256 MB are served from a cache of
  * previously freed buffers; other requests, or all requests when the cache is
  * disabled, are allocated uncached (malloc below 1 MB, 1 MB-aligned memory
- * advised for huge pages above; freed with free()). Called from compiled code.
- */
+ * advised for huge pages above; freed with free()). Size 0 gives NULL. Called
+ * from compiled code. */
 void *OMCacheAlloc(size_t size);
 
 /* Return a buffer to the cache. A pointer that the cache does not own is

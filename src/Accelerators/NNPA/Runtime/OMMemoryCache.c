@@ -732,8 +732,8 @@ static void *allocCachedBuffer(size_t size) {
   return allocAlignMem(size, align);
 }
 
-// An uncached buffer (size without a bin, cache off, or a failed cache
-// allocation), for compiled code only, which aligns its own buffers: from
+// An uncached buffer (size without a bin, or cache off), for compiled code
+// only, which aligns its own buffers: from
 // 1 MB up, 1 MB-aligned memory advised for huge pages, as OMHugePageMalloc
 // does; otherwise, or if that fails, plain malloc. Freed with free().
 static void *allocUncachedBuffer(size_t size) {
@@ -741,6 +741,18 @@ static void *allocUncachedBuffer(size_t size) {
   if (size >= CACHE_HUGE_PAGE)
     buffer = allocAlignMem(size, CACHE_HUGE_PAGE);
   return buffer ? buffer : malloc(size); // Last resort, may be unaligned.
+}
+
+// The only allocation retry: get size bytes with alloc (allocCachedBuffer or
+// allocUncachedBuffer); if that fails, return every available buffer to the
+// system (trimOnAllocFailure) and, if there was any, try once more. Returns
+// NULL if memory is still short. size is never 0 (OMCacheAlloc returns NULL
+// for it), so a NULL from alloc is always a failure. Called without the mutex.
+static void *allocWithTrimRetry(void *(*alloc)(size_t), size_t size) {
+  void *buffer = alloc(size);
+  if (!buffer && trimOnAllocFailure())
+    buffer = alloc(size);
+  return buffer;
 }
 
 // Fill desc for a new in-use buffer of bin binIndex, handed out for a request
@@ -792,52 +804,36 @@ static void *mapNewBufferAndUnlock(
 // madvise a large buffer (a few to tens of us), and other threads (zdnnx
 // OpenMP workers, concurrent sessions) must not wait on the mutex meanwhile.
 // Misses are rare (warm-up, shape changes), so this is a minor gain; the same
-// rule matters far more for returnDetachedToSystem. If the descriptor or the
-// buffer cannot be allocated, every available buffer is returned to the system
-// and the creation is retried once. A buffer is never handed out unmapped.
+// rule matters far more for returnDetachedToSystem. A buffer is never handed
+// out unmapped.
 static void *createBufferOnMiss(int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
-  for (int attempt = 0;; attempt++) {
-    OMCacheBufferDesc *desc = malloc(sizeof(OMCacheBufferDesc));
-    void *buffer = desc ? allocCachedBuffer(size) : NULL;
+  void *buffer = allocWithTrimRetry(allocCachedBuffer, size);
+  OMCacheBufferDesc *desc = buffer ? malloc(sizeof(OMCacheBufferDesc)) : NULL;
+  if (!desc) {
+    // Out of memory even after the trim. OMCacheTryAlloc counted this request
+    // as in use before calling us; no buffer is handed out, so undo that count.
+    free(buffer); // NULL, or a buffer that got no descriptor.
     pthread_mutex_lock(&cacheMutex);
-    if (buffer) // mapNewBufferAndUnlock releases the mutex.
-      return mapNewBufferAndUnlock(desc, buffer, binIndex, requestSize);
-    // Failure: buffer is NULL here; desc may be non-NULL (only
-    // allocCachedBuffer failed), so free it. On the first attempt, trim (detach
-    // all available buffers) and retry if there were any.
-    OMCacheBufferDesc *detached = NULL;
-    size_t released = 0;
-    if (attempt == 0)
-      released = detachAllAvailableInCache(&detached);
-    if (released) {
-      // Trimmed: retry once with that memory back in the system.
-      cache.statAllocFailureTrims++;
-    } else {
-      // Giving up (nothing to trim, or the retry failed too). OMCacheTryAlloc
-      // counted this request as in use before calling us; no buffer is handed
-      // out, so undo that count. Function will return null after cleanup.
-      cache.bins[binIndex].numInUse--;
-      cache.statFailedAllocs++;
-    }
+    cache.bins[binIndex].numInUse--;
+    cache.statFailedAllocs++;
     pthread_mutex_unlock(&cacheMutex);
-    free(desc);
-    returnDetachedToSystem(detached);
-    if (!released)
-      return NULL;
+    return NULL;
   }
+  pthread_mutex_lock(&cacheMutex);
+  return mapNewBufferAndUnlock(desc, buffer, binIndex, requestSize);
 }
 
 //===----------------------------------------------------------------------===//
-// Interface.
+// Cache paths, shared by the interface functions. Each interface function
+// calls ensureInit exactly once and checks its arguments (NULL buffer, size
+// without a bin, cache off); these functions never do.
 //===----------------------------------------------------------------------===//
 
 // Hand out the most recently freed available buffer of the request's bin (a
-// hit), or create a new buffer (a miss). Returns NULL if the size has no bin.
-void *OMCacheTryAlloc(size_t size) {
-  ensureInit();
-  if (!hasBin(size))
-    return NULL;
+// hit), or create a new buffer (a miss). Returns NULL only if memory is short
+// even after a trim. The caller checked hasBin(size).
+static void *tryAllocInCache(size_t size) {
   int binIndex = binIndexFor(size);
   OMCacheBin *bin = &cache.bins[binIndex];
   pthread_mutex_lock(&cacheMutex);
@@ -864,6 +860,7 @@ void *OMCacheTryAlloc(size_t size) {
   }
   OMCacheBufferDesc *desc = bin->availableHead; // NULL if stale.
   if (desc) {
+    // Hit: the buffer is still mapped, so it is handed out as is.
     removeFromAvailableList(desc);
     desc->inUse = 1;
     statCountHandOut(desc, size);
@@ -875,6 +872,7 @@ void *OMCacheTryAlloc(size_t size) {
     pthread_mutex_unlock(&cacheMutex);
     return buffer;
   }
+  // Miss.
   bin->statMisses++;
   // Drop the mutex: stale buffers are returned and the new buffer is
   // allocated without it (see createBufferOnMiss).
@@ -883,37 +881,18 @@ void *OMCacheTryAlloc(size_t size) {
   return createBufferOnMiss(binIndex, size);
 }
 
-// Cached buffer if possible; otherwise an uncached one (allocUncachedBuffer,
-// the same memory as before the cache). If that fails too, the available
-// buffers are returned to the system and the allocation is retried once.
-void *OMCacheAlloc(size_t size) {
-  void *buffer = OMCacheTryAlloc(size);
-  if (buffer)
-    return buffer;
-  buffer = allocUncachedBuffer(size);
-  if (!buffer && size > 0 && trimOnAllocFailure())
-    buffer = allocUncachedBuffer(size);
-  return buffer;
-}
-
 // Make a cache buffer available again, then evict the oldest available buffers
 // while the ceiling is exceeded. Buffers the cache does not own go to free().
-void OMCacheFree(void *buffer) {
-  if (!buffer)
-    return;
-  ensureInit();
-  if (!cache.enabled) {
-    free(buffer);
-    return;
-  }
+// The caller checked that buffer is not NULL and that the cache is enabled.
+static void freeInCache(void *buffer) {
   pthread_mutex_lock(&cacheMutex);
   OMCacheBufferDesc *desc = findBufferDesc(buffer);
   if (!desc) {
-    // Not a cache buffer: OMCacheAlloc fell back to allocUncachedBuffer (size
-    // without a bin, i.e. < 128 KB or > maxCachedSize, or a failed cache
-    // allocation), or zdnnx used its own allocator. Both give plain
-    // malloc/posix_memalign memory, so free() it. (A buffer in use is always
-    // mapped; only available buffers are ever detached.)
+    // Not a cache buffer: OMCacheAlloc used allocUncachedBuffer (size without
+    // a bin, i.e. < 128 KB or > maxCachedSize), or zdnnx used its own
+    // allocator. Both give plain malloc/posix_memalign memory, so free() it.
+    // (A buffer in use is always mapped; only available buffers are ever
+    // detached.)
     pthread_mutex_unlock(&cacheMutex);
     free(buffer);
     return;
@@ -960,23 +939,67 @@ void OMCacheFree(void *buffer) {
   returnDetachedToSystem(detached);
 }
 
+//===----------------------------------------------------------------------===//
+// Interface.
+//===----------------------------------------------------------------------===//
+
+// Cached buffer for a size with a bin; NULL for any other size (the caller,
+// zdnnx, then uses its own allocator) or if memory is short.
+void *OMCacheTryAlloc(size_t size) {
+  ensureInit();
+  if (!hasBin(size)) // Cache disabled or outside of cache range.
+    return NULL;
+  return tryAllocInCache(size);
+}
+
+// The size decides the path, once: a size with a bin is served by the cache
+// (a hit, or a new cache buffer); any other size (too small, too large, or
+// cache off) gets an uncached buffer, the same memory as before the cache.
+// Either way, a failed allocation is retried once after a trim
+// (allocWithTrimRetry); NULL means memory is still short (or size 0).
+void *OMCacheAlloc(size_t size) {
+  // Size 0: NULL, as OMCacheTryAlloc returns. Compiled code never accesses a
+  // 0-byte buffer and frees NULL as a no-op; it also keeps allocWithTrimRetry
+  // from mistaking a NULL malloc(0) for a failure.
+  if (size == 0)
+    return NULL;
+  ensureInit();
+  if (hasBin(size)) // Cache enabled and inside of cache range.
+    return tryAllocInCache(size);
+  return allocWithTrimRetry(allocUncachedBuffer, size);
+}
+
+// Free a buffer from OMCacheAlloc, OMCacheTryAlloc, or plain malloc. NULL is
+// ignored.
+void OMCacheFree(void *buffer) {
+  if (!buffer)
+    return;
+  ensureInit();
+  if (!cache.enabled) { // Cache disabled.
+    free(buffer);
+    return;
+  }
+  freeInCache(buffer);
+}
+
 // Free given the allocation size: a size without a bin cannot be a cache
 // buffer (hasBin depends only on the configuration, fixed at init), so it is
 // freed at once, without the mutex or a registry lookup. This is the common
 // case for the many small temporaries of compiled code. Other sizes take the
-// OMCacheFree path (they may still not be cache buffers, e.g. after a failed
-// cache allocation).
+// cache path (they may still not be cache buffers: zdnnx's own allocation
+// after OMCacheTryAlloc returned NULL).
 void OMCacheFreeSized(void *buffer, size_t size) {
   if (!buffer)
     return;
   ensureInit();
-  if (!hasBin(size)) {
+  if (!hasBin(size)) { // Cache disabled or outside of cache range.
     if (cache.printStats)
       __atomic_fetch_add(&cache.statFastFrees, 1, __ATOMIC_RELAXED);
     free(buffer);
     return;
   }
-  OMCacheFree(buffer);
+  // Use cache.
+  freeInCache(buffer);
 }
 
 // Start (epoch == 0) or end (epoch = the id returned by the start) of an
@@ -989,9 +1012,9 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
   ensureInit();
   if (!cache.enabled)
     return epoch == 0 ? 1 : 0;
-  OMCacheBufferDesc *detached = NULL;
   pthread_mutex_lock(&cacheMutex);
   if (epoch == 0) {
+    // Epoch starts.
     uint64_t started = ++cache.epoch;
     cache.statEpochsStarted++;
     for (int i = 0; i < cache.numBins; i++)
@@ -999,16 +1022,22 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
     pthread_mutex_unlock(&cacheMutex);
     return started;
   }
+  // Epoch ends.
+  OMCacheBufferDesc *detached = NULL;
   cache.statEpochsEnded++;
   if (cache.policy == CACHE_POLICY_EPOCH && epoch == cache.epoch) {
     for (int i = 0; i < cache.numBins; i++) {
       OMCacheBin *bin = &cache.bins[i];
+      // Only deals with bins of big enough buffers.
       if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE)
         continue;
       // Bins used in this epoch: eager release from now on if none of their
       // buffers was reused within it. Bins not used keep their decision.
       if (bin->freesThisEpoch > 0)
         bin->eagerRelease = bin->reusesThisEpoch == 0;
+      // No later epoch may reuse them (epoch rule): detach every available
+      // buffer of this bin now; they are returned to the system after the mutex
+      // is dropped.
       uint64_t n = detachAllAvailableInBin(bin, &detached);
       bin->statStaleReleases += n;
       cache.statEpochEndReleases += n;
