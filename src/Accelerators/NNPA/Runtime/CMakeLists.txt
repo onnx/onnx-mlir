@@ -3,6 +3,7 @@
 # TODO: statically link to libcruntime.a
 
 add_onnx_mlir_library(RuntimeNNPA STATIC
+  OMMemoryCache.c
   OMRuntimeNNPA.c
   zdnnx/zdnnx.c
   zdnnx/zdnnx_ops.c

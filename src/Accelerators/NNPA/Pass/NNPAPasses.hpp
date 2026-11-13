@@ -57,8 +57,10 @@ std::unique_ptr<mlir::Pass> createZHighToONNXPass();
 /// Pass for folding std.alloc.
 std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
 
-/// Pass for replacing malloc with omHugePageMalloc.
-std::unique_ptr<mlir::Pass> createReplaceMallocByHugePageMallocPass();
+/// Pass for replacing malloc with OMHugePageMalloc, and the malloc/free pairs
+/// of model temporaries with OMCacheAlloc/OMCacheFree if enableMemoryCache.
+std::unique_ptr<mlir::Pass> createReplaceMallocByHugePageMallocPass(
+    bool enableMemoryCache = true);
 
 namespace zhigh {
 

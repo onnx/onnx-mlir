@@ -4,7 +4,7 @@
 
 //===-------------------------- seq_ops.c ---------------------------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2025-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include "../OMMemoryCache.h"
 #include "seq_ops.h"
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
@@ -517,7 +518,11 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
 static void *huge_page_malloc_4k(size_t size) {
   if (size == 0)
     return malloc(size);
-  void *ptr = NULL;
+  // Reuse a block freed by an earlier call when the size is in the cached
+  // range. Cached blocks are 4 KB aligned, and 1 MB aligned from 1 MB up.
+  void *ptr = OMCacheTryAlloc(size);
+  if (ptr)
+    return ptr;
 #if defined(__linux__) && defined(MADV_HUGEPAGE)
   if (size >= HUGE_PAGE_SIZE) {
     if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) == 0) {
@@ -591,7 +596,9 @@ static void broadcast_column_to_tile(
 
 // Free buffer and heap-allocated descriptors of an intermediate ztensor.
 static void free_ztensor(zdnn_ztensor *zt) {
-  free(zt->buffer);
+  // Return the buffer to the cache; a buffer the cache does not own is freed
+  // (sizes the cache never serves without taking its lock).
+  OMCacheFreeSized(zt->buffer, zt->buffer_size);
   free(zt->pre_transformed_desc);
   free(zt->transformed_desc);
 }
@@ -966,6 +973,9 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
           zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
 
         // 3. Update running max via pointer swap.
+        // Only the buffers are swapped, not buffer_size: free_ztensor passes
+        // buffer_size to OMCacheFreeSized, which is fine because both
+        // ztensors have the same shape, hence the same buffer_size.
         if (status == ZDNN_OK) {
           void *tmp = old_max_zt.buffer;
           old_max_zt.buffer = max_row_zt.buffer;
