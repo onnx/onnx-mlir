@@ -141,6 +141,12 @@ void *OMHugePageMalloc(size_t size);
 //   caches. A request that finds one returns it and the older ones of its bin
 //   to the system and gets a fresh buffer. The available buffers of 16 MB or
 //   more are also returned at the end of each epoch.
+// - release at free (epoch policy): a bin of 16 MB or more whose buffers were
+//   not reused within the last ended epoch (no request after a free of the
+//   bin) returns each buffer to the system at its free, instead of keeping
+//   it until the end of the epoch. This lowers the peak memory of an
+//   inference; the release work is the same, only earlier. Decided from what
+//   would have been a reuse, so a bin learns again if its pattern changes.
 // - registry: hash maps a buffer to its descriptor.
 // - detach: take an available buffer out of every cache structure (available
 //   list and registry), under the mutex.
@@ -179,11 +185,17 @@ typedef struct {
   OMCacheBufferDesc *availableHead; // Available list, most recent first.
   OMCacheBufferDesc *availableTail; // Oldest available buffer of the bin.
   uint64_t numInUse;                // Requests of this bin not yet freed.
-  // Statistics. statDetached: by eviction, trim, unload or stale release.
-  // statStaleReleases: stale buffers returned (at a request or at the end of
-  // an epoch).
+  // Epoch policy, bins of 16 MB or more: frees and requests-after-a-free in
+  // the current epoch (reset at each epoch start), and the decision taken at
+  // the end of the last epoch (see "release at free").
+  uint64_t freesThisEpoch, reusesThisEpoch;
+  int releaseAtFree;
+  // Statistics. statDetached: by eviction, trim, unload or epoch-policy
+  // release. statStaleReleases: stale buffers returned (at a request or at
+  // the end of an epoch). statFreeReleases: buffers returned at their free.
   uint64_t statNumAvailable, statPeakInUse;
   uint64_t statHits, statMisses, statDetached, statStaleReleases;
+  uint64_t statFreeReleases;
 } OMCacheBin;
 
 // The whole cache: one static instance per model .so, guarded by cacheMutex
@@ -775,10 +787,15 @@ void *OMCacheTryAlloc(size_t size) {
   // gets a fresh buffer.
   OMCacheBufferDesc *detached = NULL;
   OMCacheBufferDesc *head = bin->availableHead; // Most recently freed.
-  if (cache.policy == CACHE_POLICY_EPOCH && head && cache.epoch > 0 &&
-      bin->bufferSize >= CACHE_EPOCH_MIN_SIZE &&
-      head->freedEpoch != cache.epoch)
-    bin->statStaleReleases += detachBinAvailable(bin, &detached);
+  if (cache.policy == CACHE_POLICY_EPOCH && cache.epoch > 0 &&
+      bin->bufferSize >= CACHE_EPOCH_MIN_SIZE) {
+    // A request after a free of this bin in this epoch is a reuse, whether or
+    // not that buffer was kept (see "release at free").
+    if (bin->freesThisEpoch > 0)
+      bin->reusesThisEpoch++;
+    if (head && head->freedEpoch != cache.epoch)
+      bin->statStaleReleases += detachBinAvailable(bin, &detached);
+  }
   OMCacheBufferDesc *desc = bin->availableHead; // NULL if stale.
   if (desc) {
     removeFromAvailableList(desc);
@@ -848,8 +865,24 @@ void OMCacheFree(void *buffer) {
   bin->numInUse--;
   statCountGiveBack(desc);
   OMCacheBufferDesc *detached = NULL;
-  addToAvailableList(desc); // Stamps desc->freedAt from cache.freeClock.
-  desc->freedEpoch = cache.epoch;
+  int large = cache.policy == CACHE_POLICY_EPOCH && cache.epoch > 0 &&
+              bin->bufferSize >= CACHE_EPOCH_MIN_SIZE;
+  if (large)
+    bin->freesThisEpoch++;
+  if (large && bin->releaseAtFree) {
+    // Not reused within an inference: return it now (after the mutex is
+    // dropped) rather than at the end of the epoch. It is in use, so not on
+    // the available list: only its mapping is removed.
+    removeBufferMapping(desc);
+    cache.statRegisteredBytes -= desc->bufferSize;
+    bin->statDetached++;
+    bin->statFreeReleases++;
+    desc->availableNext = detached;
+    detached = desc;
+  } else {
+    addToAvailableList(desc); // Stamps desc->freedAt from cache.freeClock.
+    desc->freedEpoch = cache.epoch;
+  }
   while (cache.availableBytes > cache.maxAvailableBytes) {
     OMCacheBufferDesc *oldest = findOldestAvailable();
     if (!oldest)
@@ -895,6 +928,8 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
   if (epoch == 0) {
     uint64_t started = ++cache.epoch;
     cache.statEpochsStarted++;
+    for (int i = 0; i < cache.numBins; i++)
+      cache.bins[i].freesThisEpoch = cache.bins[i].reusesThisEpoch = 0;
     pthread_mutex_unlock(&cacheMutex);
     return started;
   }
@@ -902,8 +937,12 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
   if (cache.policy == CACHE_POLICY_EPOCH && epoch == cache.epoch) {
     for (int i = 0; i < cache.numBins; i++) {
       OMCacheBin *bin = &cache.bins[i];
-      if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE || !bin->availableHead)
+      if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE)
         continue;
+      // Bins used in this epoch: release at free from now on if none of their
+      // buffers was reused within it. Bins not used keep their decision.
+      if (bin->freesThisEpoch > 0)
+        bin->releaseAtFree = bin->reusesThisEpoch == 0;
       uint64_t n = detachBinAvailable(bin, &detached);
       bin->statStaleReleases += n;
       cache.statEpochEndReleases += n;
@@ -989,14 +1028,15 @@ static void printStats(void) {
     fprintf(stderr,
         "==OM-MEMORY-CACHE== bin %s: hits %llu, misses %llu, peak in use "
         "%llu, available %llu, in use %llu, detached %llu (stale releases "
-        "%llu)\n",
+        "%llu, released at free %llu)\n",
         formatBytes(bin->bufferSize, b1), (unsigned long long)bin->statHits,
         (unsigned long long)bin->statMisses,
         (unsigned long long)bin->statPeakInUse,
         (unsigned long long)bin->statNumAvailable,
         (unsigned long long)bin->numInUse,
         (unsigned long long)bin->statDetached,
-        (unsigned long long)bin->statStaleReleases);
+        (unsigned long long)bin->statStaleReleases,
+        (unsigned long long)bin->statFreeReleases);
   }
 }
 
