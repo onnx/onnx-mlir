@@ -355,8 +355,7 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
   // Get linalg options from driver options
   extern std::string linalgOps;
   extern bool useLinalgPath;
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertONNXToLinalg(linalgOps, useLinalgPath));
+  pm.addPass(onnx_mlir::createConvertONNXToLinalg(linalgOps, useLinalgPath));
 
   // Convert ONNXEntryPointOp to KrnlEntryPointOp
   // This MUST be done BEFORE bufferization because getSignature() needs
