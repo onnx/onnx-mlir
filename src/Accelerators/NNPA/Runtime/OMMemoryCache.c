@@ -10,6 +10,39 @@
 //
 // Reuse cache for the per-inference temporary buffers of a compiled model.
 //
+// How buffers are managed, from request to release (terms in "Vocabulary"):
+// 1. OMCacheAlloc(size): a size from 128 KB to OM_MEMORY_CACHE_LARGE (default
+//    256 MB) is served from the cache: it is rounded up to a bin (step 2).
+//    Other sizes, and all sizes when the cache is off, get an uncached buffer
+//    (plain malloc below 1 MB), freed with free(). In both cases, a buffer of
+//    1 MB or more is 1 MB-aligned and advised for huge pages.
+// 2. Hit or miss: the bin's most recently freed available buffer is handed
+//    out (hit); without one, a new buffer is allocated outside the mutex
+//    (miss). Epoch policy, bins of 16 MB or more: an available buffer freed
+//    in an earlier inference (stale) is not handed out; it and the older
+//    ones of its bin are returned to the system, and the request misses.
+//    Normally there are none (step 5 returns them at the end of each
+//    inference); this catches an inference whose end was not seen and
+//    overlapping inferences, whose earlier ends release nothing.
+// 3. OMCacheFree / OMCacheFreeSized: a buffer that was not served from the
+//    cache (size outside the cached range, or cache off) goes to free();
+//    OMCacheFreeSized, given the size, does so without taking the mutex. A
+//    cache buffer goes back on its bin's available list, except (epoch
+//    policy, bins of 16 MB or more) when the bin is in eager release: then
+//    it is returned to the system at once.
+// 4. Ceiling, checked when a cache buffer is freed: if the available bytes
+//    then exceed OM_MEMORY_CACHE_MAX (default 1 GB), the oldest available
+//    buffers of the whole cache are returned until they are back under it.
+// 5. End of an inference (OMCacheEpoch(id), epoch policy): the available
+//    buffers of bins of 16 MB or more are returned, and each such bin used in
+//    this inference decides from it whether to be in eager release during
+//    the next ones.
+// 6. OMCacheTrim, a failed allocation (retried once afterwards) and the
+//    unload of the model .so return all available buffers.
+// Buffers in use are never touched. Without transparent huge pages the
+// default policy is none: steps 2, 3 and 5 keep every buffer, and only the
+// ceiling, trim and unload return memory.
+//
 // Design decisions:
 // - Why: glibc often returns freed memory to the kernel, so every inference
 //   refaults and rezeroes it (and pays a TLB purge per page on s390x).
@@ -82,9 +115,6 @@
 extern "C" {
 #endif
 
-// Defined in OMRuntimeNNPA.c.
-void *OMHugePageMalloc(size_t size);
-
 #define KB ((size_t)1024)
 #define MB (KB * KB)
 #define GB (KB * MB)
@@ -141,12 +171,13 @@ void *OMHugePageMalloc(size_t size);
 //   caches. A request that finds one returns it and the older ones of its bin
 //   to the system and gets a fresh buffer. The available buffers of 16 MB or
 //   more are also returned at the end of each epoch.
-// - release at free (epoch policy): a bin of 16 MB or more whose buffers were
-//   not reused within the last ended epoch (no request after a free of the
-//   bin) returns each buffer to the system at its free, instead of keeping
-//   it until the end of the epoch. This lowers the peak memory of an
-//   inference; the release work is the same, only earlier. Decided from what
-//   would have been a reuse, so a bin learns again if its pattern changes.
+// - eager release (epoch policy): a bin of 16 MB or more whose buffers were
+//   not reused within the last ended epoch that used it (no request after a
+//   free of the bin) returns each buffer to the system at its free, instead
+//   of keeping it until the end of the epoch. This lowers the peak memory of
+//   an inference; the release work is the same, only earlier. Decided again
+//   at the end of each epoch that uses the bin, from what would have been a
+//   reuse, so a bin switches back when its pattern changes.
 // - registry: hash maps a buffer to its descriptor.
 // - detach: take an available buffer out of every cache structure (available
 //   list and registry), under the mutex.
@@ -187,15 +218,15 @@ typedef struct {
   uint64_t numInUse;                // Requests of this bin not yet freed.
   // Epoch policy, bins of 16 MB or more: frees and requests-after-a-free in
   // the current epoch (reset at each epoch start), and the decision taken at
-  // the end of the last epoch (see "release at free").
+  // the end of the last epoch that used the bin (see "eager release").
   uint64_t freesThisEpoch, reusesThisEpoch;
-  int releaseAtFree;
+  int eagerRelease;
   // Statistics. statDetached: by eviction, trim, unload or epoch-policy
   // release. statStaleReleases: stale buffers returned (at a request or at
-  // the end of an epoch). statFreeReleases: buffers returned at their free.
+  // the end of an epoch). statEagerReleases: buffers returned at their free.
   uint64_t statNumAvailable, statPeakInUse;
   uint64_t statHits, statMisses, statDetached, statStaleReleases;
-  uint64_t statFreeReleases;
+  uint64_t statEagerReleases;
 } OMCacheBin;
 
 // The whole cache: one static instance per model .so, guarded by cacheMutex
@@ -682,6 +713,18 @@ static void *allocBuffer(size_t size) {
   return buffer;
 }
 
+// Allocate a buffer the cache does not keep (size without a bin, cache off,
+// or a failed cache allocation): malloc below 1 MB; from 1 MB up, 1 MB-aligned
+// memory advised for huge pages (allocBuffer), or malloc if that fails. This
+// is what OMHugePageMalloc does for compiled code; the cache keeps its own
+// copy so that it depends on nothing else in the runtime. Freed with free().
+static void *allocUncachedBuffer(size_t size) {
+  if (size < CACHE_HUGE_PAGE)
+    return malloc(size);
+  void *buffer = allocBuffer(size);
+  return buffer ? buffer : malloc(size);
+}
+
 // Fill desc for a new in-use buffer of bin binIndex, handed out for a request
 // of requestSize bytes, and map buffer to it. Called with the mutex held;
 // releases it and returns buffer.
@@ -790,7 +833,7 @@ void *OMCacheTryAlloc(size_t size) {
   if (cache.policy == CACHE_POLICY_EPOCH && cache.epoch > 0 &&
       bin->bufferSize >= CACHE_EPOCH_MIN_SIZE) {
     // A request after a free of this bin in this epoch is a reuse, whether or
-    // not that buffer was kept (see "release at free").
+    // not that buffer was kept (see "eager release").
     if (bin->freesThisEpoch > 0)
       bin->reusesThisEpoch++;
     if (head && head->freedEpoch != cache.epoch)
@@ -817,16 +860,16 @@ void *OMCacheTryAlloc(size_t size) {
   return createBufferOnMiss(binIndex, size);
 }
 
-// Cached buffer if possible; otherwise the same allocation as before the
-// cache. If that fails too, the available buffers are returned to the system
-// and the allocation is retried once (this also covers sizes without a bin).
+// Cached buffer if possible; otherwise an uncached one (allocUncachedBuffer,
+// the same memory as before the cache). If that fails too, the available
+// buffers are returned to the system and the allocation is retried once.
 void *OMCacheAlloc(size_t size) {
   void *buffer = OMCacheTryAlloc(size);
   if (buffer)
     return buffer;
-  buffer = OMHugePageMalloc(size);
+  buffer = allocUncachedBuffer(size);
   if (!buffer && size > 0 && trimOnAllocFailure())
-    buffer = OMHugePageMalloc(size);
+    buffer = allocUncachedBuffer(size);
   return buffer;
 }
 
@@ -843,7 +886,7 @@ void OMCacheFree(void *buffer) {
   pthread_mutex_lock(&cacheMutex);
   OMCacheBufferDesc *desc = findBufferDesc(buffer);
   if (!desc) {
-    // Not a cache buffer: OMCacheAlloc fell back to OMHugePageMalloc (size
+    // Not a cache buffer: OMCacheAlloc fell back to allocUncachedBuffer (size
     // without a bin, i.e. < 128 KB or > maxCachedSize, or a failed cache
     // allocation), or zdnnx used its own allocator. Both give plain
     // malloc/posix_memalign memory, so free() it. (A buffer in use is always
@@ -869,14 +912,14 @@ void OMCacheFree(void *buffer) {
               bin->bufferSize >= CACHE_EPOCH_MIN_SIZE;
   if (large)
     bin->freesThisEpoch++;
-  if (large && bin->releaseAtFree) {
-    // Not reused within an inference: return it now (after the mutex is
+  if (large && bin->eagerRelease) {
+    // Eager release: return it now (after the mutex is
     // dropped) rather than at the end of the epoch. It is in use, so not on
     // the available list: only its mapping is removed.
     removeBufferMapping(desc);
     cache.statRegisteredBytes -= desc->bufferSize;
     bin->statDetached++;
-    bin->statFreeReleases++;
+    bin->statEagerReleases++;
     desc->availableNext = detached;
     detached = desc;
   } else {
@@ -939,10 +982,10 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
       OMCacheBin *bin = &cache.bins[i];
       if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE)
         continue;
-      // Bins used in this epoch: release at free from now on if none of their
+      // Bins used in this epoch: eager release from now on if none of their
       // buffers was reused within it. Bins not used keep their decision.
       if (bin->freesThisEpoch > 0)
-        bin->releaseAtFree = bin->reusesThisEpoch == 0;
+        bin->eagerRelease = bin->reusesThisEpoch == 0;
       uint64_t n = detachBinAvailable(bin, &detached);
       bin->statStaleReleases += n;
       cache.statEpochEndReleases += n;
@@ -1028,7 +1071,7 @@ static void printStats(void) {
     fprintf(stderr,
         "==OM-MEMORY-CACHE== bin %s: hits %llu, misses %llu, peak in use "
         "%llu, available %llu, in use %llu, detached %llu (stale releases "
-        "%llu, released at free %llu)\n",
+        "%llu, eager releases %llu)\n",
         formatBytes(bin->bufferSize, b1), (unsigned long long)bin->statHits,
         (unsigned long long)bin->statMisses,
         (unsigned long long)bin->statPeakInUse,
@@ -1036,7 +1079,7 @@ static void printStats(void) {
         (unsigned long long)bin->numInUse,
         (unsigned long long)bin->statDetached,
         (unsigned long long)bin->statStaleReleases,
-        (unsigned long long)bin->statFreeReleases);
+        (unsigned long long)bin->statEagerReleases);
   }
 }
 

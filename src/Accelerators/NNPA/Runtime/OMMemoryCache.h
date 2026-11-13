@@ -14,14 +14,17 @@
 // model .so has its own cache and reads them on its own). Sizes are a number
 // with an optional K, M or G suffix (powers of 1024) and an optional B; a
 // value that does not parse or overflows size_t is ignored (default used).
+//
 //   OM_MEMORY_CACHE_MAX    Ceiling on the bytes of available (cached, not in
 //                          use) buffers; the oldest are evicted above it.
-//                          Default 1G. 0 disables the cache: every call then
-//                          behaves as before the cache (OMHugePageMalloc /
-//                          free).
-//   OM_MEMORY_CACHE_LARGE  Largest request that is cached; larger ones go to
-//                          OMHugePageMalloc. Default 256M, at most 1T. A value
-//                          below 128K disables the cache.
+//                          Default 1G. 0 disables the cache: every buffer is
+//                          then allocated as before the cache (malloc below
+//                          1 MB, 1 MB-aligned huge-page memory above) and
+//                          freed with free().
+//   OM_MEMORY_CACHE_LARGE  Largest request that is cached; larger ones are
+//                          allocated uncached (1 MB-aligned huge-page
+//                          memory). Default 256M, at most 1T. A value below
+//                          128K disables the cache.
 //   OM_MEMORY_CACHE_POLICY epoch (default): a buffer of 16 MB or more freed
 //                          in an earlier inference is never reused; it is
 //                          returned to the system and a fresh one is mapped.
@@ -30,6 +33,7 @@
 //   OM_MEMORY_CACHE_STATS  Any value other than empty or starting with '0':
 //                          print statistics to stderr when the model .so is
 //                          unloaded or the process exits.
+//
 // See OMMemoryCache.c for the design and for debugging advice.
 //
 //===----------------------------------------------------------------------===//
@@ -47,7 +51,9 @@ extern "C" {
 /* Allocate a temporary buffer that is freed with OMCacheFree before the
  * inference ends. Requests between 128 KB and 256 MB are served from a cache of
  * previously freed buffers; other requests, or all requests when the cache is
- * disabled, go to OMHugePageMalloc. Called from compiled code. */
+ * disabled, are allocated uncached (malloc below 1 MB, 1 MB-aligned memory
+ * advised for huge pages above; freed with free()). Called from compiled code.
+ */
 void *OMCacheAlloc(size_t size);
 
 /* Return a buffer to the cache. A pointer that the cache does not own is
