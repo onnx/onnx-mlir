@@ -49,10 +49,10 @@
 // - Scope: buffers the model frees itself (selected by the pass
 //   ReplaceMallocByHugePageMalloc) and zdnnx scratch. Outputs are not cached.
 // - Each buffer is its own posix_memalign. A buffer must still be given back
-//   with OMCacheFree, never with plain free(): that would leave a stale entry
-//   in the registry, and a later allocation at the same address that reaches
-//   OMCacheFree would be taken for a cache buffer of the wrong size. All
-//   current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree.
+//   with OMCacheFree, never with plain free(): that would leave an orphan
+//   entry in the registry, and a later allocation at the same address that
+//   reaches OMCacheFree would be taken for a cache buffer of the wrong size.
+//   All current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree.
 // - Bins: 64 KB steps to 1 MB, then 1 MB multiples, <= 4 per doubling; no
 //   splitting. < 128 KB (glibc reuses those well) and > 256 MB are not cached.
 // - Large buffers that went cold are not reused: writing into a cold buffer
@@ -69,7 +69,8 @@
 //   fails, all available buffers are returned to the system and the
 //   allocation is retried once.
 // - One mutex. Buffers are obtained from and returned to the system outside
-//   of it; only the release of a stale descriptor calls free while holding it.
+//   of it; only the release of an orphan descriptor calls free while holding
+//   it.
 //
 // Environment variables: see OMMemoryCache.h.
 //
@@ -102,6 +103,7 @@
 #endif
 #include <pthread.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -173,12 +175,17 @@ extern "C" {
 //   more are also returned at the end of each epoch.
 // - eager release (epoch policy): a bin of 16 MB or more whose buffers were
 //   not reused within the last ended epoch that used it (no request after a
-//   free of the bin) returns each buffer to the system at its free, instead
-//   of keeping it until the end of the epoch. This lowers the peak memory of
-//   an inference; the release work is the same, only earlier. Decided again
-//   at the end of each epoch that uses the bin, from what would have been a
-//   reuse, so a bin switches back when its pattern changes.
+//   free of the bin) will eagerly return each buffer to the system at its free,
+//   instead of keeping it until the end of the epoch. This lowers the peak
+//   memory of an inference; the release work is the same, only earlier. Decided
+//   again at the end of each epoch that uses the bin, from what would have been
+//   a reuse, so a bin switches back when its pattern changes.
 // - registry: hash maps a buffer to its descriptor.
+// - orphan descriptor: a registry entry whose buffer was released behind the
+//   cache's back, with plain free() instead of OMCacheFree: a caller bug,
+//   never expected (the pass and zdnnx always pair the cache's alloc and free
+//   calls). Found when posix_memalign returns that address again for a new
+//   cache buffer; asserted in debug builds, repaired in release builds.
 // - detach: take an available buffer out of every cache structure (available
 //   list and registry), under the mutex.
 // - return to the system: free() detached buffers and their descriptors,
@@ -255,12 +262,12 @@ typedef struct {
   // Bytes of available buffers, checked against maxAvailableBytes.
   size_t availableBytes;
   // Statistics (stat*, only printed). statRegisteredBytes: in all registered
-  // buffers. statStaleDescs: descriptors of buffers someone released with
-  // plain free(), found when their address came back from posix_memalign.
+  // buffers. statOrphanDescs: orphan descriptors found (see the vocabulary);
+  // always 0 unless a caller releases a cache buffer with plain free().
   // statAllocFailureTrims: trims after a failed allocation.
   size_t statRegisteredBytes, statPeakAvailableBytes, statPeakRegisteredBytes;
   uint64_t statEvictions, statTrims, statAllocFailureTrims;
-  uint64_t statStaleDescs, statDoubleFrees, statFailedAllocs;
+  uint64_t statOrphanDescs, statDoubleFrees, statFailedAllocs;
   uint64_t statEpochsStarted, statEpochsEnded, statEpochEndReleases;
   // OMCacheFreeSized calls that freed without the mutex (size without a bin).
   // Updated atomically, and only when statistics are printed.
@@ -285,22 +292,23 @@ static pthread_once_t cacheOnce = PTHREAD_ONCE_INIT;
 // Initialization.
 //===----------------------------------------------------------------------===//
 
-// Parse "<number>[K|M|G]"; return dflt if the variable is unset, malformed,
-// negative, or too large for size_t (including after the K/M/G scaling).
-static size_t getEnvSize(const char *name, size_t dflt) {
+// Parse "<number>[K|M|G]"; return defaultSize if the variable is unset,
+// malformed, negative, or too large for size_t (including after the K/M/G
+// scaling).
+static size_t getEnvSize(const char *name, size_t defaultSize) {
   const char *s = getenv(name);
   if (!s)
-    return dflt;
+    return defaultSize;
   while (*s == ' ' || *s == '\t')
     s++;
   // strtoull accepts a sign and negates the value: reject both.
   if (*s < '0' || *s > '9')
-    return dflt;
+    return defaultSize;
   char *end = NULL;
   errno = 0;
   unsigned long long v = strtoull(s, &end, 10);
   if (errno == ERANGE || end == s)
-    return dflt;
+    return defaultSize;
   unsigned long long scale = 1;
   switch (*end) {
   case 'k':
@@ -324,9 +332,9 @@ static size_t getEnvSize(const char *name, size_t dflt) {
   if (*end == 'b' || *end == 'B')
     end++;
   if (*end != '\0')
-    return dflt;
+    return defaultSize;
   if (v > (unsigned long long)SIZE_MAX / scale)
-    return dflt;
+    return defaultSize;
   return (size_t)(v * scale);
 }
 
@@ -393,27 +401,32 @@ static int transparentHugePagesAvailable(void) {
 // handlers. Runs once, at the first call into the cache.
 static void initCache(void) {
   memset(&cache, 0, sizeof(cache));
+  // Get configs from environment to determine if the cache is enabled.
   cache.maxAvailableBytes =
       getEnvSize("OM_MEMORY_CACHE_MAX", CACHE_DEFAULT_MAX);
   cache.maxCachedSize =
       getEnvSize("OM_MEMORY_CACHE_LARGE", CACHE_DEFAULT_LARGE);
-  const char *stats = getenv("OM_MEMORY_CACHE_STATS");
-  cache.printStats = stats && *stats && *stats != '0';
-  // Policy: an explicit OM_MEMORY_CACHE_POLICY wins; by default, epoch with
-  // transparent huge pages and none without.
+  if (cache.maxCachedSize > CACHE_MAX_LARGE)
+    cache.maxCachedSize = CACHE_MAX_LARGE;
+  // Transparent huge pages: needed even when the cache is off, since its
+  // uncached buffers are advised for huge pages too (allocAlignMem).
   cache.thpAvailable = transparentHugePagesAvailable();
+  // Off: every call then behaves as before the cache; nothing else to read.
+  cache.enabled =
+      cache.maxAvailableBytes > 0 && cache.maxCachedSize >= CACHE_MIN_SIZE;
+  if (!cache.enabled)
+    return;
+  // Determine the cache policy: an explicit OM_MEMORY_CACHE_POLICY wins; by
+  // default, epoch with transparent huge pages and none without.
   cache.policy = cache.thpAvailable ? CACHE_POLICY_EPOCH : CACHE_POLICY_NONE;
   const char *policy = getenv("OM_MEMORY_CACHE_POLICY");
   if (policy && strcmp(policy, "epoch") == 0)
     cache.policy = CACHE_POLICY_EPOCH;
   else if (policy && strcmp(policy, "none") == 0)
     cache.policy = CACHE_POLICY_NONE;
-  if (cache.maxCachedSize > CACHE_MAX_LARGE)
-    cache.maxCachedSize = CACHE_MAX_LARGE;
-  cache.enabled =
-      cache.maxAvailableBytes > 0 && cache.maxCachedSize >= CACHE_MIN_SIZE;
-  if (!cache.enabled)
-    return;
+  // Determine if we want to print statistics when closing the cache.
+  const char *stats = getenv("OM_MEMORY_CACHE_STATS");
+  cache.printStats = stats && *stats && *stats != '0';
   // Keep the mutex usable in a child process forked while it was held. Done
   // first: if it fails, the cache is disabled before any buffer exists, so a
   // forked child cannot deadlock.
@@ -423,8 +436,8 @@ static void initCache(void) {
       fprintf(stderr, "==OM-MEMORY-CACHE== disabled: pthread_atfork failed\n");
     return;
   }
-  // Bin sizes: 64 KB steps up to 1 MB; then multiples of 1 MB, with a step of
-  // a quarter of the largest power of two below the size.
+  // Set the bin sizes: 64 KB steps up to 1 MB; then multiples of 1 MB, with a
+  // step of a quarter of the largest power of two below the size.
   size_t s = CACHE_MIN_SIZE;
   for (; s <= CACHE_HUGE_PAGE; s += CACHE_SMALL_BIN_STEP)
     initNextBinSize(s);
@@ -506,17 +519,15 @@ static void mapBufferToDesc(OMCacheBufferDesc *desc) {
   desc->bucketNext = *head;
   *head = desc;
   cache.numRegistered++;
-  // Statistics only, and only when they are printed: the chain walk is the one
-  // statistic with a loop (it runs on a miss, not on the hot path).
-  if (!cache.printStats)
-    return;
-  if (cache.numRegistered > cache.statPeakRegistered)
-    cache.statPeakRegistered = cache.numRegistered;
-  size_t chain = 0;
-  for (OMCacheBufferDesc *d = desc; d; d = d->bucketNext)
-    chain++;
-  if (chain > cache.statMaxBucketChain)
-    cache.statMaxBucketChain = chain;
+  if (cache.printStats) {
+    if (cache.numRegistered > cache.statPeakRegistered)
+      cache.statPeakRegistered = cache.numRegistered;
+    size_t chain = 0;
+    for (OMCacheBufferDesc *d = desc; d; d = d->bucketNext)
+      chain++;
+    if (chain > cache.statMaxBucketChain)
+      cache.statMaxBucketChain = chain;
+  }
 }
 
 // Remove the mapping of desc->buffer, which must be mapped.
@@ -534,24 +545,25 @@ static void removeBufferMapping(OMCacheBufferDesc *desc) {
 // returnDetachedToSystem).
 //===----------------------------------------------------------------------===//
 //
-// removeFromAvailableList vs detachFromCache:
-//
-// |                       | removeFromAvailableList | detachFromCache         |
-// |-----------------------|-------------------------|-------------------------|
-// | bin's available list  | removed                 | removed (calls          |
-// |                       |                         | removeFromAvailableList)|
-// | availableBytes        | decreased               | decreased               |
-// | registry              | stays mapped            | mapping removed         |
-// | afterwards, buffer is | still owned by the      | unknown to the cache,   |
-// |                       | cache, now in use       | queued on detached, to  |
-// |                       |                         | be returned to system   |
-// | used by               | a hit in                | evict; trim (from       |
-// |                       | OMCacheTryAlloc; detach | OMCacheTrim, an alloc   |
-// |                       |                         | failure, or unload)     |
-//
 // removeFromAvailableList is a building block: a buffer changes state from
 // available to in use. Detach means the buffer leaves the cache for good.
 //
+// |                       | removeFromAvailableList | detachFromCache         |
+// |-----------------------|-------------------------|-------------------------|
+// | bin's available list  | removed                 | removed.                |
+// |-----------------------|-------------------------|-------------------------|
+// | availableBytes        | decreased               | decreased               |
+// |-----------------------|-------------------------|-------------------------|
+// | registry              | stays mapped            | mapping removed         |
+// |-----------------------|-------------------------|-------------------------|
+// | afterwards, buffer is | still owned by the      | unknown to the cache,   |
+// |                       | cache, now in use       | queued on detached, to  |
+// |                       |                         | be returned to system   |
+// |-----------------------|-------------------------|-------------------------|
+// | used by               | a hit in                | evict; trim (from       |
+// |                       | OMCacheTryAlloc; detach | OMCacheTrim, an alloc   |
+// |                       |                         | failure, or unload)     |
+// |-----------------------|-------------------------|-------------------------|
 
 // Add a buffer that was just freed to its bin's available list (at the head,
 // so the most recently used buffer is reused first). Also stamp its age and
@@ -582,7 +594,7 @@ static void addToAvailableList(OMCacheBufferDesc *desc) {
 static void removeFromAvailableList(OMCacheBufferDesc *desc) {
   OMCacheBin *bin = &cache.bins[desc->binIndex];
   // Unlink desc from the bin's available list: the head for a hit, the tail
-  // for an eviction, anywhere for a stale descriptor.
+  // for an eviction, anywhere for an orphan descriptor.
   if (desc->availablePrev)
     desc->availablePrev->availableNext = desc->availableNext;
   else
@@ -625,12 +637,21 @@ static void returnDetachedToSystem(OMCacheBufferDesc *detached) {
   }
 }
 
+// Detach all available buffers of one bin into *detached (stale buffers);
+// return how many were detached.
+static inline uint64_t detachAllAvailableInBin(
+    OMCacheBin *bin, OMCacheBufferDesc **detached) {
+  uint64_t n = 0;
+  for (; bin->availableHead; n++)
+    detachFromCache(bin->availableHead, detached);
+  return n;
+}
+
 // Detach every available buffer into *detached; return how many were detached.
-static size_t detachAllAvailable(OMCacheBufferDesc **detached) {
+static size_t detachAllAvailableInCache(OMCacheBufferDesc **detached) {
   size_t n = 0;
   for (int i = 0; i < cache.numBins; i++)
-    for (; cache.bins[i].availableHead; n++)
-      detachFromCache(cache.bins[i].availableHead, detached);
+    n += detachAllAvailableInBin(&cache.bins[i], detached);
   return n;
 }
 
@@ -648,16 +669,6 @@ static OMCacheBufferDesc *findOldestAvailable(void) {
   return oldest;
 }
 
-// Detach all available buffers of one bin into *detached (stale buffers);
-// return how many were detached.
-static uint64_t detachBinAvailable(
-    OMCacheBin *bin, OMCacheBufferDesc **detached) {
-  uint64_t n = 0;
-  for (; bin->availableHead; n++)
-    detachFromCache(bin->availableHead, detached);
-  return n;
-}
-
 // Trim after an allocation failed: return every available buffer to the
 // system, so that the retry can use that memory. Return 1 if any buffer was
 // returned. Takes the mutex.
@@ -666,7 +677,7 @@ static int trimOnAllocFailure(void) {
     return 0;
   pthread_mutex_lock(&cacheMutex);
   OMCacheBufferDesc *detached = NULL;
-  size_t n = detachAllAvailable(&detached);
+  size_t n = detachAllAvailableInCache(&detached);
   if (n)
     cache.statAllocFailureTrims++;
   pthread_mutex_unlock(&cacheMutex);
@@ -696,33 +707,40 @@ static void statCountGiveBack(OMCacheBufferDesc *desc) {
 // Buffer creation.
 //===----------------------------------------------------------------------===//
 
-// Get a new buffer from the system: 4 KB aligned (zdnnx needs it), or 1 MB
-// aligned and advised for huge pages from 1 MB up, as OMHugePageMalloc does.
-// Checked: posix_memalign is available on z/OS (OMExternalConstant.c also uses
-// it there), and its memory may be released with free().
-static void *allocBuffer(size_t size) {
-  void *buffer = NULL;
-  size_t align = size >= CACHE_HUGE_PAGE ? CACHE_HUGE_PAGE : CACHE_PAGE_4K;
-  if (posix_memalign(&buffer, align, size) != 0)
+// Get size bytes aligned to align from the system; memory of 1 MB or more is
+// also advised for huge pages. Returns NULL on failure. Checked:
+// posix_memalign is available on z/OS (OMExternalConstant.c also uses it
+// there), and its memory may be released with free().
+static void *allocAlignMem(size_t size, size_t align) {
+  void *alignedPtr = NULL;
+  if (posix_memalign(&alignedPtr, align, size) != 0)
     return NULL;
 #if defined(__linux__) && defined(MADV_HUGEPAGE)
-  // Advise once, when the buffer is created; it is ok if the advice fails.
-  if (size >= CACHE_HUGE_PAGE)
-    madvise(buffer, size, MADV_HUGEPAGE);
+  // Advise once, when the memory is obtained, if the kernel has transparent
+  // huge pages enabled; it is ok if the advice fails.
+  if (size >= CACHE_HUGE_PAGE && cache.thpAvailable)
+    madvise(alignedPtr, size, MADV_HUGEPAGE);
 #endif
-  return buffer;
+  return alignedPtr;
 }
 
-// Allocate a buffer the cache does not keep (size without a bin, cache off,
-// or a failed cache allocation): malloc below 1 MB; from 1 MB up, 1 MB-aligned
-// memory advised for huge pages (allocBuffer), or malloc if that fails. This
-// is what OMHugePageMalloc does for compiled code; the cache keeps its own
-// copy so that it depends on nothing else in the runtime. Freed with free().
+// Memory of a new cache buffer (size is a bin size, at least 128 KB): 4 KB
+// aligned, since zdnnx receives cache buffers through OMCacheTryAlloc and zDNN
+// needs 4 KB; 1 MB aligned (and advised for huge pages) from 1 MB up.
+static void *allocCachedBuffer(size_t size) {
+  size_t align = size >= CACHE_HUGE_PAGE ? CACHE_HUGE_PAGE : CACHE_PAGE_4K;
+  return allocAlignMem(size, align);
+}
+
+// An uncached buffer (size without a bin, cache off, or a failed cache
+// allocation), for compiled code only, which aligns its own buffers: from
+// 1 MB up, 1 MB-aligned memory advised for huge pages, as OMHugePageMalloc
+// does; otherwise, or if that fails, plain malloc. Freed with free().
 static void *allocUncachedBuffer(size_t size) {
-  if (size < CACHE_HUGE_PAGE)
-    return malloc(size);
-  void *buffer = allocBuffer(size);
-  return buffer ? buffer : malloc(size);
+  void *buffer = NULL;
+  if (size >= CACHE_HUGE_PAGE)
+    buffer = allocAlignMem(size, CACHE_HUGE_PAGE);
+  return buffer ? buffer : malloc(size); // Last resort, may be unaligned.
 }
 
 // Fill desc for a new in-use buffer of bin binIndex, handed out for a request
@@ -731,20 +749,25 @@ static void *allocUncachedBuffer(size_t size) {
 static void *mapNewBufferAndUnlock(
     OMCacheBufferDesc *desc, void *buffer, int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
-  // A buffer already mapped at this address was given to free() by someone
-  // else and its memory reused by malloc: forget the stale descriptor.
-  OMCacheBufferDesc *staleDesc = findBufferDesc(buffer);
-  if (staleDesc) {
-    removeBufferMapping(staleDesc);
-    if (staleDesc->inUse) {
-      cache.bins[staleDesc->binIndex].numInUse--;
-      statCountGiveBack(staleDesc);
+  // Never expected: this address is still mapped, so a cache buffer was
+  // released with plain free() (an orphan descriptor, see the vocabulary) and
+  // posix_memalign returned its address again. Callers pair OMCacheAlloc /
+  // OMCacheTryAlloc with OMCacheFree / OMCacheFreeSized. Debug builds stop
+  // here; release builds forget the orphan and repair the counts.
+  OMCacheBufferDesc *orphanDesc = findBufferDesc(buffer);
+  assert(!orphanDesc && "cache buffer released with plain free()");
+  if (orphanDesc) {
+    removeBufferMapping(orphanDesc);
+    if (orphanDesc->inUse) {
+      cache.bins[orphanDesc->binIndex].numInUse--;
+      statCountGiveBack(orphanDesc);
     } else {
-      removeFromAvailableList(staleDesc);
+      // Even less expected: freed with OMCacheFree, then again with free().
+      removeFromAvailableList(orphanDesc);
     }
-    cache.statRegisteredBytes -= staleDesc->bufferSize;
-    cache.statStaleDescs++;
-    free(staleDesc);
+    cache.statRegisteredBytes -= orphanDesc->bufferSize;
+    cache.statOrphanDescs++;
+    free(orphanDesc);
   }
   desc->buffer = buffer;
   desc->bufferSize = size;
@@ -765,28 +788,28 @@ static void *mapNewBufferAndUnlock(
 
 // Create and map a buffer of bin binIndex on a cache miss. The caller has
 // already counted it as in use; on failure, undo that count and return NULL.
-// Memory is obtained before taking the mutex: allocBuffer may mmap and madvise
-// a large buffer (a few to tens of us), and other threads (zdnnx OpenMP
-// workers, concurrent sessions) must not wait on the mutex meanwhile. Misses
-// are rare (warm-up, shape changes), so this is a minor gain; the same rule
-// matters far more for returnDetachedToSystem. If the descriptor or the buffer
-// cannot be allocated, every available buffer is returned to the system and
-// the creation is retried once. A buffer is never handed out unmapped.
+// Memory is obtained before taking the mutex: allocCachedBuffer may mmap and
+// madvise a large buffer (a few to tens of us), and other threads (zdnnx
+// OpenMP workers, concurrent sessions) must not wait on the mutex meanwhile.
+// Misses are rare (warm-up, shape changes), so this is a minor gain; the same
+// rule matters far more for returnDetachedToSystem. If the descriptor or the
+// buffer cannot be allocated, every available buffer is returned to the system
+// and the creation is retried once. A buffer is never handed out unmapped.
 static void *createBufferOnMiss(int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
   for (int attempt = 0;; attempt++) {
     OMCacheBufferDesc *desc = malloc(sizeof(OMCacheBufferDesc));
-    void *buffer = desc ? allocBuffer(size) : NULL;
+    void *buffer = desc ? allocCachedBuffer(size) : NULL;
     pthread_mutex_lock(&cacheMutex);
     if (buffer) // mapNewBufferAndUnlock releases the mutex.
       return mapNewBufferAndUnlock(desc, buffer, binIndex, requestSize);
-    // Failure: buffer is NULL here; desc may be non-NULL (only allocBuffer
-    // failed), so free it. On the first attempt, trim (detach all available
-    // buffers) and retry if there were any.
+    // Failure: buffer is NULL here; desc may be non-NULL (only
+    // allocCachedBuffer failed), so free it. On the first attempt, trim (detach
+    // all available buffers) and retry if there were any.
     OMCacheBufferDesc *detached = NULL;
     size_t released = 0;
     if (attempt == 0)
-      released = detachAllAvailable(&detached);
+      released = detachAllAvailableInCache(&detached);
     if (released) {
       // Trimmed: retry once with that memory back in the system.
       cache.statAllocFailureTrims++;
@@ -837,7 +860,7 @@ void *OMCacheTryAlloc(size_t size) {
     if (bin->freesThisEpoch > 0)
       bin->reusesThisEpoch++;
     if (head && head->freedEpoch != cache.epoch)
-      bin->statStaleReleases += detachBinAvailable(bin, &detached);
+      bin->statStaleReleases += detachAllAvailableInBin(bin, &detached);
   }
   OMCacheBufferDesc *desc = bin->availableHead; // NULL if stale.
   if (desc) {
@@ -986,7 +1009,7 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
       // buffers was reused within it. Bins not used keep their decision.
       if (bin->freesThisEpoch > 0)
         bin->eagerRelease = bin->reusesThisEpoch == 0;
-      uint64_t n = detachBinAvailable(bin, &detached);
+      uint64_t n = detachAllAvailableInBin(bin, &detached);
       bin->statStaleReleases += n;
       cache.statEpochEndReleases += n;
     }
@@ -1004,7 +1027,7 @@ void OMCacheTrim(void) {
     return;
   pthread_mutex_lock(&cacheMutex);
   OMCacheBufferDesc *detached = NULL;
-  detachAllAvailable(&detached);
+  detachAllAvailableInCache(&detached);
   cache.statTrims++;
   pthread_mutex_unlock(&cacheMutex);
   returnDetachedToSystem(detached);
@@ -1043,14 +1066,14 @@ static void printStats(void) {
       (unsigned long long)cache.statEpochEndReleases);
   fprintf(stderr,
       "==OM-MEMORY-CACHE== max available %s, max registered %s, evictions "
-      "%llu, trims %llu, alloc-failure trims %llu, stale descs %llu, double "
+      "%llu, trims %llu, alloc-failure trims %llu, orphan descs %llu, double "
       "frees %llu, failed allocs %llu\n",
       formatBytes(cache.statPeakAvailableBytes, b1),
       formatBytes(cache.statPeakRegisteredBytes, b2),
       (unsigned long long)cache.statEvictions,
       (unsigned long long)cache.statTrims,
       (unsigned long long)cache.statAllocFailureTrims,
-      (unsigned long long)cache.statStaleDescs,
+      (unsigned long long)cache.statOrphanDescs,
       (unsigned long long)cache.statDoubleFrees,
       (unsigned long long)cache.statFailedAllocs);
   fprintf(stderr,
@@ -1098,7 +1121,7 @@ __attribute__((destructor)) static void finalizeCache(void) {
   if (cache.printStats)
     printStats();
   OMCacheBufferDesc *detached = NULL;
-  detachAllAvailable(&detached);
+  detachAllAvailableInCache(&detached);
   pthread_mutex_unlock(&cacheMutex);
   returnDetachedToSystem(detached);
 }

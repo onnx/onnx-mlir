@@ -973,6 +973,9 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
           zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
 
         // 3. Update running max via pointer swap.
+        // Only the buffers are swapped, not buffer_size: free_ztensor passes
+        // buffer_size to OMCacheFreeSized, which is fine because both
+        // ztensors have the same shape, hence the same buffer_size.
         if (status == ZDNN_OK) {
           void *tmp = old_max_zt.buffer;
           old_max_zt.buffer = max_row_zt.buffer;
