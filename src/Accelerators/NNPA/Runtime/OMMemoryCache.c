@@ -22,8 +22,8 @@
 //    in an earlier inference (stale) is not handed out; it and the older
 //    ones of its bin are returned to the system, and the request misses.
 //    Normally there are none (step 5 returns them at the end of each
-//    inference); this catches an inference whose end was not seen and
-//    overlapping inferences, whose earlier ends release nothing.
+//    inference); this catches overlapping inferences, whose earlier ends
+//    release nothing.
 // 3. OMCacheFree / OMCacheFreeSized: a buffer that was not served from the
 //    cache (size outside the cached range, or cache off) goes to free();
 //    OMCacheFreeSized, given the size, does so without taking the mutex. A
@@ -33,12 +33,13 @@
 // 4. Ceiling, checked when a cache buffer is freed: if the available bytes
 //    then exceed OM_MEMORY_CACHE_MAX (default 1 GB), the oldest available
 //    buffers of the whole cache are returned until they are back under it.
-// 5. End of an inference (OMCacheEpoch(id), epoch policy): the available
-//    buffers of bins of 16 MB or more are returned, and each such bin used in
+// 5. End of an inference (OMCacheEpoch(id), epoch policy), unless a later one
+//    has started meanwhile: the available buffers of bins of 16 MB or more
+//    are returned, and each such bin used in
 //    this inference decides from it whether to be in eager release during
 //    the next ones.
-// 6. OMCacheTrim, a failed allocation (retried once afterwards) and the
-//    unload of the model .so return all available buffers.
+// 6. OMCacheTrim, a failed allocation (retried once if that returned any) and
+//    the unload of the model .so return all available buffers.
 // Buffers in use are never touched. Without transparent huge pages the
 // default policy is none: steps 2, 3 and 5 keep every buffer, and only the
 // ceiling, trim and unload return memory.
@@ -52,22 +53,24 @@
 //   with OMCacheFree, never with plain free(): that would leave an orphan
 //   entry in the registry, and a later allocation at the same address that
 //   reaches OMCacheFree would be taken for a cache buffer of the wrong size.
-//   All current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree.
+//   All current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree
+//   or OMCacheFreeSized.
 // - Bins: 64 KB steps to 1 MB, then 1 MB multiples, <= 4 per doubling; no
-//   splitting. < 128 KB (glibc reuses those well) and > 256 MB are not cached.
+//   splitting. < 128 KB (glibc reuses those well) and > OM_MEMORY_CACHE_LARGE
+//   (default 256 MB) are not cached.
 // - Large buffers that went cold are not reused: writing into a cold buffer
 //   first fetches its stale contents from memory, which is slower than a
 //   fresh, kernel-zeroed mapping (granite-embedding S=2048 on z17: Stick 11.9
 //   vs 7.6 ms into its 96 MB mask), while a large buffer reused every layer
 //   is worth keeping (granite-4 prefill). Epoch policy (default): a buffer of
 //   16 MB or more freed in an earlier inference is never reused; the compiler
-//   marks each inference with OMCacheEpoch. Only with transparent huge pages
-//   (otherwise all buffers are kept): with 4 KB pages, releasing is the
-//   expensive part. OM_MEMORY_CACHE_POLICY=none keeps all buffers.
+//   marks each inference with OMCacheEpoch. By default only with transparent
+//   huge pages (otherwise all buffers are kept): with 4 KB pages, releasing is
+//   the expensive part. OM_MEMORY_CACHE_POLICY=none keeps all buffers.
 // - Freed buffers are kept available (peak use per bin at fixed shapes); a
 //   ceiling on available bytes evicts the oldest first. When an allocation
-//   fails, all available buffers are returned to the system and the
-//   allocation is retried once.
+//   fails, all available buffers are returned to the system and, if there
+//   were any, the allocation is retried once.
 // - One mutex. Buffers are obtained from and returned to the system outside
 //   of it; only the release of an orphan descriptor calls free while holding
 //   it.
@@ -163,36 +166,46 @@ extern "C" {
 // - available list: a bin's available buffers, most recently freed first (the
 //   reuse order); so its tail is the bin's oldest available buffer.
 // - age stamp (freedAt): when an available buffer was freed, from a counter
-//   incremented at each OMCacheFree. The oldest available buffer of the whole
-//   cache is the bin tail with the smallest stamp (the eviction order).
+//   incremented each time a buffer is put on an available list. The oldest
+//   available buffer of the whole cache is the bin tail with the smallest stamp
+//   (the eviction order).
 // - epoch: one inference, delimited by OMCacheEpoch calls that the compiler
 //   wraps around the model's body. A kept buffer records the epoch of its
-//   free.
+//   free. Compiled code allocates only inside an epoch; outside any (before
+//   the first start), the epoch policy's checks are skipped (cache.epoch is
+//   0).
 // - stale buffer (epoch policy): an available buffer of a bin of 16 MB or more
-//   freed in an earlier epoch. Its memory has likely left the processor
-//   caches. A request that finds one returns it and the older ones of its bin
-//   to the system and gets a fresh buffer. The available buffers of 16 MB or
-//   more are also returned at the end of each epoch.
+//   freed in an earlier epoch; its memory has likely left the processor
+//   caches. Normally there are none: the end of each epoch returns those
+//   buffers. They remain only when inferences overlap: an end releases
+//   nothing if a later epoch has started meanwhile. A request that finds a
+//   stale buffer returns it and the older ones of its bin to the system and
+//   gets a fresh buffer.
 // - eager release (epoch policy): a bin of 16 MB or more whose buffers were
 //   not reused within the last ended epoch that used it (no request after a
 //   free of the bin) will eagerly return each buffer to the system at its free,
 //   instead of keeping it until the end of the epoch. This lowers the peak
 //   memory of an inference; the release work is the same, only earlier. Decided
-//   again at the end of each epoch that uses the bin, from what would have been
-//   a reuse, so a bin switches back when its pattern changes.
+//   again at the end of each epoch that uses the bin (unless a later epoch has
+//   started meanwhile), from what would have been a reuse, so a bin switches
+//   back when its pattern changes.
 // - registry: hash maps a buffer to its descriptor.
 // - orphan descriptor: a registry entry whose buffer was released behind the
 //   cache's back, with plain free() instead of OMCacheFree: a caller bug,
 //   never expected (the pass and zdnnx always pair the cache's alloc and free
 //   calls). Found when posix_memalign returns that address again for a new
 //   cache buffer; asserted in debug builds, repaired in release builds.
-// - detach: take an available buffer out of every cache structure (available
-//   list and registry), under the mutex.
+// - detach: take a buffer out of every cache structure, under the mutex. An
+//   available buffer leaves its available list and the registry; a buffer in
+//   eager release, detached at its free, was never on the list and leaves
+//   only the registry.
 // - return to the system: free() detached buffers and their descriptors,
 //   after the mutex is dropped.
 // - evict / trim: reasons to detach. Evict: over the ceiling on available
 //   bytes, oldest first. Trim: all available buffers (OMCacheTrim, failed
-//   allocation, unload).
+//   allocation, unload). The epoch policy detaches too: stale buffers at a
+//   request, the large available buffers at the end of an epoch, and a buffer
+//   of a bin in eager release at its free.
 //
 
 // Descriptor of one buffer owned by the cache, in use or available. An in-use

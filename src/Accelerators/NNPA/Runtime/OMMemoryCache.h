@@ -29,7 +29,8 @@
 //                          in an earlier inference is never reused; it is
 //                          returned to the system and a fresh one is mapped.
 //                          none: keep all buffers. Without transparent huge
-//                          pages the default is none.
+//                          pages the default is none. Other values are
+//                          ignored (default used).
 //   OM_MEMORY_CACHE_STATS  Any value other than empty or starting with '0':
 //                          print statistics to stderr when the model .so is
 //                          unloaded or the process exits.
