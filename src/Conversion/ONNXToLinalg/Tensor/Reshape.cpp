@@ -4,7 +4,7 @@
 //
 // =============================================================================
 //
-// This file lowers the ONNX Reshape Operator to Linalg dialect.
+// This file lowers the ONNX Reshape Operator to the Linalg dialect.
 //
 //===----------------------------------------------------------------------===//
 
