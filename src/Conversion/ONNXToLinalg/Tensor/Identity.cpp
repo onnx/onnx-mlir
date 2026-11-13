@@ -45,7 +45,7 @@ private:
   bool useLinalgPath;
 };
 
-void populateLoweringONNXIdentityOpPattern(RewritePatternSet &patterns,
+void populateLoweringONNXIdentityOpToLinalgPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx,
     const std::string &linalgOps, bool useLinalgPath) {
   patterns.add<ONNXIdentityOpLoweringToLinalg>(ctx, linalgOps, useLinalgPath);
