@@ -1,0 +1,20 @@
+--- before.invalid-canonicalized.onnx.mlir
++++ after.canonicalized.onnx.mlir
+@@ -1,9 +1,9 @@
+-"builtin.module"() ({
+-  "func.func"() <{function_type = (tensor<1x2x3x4xf32>) -> tensor<1x4x2x3xi64>, sym_name = "main_graph"}> ({
+-  ^bb0(%arg0: tensor<1x2x3x4xf32>):
+-    %0 = "onnx.Cast"(%arg0) <{saturate = 1 : si64, to = i64}> : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+-    %1 = "onnx.Transpose"(%0) <{perm = [0, 3, 1, 2]}> : (tensor<1x2x3x4xf32>) -> tensor<1x4x2x3xi64>
+-    "onnx.Return"(%1) : (tensor<1x4x2x3xi64>) -> ()
+-  }) : () -> ()
++module {
++  func.func @main_graph(%arg0: tensor<1x2x3x4xf32>) -> tensor<1x4x2x3xi64> {
++    %0 = "onnx.Transpose"(%arg0) <{perm = [0, 2, 3, 1]}> : (tensor<1x2x3x4xf32>) -> tensor<1x3x4x2xf32>
++    %1 = "onnx.Cast"(%0) <{saturate = 1 : si64, to = i64}> : (tensor<1x3x4x2xf32>) -> tensor<1x3x4x2xi64>
++    %2 = "onnx.Transpose"(%1) <{perm = [0, 2, 3, 1]}> : (tensor<1x3x4x2xi64>) -> tensor<1x4x2x3xi64>
++    onnx.Return %2 : tensor<1x4x2x3xi64>
++  }
+   "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()
+-}) : () -> ()
++}
