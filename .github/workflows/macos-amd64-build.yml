@@ -6,11 +6,11 @@ jobs:
   build:
     runs-on: macos-15-intel
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       with:
         submodules: recursive
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
       with:
         python-version: '3.10'
 
@@ -31,7 +31,7 @@ jobs:
 
     - name: restore MLIR cache
       id: restore-mlir-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/work/onnx-mlir/llvm-project
         key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}-${{ steps.get-protobuf-version.outputs.protobuf_version }}
@@ -46,7 +46,7 @@ jobs:
     - name: save MLIR cache
       id: save-mlir-cache
       if: steps.restore-mlir-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/work/onnx-mlir/llvm-project
         key: ${{ steps.restore-mlir-cache.outputs.cache-primary-key }}
