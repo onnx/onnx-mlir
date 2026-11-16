@@ -107,6 +107,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     Type elementType = memRefType.getElementType();
     Type i64Ty = rewriter.getI64Type();
     Type f32Ty = rewriter.getF32Type();
+    Type f64Ty = rewriter.getF64Type();
     Type indexTy = rewriter.getIndexType();
 
     Value X = adaptor.getX();
@@ -134,21 +135,24 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     for (uint64_t i = 0; i < rank; ++i)
       axisSize = IndexExpr::select(axisIE == i, xDims[i], axisSize);
 
-    // Compute log2(n), the number of steps.
+    // Compute log2(n), the number of steps. At least one step is needed, as
+    // resMemRef is only written inside the step loop (n = 1 would otherwise
+    // give 0 steps and return resMemRef unwritten; log2(0) is -inf).
     IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      int64_t logN = static_cast<int64_t>(std::ceil(std::log2(n)));
+      int64_t logN =
+          (n <= 1) ? 1 : static_cast<int64_t>(std::ceil(std::log2(n)));
       numberOfStep = LitIE(logN);
     } else {
-      Value nos = create.math.cast(f32Ty, axisSize.getValue());
-      // Use this when math::CeilOp is available in MLIR.
-      // nos = create.math.ceil(create.math.log2(nos));
-      nos = create.math.log2(nos);
+      // max(ceil(log2(n)), 1), computed in f64 so that n is exact (f32 would
+      // round n = 2^24 + 1 down to 2^24 and miss a step). The clamp covers
+      // n = 1 (0 steps) and n = 0 (log2 is -inf, and maxnumf(-inf, 1) = 1).
+      Value nos = create.math.cast(f64Ty, axisSize.getValue());
+      nos = create.math.ceil(create.math.log2(nos));
+      nos = create.math.max(nos, create.math.constant(f64Ty, 1.0));
       nos = create.math.cast(i64Ty, nos);
-      // Use this when math::CeilOp is available in MLIR.
-      // numberOfStep = SymIE(nos);
-      numberOfStep = SymIE(nos) + LitIE(1);
+      numberOfStep = SymIE(nos);
     }
 
     // Input and output have the same shape, so they share the bounds.
