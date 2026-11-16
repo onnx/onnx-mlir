@@ -40,7 +40,7 @@ struct ONNXTransposeOpLoweringToLinalg
     }
 
     Value input = transposeOp.getData();
-    Location loc = transposeOp->getLoc();
+    Location loc = ONNXLoc<ONNXTransposeOp>(transposeOp);
 
     auto inputType = dyn_cast<RankedTensorType>(input.getType());
     if (!inputType)
