@@ -481,7 +481,26 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   if (enableDebugInfo || profileIR != onnx_mlir::ProfileIRs::None ||
       profileIRWithSig != onnx_mlir::ProfileIRs::None)
     sharedLibOpts.emplace_back("-g");
-  llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
+  // The OpenMP runtime (libompruntime.a, a static libomp) is linked into
+  // every model. Keep its symbols private to the model, so that the model's
+  // OpenMP code always calls its own copy, even when the process has loaded
+  // another OpenMP runtime (e.g. PyTorch's libomp on macOS, or another
+  // model's copy). If the model exports them, the dynamic loader may bind
+  // the model's calls to the other copy: on macOS, dyld merges libomp's
+  // weak C++ template symbols across images, and the model crashes at its
+  // first parallel region with more than one thread.
+  for (std::string &lib : libs) {
+#if defined(__APPLE__)
+    if (lib == "ompruntime") {
+      lib = "-Wl,-hidden-l" + lib;
+      continue;
+    }
+#elif defined(__linux__)
+    if (lib == "ompruntime")
+      sharedLibOpts.emplace_back("-Wl,--exclude-libs,lib" + lib + ".a");
+#endif
+    lib = "-l" + lib;
+  }
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #ifdef __s390x__
   llvm::SmallString<64> lds;
