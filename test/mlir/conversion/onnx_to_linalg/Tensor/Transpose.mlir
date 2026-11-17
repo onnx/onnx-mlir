@@ -127,3 +127,17 @@ func.func @transpose_unranked_not_lowered(%arg0: tensor<*xf32>)
   // CHECK-NOT: linalg.transpose
   // CHECK: "onnx.Transpose"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
 }
+
+// -----
+
+func.func @transpose_stale_static_result(%arg0: tensor<2x3x4xf32>)
+    -> tensor<2x3x4xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]} :
+      (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  return %0 : tensor<2x3x4xf32>
+
+  // CHECK-LABEL: func.func @transpose_stale_static_result
+  // CHECK-NOT: tensor.empty
+  // CHECK-NOT: linalg.transpose
+  // CHECK: "onnx.Transpose"(%arg0) {{.*}}perm = [0, 2, 1]
+}

@@ -85,6 +85,15 @@ struct ONNXTransposeOpLoweringToLinalg
       }
     }
 
+    for (int64_t outputAxis = 0; outputAxis < rank; ++outputAxis) {
+      if (!outputType.isDynamicDim(outputAxis) &&
+          outputType.getDimSize(outputAxis) !=
+              inputType.getDimSize(permutation[outputAxis]))
+        return rewriter.notifyMatchFailure(transposeOp,
+            "static output dimensions must match the permuted input "
+            "dimensions");
+    }
+
     llvm::SmallVector<Value> tensorDims;
     for (int64_t outputAxis = 0; outputAxis < rank; ++outputAxis) {
       if (outputType.isDynamicDim(outputAxis))
