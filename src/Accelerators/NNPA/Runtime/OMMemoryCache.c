@@ -14,30 +14,24 @@
 // 1. OMCacheAlloc(size): a size from 128 KB to OM_MEMORY_CACHE_LARGE (default
 //    256 MB) is served from the cache: it is rounded up to a bin (step 2).
 //    Other sizes, and all sizes when the cache is off, get an uncached buffer
-//    (plain malloc below 1 MB), freed with free(). In both cases, a buffer of
-//    1 MB or more is 1 MB-aligned and advised for huge pages.
+//    (plain malloc below 1 MB), freed with free(). In both cases, on Linux, a
+//    buffer of 1 MB or more is 1 MB-aligned and advised for huge pages.
 // 2. Hit or miss: the bin's most recently freed available buffer is handed
 //    out (hit); without one, a new buffer is allocated outside the mutex
-//    (miss). Epoch policy, bins of 16 MB or more: an available buffer freed
-//    in an earlier inference (stale) is not handed out; it and the older
+//    (miss). Epoch policy: a stale buffer is not handed out; it and the older
 //    ones of its bin are returned to the system, and the request misses.
-//    Normally there are none (step 5 returns them at the end of each
-//    inference); this catches overlapping inferences, whose earlier ends
-//    release nothing.
 // 3. OMCacheFree / OMCacheFreeSized: a buffer that was not served from the
-//    cache (size outside the cached range, or cache off) goes to free();
-//    OMCacheFreeSized, given the size, does so without taking the mutex. A
-//    cache buffer goes back on its bin's available list, except (epoch
-//    policy, bins of 16 MB or more) when the bin is in eager release: then
-//    it is returned to the system at once.
+//    cache goes to free(); OMCacheFreeSized, given the size, does so without
+//    taking the mutex. A cache buffer goes back on its bin's available list,
+//    unless its bin is in eager release (epoch policy): then it is returned to
+//    the system at once.
 // 4. Ceiling, checked when a cache buffer is freed: if the available bytes
 //    then exceed OM_MEMORY_CACHE_MAX (default 1 GB), the oldest available
 //    buffers of the whole cache are returned until they are back under it.
 // 5. End of an inference (OMCacheEpoch(id), epoch policy), unless a later one
-//    has started meanwhile: the available buffers of bins of 16 MB or more
-//    are returned, and each such bin used in
-//    this inference decides from it whether to be in eager release during
-//    the next ones.
+//    has started meanwhile: the available buffers of large bins are returned,
+//    and each large bin used in this inference decides whether to be in eager
+//    release during the next ones.
 // 6. OMCacheTrim, a failed allocation (retried once if that returned any) and
 //    the unload of the model .so return all available buffers.
 // Buffers in use are never touched. Without transparent huge pages the
@@ -49,33 +43,28 @@
 //   refaults and rezeroes it (and pays a TLB purge per page on s390x).
 // - Scope: buffers the model frees itself (selected by the pass
 //   ReplaceMallocByHugePageMalloc) and zdnnx scratch. Outputs are not cached.
-// - Each buffer is its own posix_memalign. A buffer must still be given back
-//   with OMCacheFree, never with plain free(): that would leave an orphan
-//   entry in the registry, and a later allocation at the same address that
-//   reaches OMCacheFree would be taken for a cache buffer of the wrong size.
-//   All current callers pair OMCacheAlloc/OMCacheTryAlloc with OMCacheFree
-//   or OMCacheFreeSized.
+// - Each buffer is its own posix_memalign, so it can be returned to the system
+//   on its own. It must be given back with OMCacheFree or OMCacheFreeSized,
+//   never with plain free() (see "orphan descriptor").
 // - Bins: 64 KB steps to 1 MB, then 1 MB multiples, <= 4 per doubling; no
 //   splitting. < 128 KB (glibc reuses those well) and > OM_MEMORY_CACHE_LARGE
 //   (default 256 MB) are not cached.
-// - Large buffers that went cold are not reused: writing into a cold buffer
-//   first fetches its stale contents from memory, which is slower than a
-//   fresh, kernel-zeroed mapping (granite-embedding S=2048 on z17: Stick 11.9
-//   vs 7.6 ms into its 96 MB mask), while a large buffer reused every layer
-//   is worth keeping (granite-4 prefill). Epoch policy (default): a buffer of
-//   16 MB or more freed in an earlier inference is never reused; the compiler
-//   marks each inference with OMCacheEpoch. By default only with transparent
-//   huge pages (otherwise all buffers are kept): with 4 KB pages, releasing is
-//   the expensive part. OM_MEMORY_CACHE_POLICY=none keeps all buffers.
+// - Large buffers that went cold are not reused (epoch policy, the default):
+//   writing into a cold buffer first fetches its stale contents from memory,
+//   which is slower than a fresh, kernel-zeroed mapping, while a large buffer
+//   reused within an inference is worth keeping. Default only with
+//   transparent huge pages: with 4 KB pages, releasing is the expensive part.
+//   OM_MEMORY_CACHE_POLICY=none keeps all buffers.
 // - Freed buffers are kept available (peak use per bin at fixed shapes); a
 //   ceiling on available bytes evicts the oldest first. When an allocation
 //   fails, all available buffers are returned to the system and, if there
 //   were any, the allocation is retried once.
 // - One mutex. Buffers are obtained from and returned to the system outside
-//   of it; only the release of an orphan descriptor calls free while holding
-//   it.
+//   of it, since releasing memory can cost a TLB purge per page and would
+//   stall every thread waiting on the mutex; only the release of an orphan
+//   descriptor calls free while holding it.
 //
-// Environment variables: see OMMemoryCache.h.
+// Environment variables and the build option: see OMMemoryCache.h.
 //
 // Debugging and testing:
 // - Reused buffers are NOT zeroed: a hit returns the data of an earlier
@@ -83,8 +72,8 @@
 //   reads a buffer before writing it was hidden before and now gives wrong or
 //   run-to-run different results, typically from the second inference in a
 //   process on. To check: compare outputs with OM_MEMORY_CACHE_MAX=0 (cache
-//   off), and run several inferences in one process. Not yet done: running
-//   the NNPA tests with poisoned reused buffers (e.g. memset to 0xFF on a hit).
+//   off), and run several inferences in one process. To expose such reads,
+//   poison reused buffers (e.g. memset to 0xFF on a hit).
 // - Sanitizers and Valgrind: a cached buffer is never really freed, so a
 //   use-after-free of a temporary is invisible to ASan and Valgrind. Run
 //   memory-checking jobs with OM_MEMORY_CACHE_MAX=0.
@@ -128,7 +117,7 @@ extern "C" {
 #define CACHE_SMALL_BIN_STEP (64 * KB)
 // Largest cached request by default; see "Bins" in the design notes above.
 #define CACHE_DEFAULT_LARGE (256 * MB)
-// Epoch policy: buffers from this size are never reused across inferences.
+// Epoch policy: smallest buffer size of a large bin (see the vocabulary).
 #define CACHE_EPOCH_MIN_SIZE (16 * MB)
 // OM_MEMORY_CACHE_POLICY values.
 #define CACHE_POLICY_NONE 0  // Keep every buffer.
@@ -137,6 +126,15 @@ extern "C" {
 #define CACHE_DEFAULT_MAX (1 * GB)
 #define CACHE_PAGE_4K (4 * KB)
 #define CACHE_HUGE_PAGE (1 * MB)
+// Huge pages (transparent huge pages, Linux only): buffers of CACHE_HUGE_PAGE
+// or more are 1 MB-aligned and advised for huge pages, as in OMHugePageMalloc
+// and zdnnx. Elsewhere (z/OS, macOS) 1 MB alignment would only add padding,
+// so 4 KB is used, as zdnnx does there.
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+#define CACHE_USE_HUGE_PAGES 1
+#else
+#define CACHE_USE_HUGE_PAGES 0
+#endif
 #define CACHE_MAX_BINS 256
 // Registry buckets (fixed, never resized): 1024, i.e. 8 KB of bucket heads.
 #define CACHE_REGISTRY_LOG2 10
@@ -173,28 +171,31 @@ extern "C" {
 //   wraps around the model's body. A kept buffer records the epoch of its
 //   free. Compiled code allocates only inside an epoch; outside any (before
 //   the first start), the epoch policy's checks are skipped (cache.epoch is
-//   0).
-// - stale buffer (epoch policy): an available buffer of a bin of 16 MB or more
-//   freed in an earlier epoch; its memory has likely left the processor
-//   caches. Normally there are none: the end of each epoch returns those
-//   buffers. They remain only when inferences overlap: an end releases
-//   nothing if a later epoch has started meanwhile. A request that finds a
+//   0). Epochs are counted per model .so, not per session.
+// - large bin (epoch policy): a bin of CACHE_EPOCH_MIN_SIZE (16 MB) or more.
+//   The epoch policy acts only on large bins.
+// - stale buffer (epoch policy): an available buffer of a large bin freed in
+//   an earlier epoch; its memory has likely left the processor caches.
+//   Normally there are none, since the end of each epoch returns those
+//   buffers; they remain only when inferences overlap (an end releases
+//   nothing if a later epoch has started meanwhile). A request that finds a
 //   stale buffer returns it and the older ones of its bin to the system and
 //   gets a fresh buffer.
-// - eager release (epoch policy): a bin of 16 MB or more whose buffers were
-//   not reused within the last ended epoch that used it (no request after a
-//   free of the bin) will eagerly return each buffer to the system at its free,
-//   instead of keeping it until the end of the epoch. This lowers the peak
-//   memory of an inference; the release work is the same, only earlier. Decided
-//   again at the end of each epoch that uses the bin (unless a later epoch has
-//   started meanwhile), from what would have been a reuse, so a bin switches
-//   back when its pattern changes.
+// - eager release (epoch policy): a large bin whose buffers were not reused
+//   within the last ended epoch that used it (no request after a free of the
+//   bin) returns each buffer to the system at its free, instead of keeping it
+//   until the end of the epoch. This lowers the peak memory of an inference;
+//   the release work is the same, only earlier. Decided again at the end of
+//   each epoch that uses the bin (unless a later epoch has started
+//   meanwhile), so a bin switches back when its pattern changes.
 // - registry: hash maps a buffer to its descriptor.
 // - orphan descriptor: a registry entry whose buffer was released behind the
 //   cache's back, with plain free() instead of OMCacheFree: a caller bug,
 //   never expected (the pass and zdnnx always pair the cache's alloc and free
 //   calls). Found when posix_memalign returns that address again for a new
-//   cache buffer; asserted in debug builds, repaired in release builds.
+//   cache buffer; asserted in debug builds, repaired (and warned about once)
+//   in release builds. A double free is handled the same way: ignored, and
+//   warned about once.
 // - detach: take a buffer out of every cache structure, under the mutex. An
 //   available buffer leaves its available list and the registry; a buffer in
 //   eager release, detached at its free, was never on the list and leaves
@@ -236,9 +237,9 @@ typedef struct {
   OMCacheBufferDesc *availableHead; // Available list, most recent first.
   OMCacheBufferDesc *availableTail; // Oldest available buffer of the bin.
   uint64_t numInUse;                // Requests of this bin not yet freed.
-  // Epoch policy, bins of 16 MB or more: frees and requests-after-a-free in
-  // the current epoch (reset at each epoch start), and the decision taken at
-  // the end of the last epoch that used the bin (see "eager release").
+  // Epoch policy, large bins: frees and requests-after-a-free in the current
+  // epoch (reset at each epoch start), and the eager-release decision taken
+  // at the end of the last epoch that used the bin.
   uint64_t freesThisEpoch, reusesThisEpoch;
   int eagerRelease;
   // Statistics. statDetached: by eviction, trim, unload or epoch-policy
@@ -256,9 +257,8 @@ typedef struct {
   int enabled, printStats;
   size_t maxAvailableBytes; // Ceiling on the bytes of available buffers.
   size_t maxCachedSize; // Largest cached request (buffer size of the last bin).
-  // OM_MEMORY_CACHE_POLICY (CACHE_POLICY_*). Without transparent huge pages
-  // the default is CACHE_POLICY_NONE: releasing and mapping fresh is only
-  // cheap with huge pages.
+  // OM_MEMORY_CACHE_POLICY (CACHE_POLICY_*), and whether transparent huge
+  // pages are available (which decides the default policy).
   int policy, thpAvailable;
   // Epoch policy: current epoch, from OMCacheEpoch (0 until the first start).
   uint64_t epoch;
@@ -275,8 +275,7 @@ typedef struct {
   // Bytes of available buffers, checked against maxAvailableBytes.
   size_t availableBytes;
   // Statistics (stat*, only printed). statRegisteredBytes: in all registered
-  // buffers. statOrphanDescs: orphan descriptors found (see the vocabulary);
-  // always 0 unless a caller releases a cache buffer with plain free().
+  // buffers. statOrphanDescs: orphan descriptors found (see the vocabulary).
   // statAllocFailureTrims: trims after a failed allocation.
   size_t statRegisteredBytes, statPeakAvailableBytes, statPeakRegisteredBytes;
   uint64_t statEvictions, statTrims, statAllocFailureTrims;
@@ -294,6 +293,8 @@ typedef struct {
   // lost to rounding requests up to the bin size.
   size_t statInUseBytes, statPeakInUseBytes;
   size_t statInUseRequestBytes, statPeakInUseRequestBytes;
+  // Set once a misuse (orphan descriptor or double free) has been reported.
+  int warnedMisuse;
 } OMCache;
 
 // The cache state and its lock; initCache runs once through cacheOnce.
@@ -352,23 +353,21 @@ static size_t getEnvSize(const char *name, size_t defaultSize) {
 }
 
 #ifdef __MVS__
-// No fork handlers on z/OS. The z/OS pthread_atfork documentation says that
-// locking in the prepare handler and unlocking in the child handler is "not
-// practical on the z/OS platform", and that a child of a multithreaded process
-// may only call async-signal-safe functions before exec (POSIX requires the
-// same everywhere), so such a child must not use the cache.
-// Checked: z/OS removes the handlers of a DLL when it is freed, so registering
-// them would have been safe across dlclose.
+// No fork handlers on z/OS (where the cache is off by default). The z/OS
+// pthread_atfork documentation says that locking in the prepare handler and
+// unlocking in the child handler is "not practical on the z/OS platform", and
+// that a child of a multithreaded process may only call async-signal-safe
+// functions before exec (POSIX requires the same everywhere), so such a child
+// must not use the cache.
 // TODO(z/OS): confirm that no z/OS host forks a multithreaded process and then
 // runs a model in the child without exec.
 static int registerForkHandlers(void) { return 1; }
 #elif defined(__APPLE__)
 // No fork handlers on macOS (used only for development builds of the NNPA
-// runtime). Tested: macOS does not remove pthread_atfork handlers when the
-// library that registered them is closed, so the first fork() after the model
-// .so is unloaded jumped into unmapped code and crashed. Without handlers, a
-// fork while another thread holds the cache mutex leaves the child unable to
-// use the cache, as on z/OS.
+// runtime): macOS does not remove pthread_atfork handlers when the library
+// that registered them is closed, so a fork() after the model .so is unloaded
+// would jump into unmapped code. Without handlers, a fork while another thread
+// holds the cache mutex leaves the child unable to use the cache, as on z/OS.
 static int registerForkHandlers(void) { return 1; }
 #else
 // Fork handlers: hold the mutex across fork() so that the child gets the cache
@@ -378,9 +377,8 @@ static void unlockForFork(void) { pthread_mutex_unlock(&cacheMutex); }
 
 // Return 0 if the handlers could not be registered (ENOMEM). glibc removes
 // handlers registered from a dlopen'ed library when the library is closed
-// (pthread_atfork passes the library's __dso_handle). TODO(Linux): run the
-// dlopen/dlclose-then-fork test on s390x to confirm; it was only run on macOS,
-// where it crashed before the __APPLE__ case above was added.
+// (pthread_atfork passes the library's __dso_handle), so a fork after
+// dlclose is safe.
 static int registerForkHandlers(void) {
   return pthread_atfork(lockForFork, unlockForFork, unlockForFork) == 0;
 }
@@ -397,7 +395,7 @@ static void initNextBinSize(size_t size) {
 // The file is missing when the kernel does not support THP (e.g. no EDAT-1 on
 // s390x) or in sandboxes that hide /sys/kernel/mm.
 static int transparentHugePagesAvailable(void) {
-#if defined(__linux__) && defined(MADV_HUGEPAGE)
+#if CACHE_USE_HUGE_PAGES
   FILE *f = fopen("/sys/kernel/mm/transparent_hugepage/enabled", "r");
   if (!f)
     return 0;
@@ -636,11 +634,8 @@ static void detachFromCache(
 }
 
 // Return detached buffers and their descriptors to the system with free().
-// Called without the mutex, and it must stay so: freeing a large buffer
-// munmaps it, and in a process that has run on several CPUs each released
-// page costs a global TLB purge (6 MB measured on z17: about 1.3 ms with 4 KB
-// pages, 17 us with huge pages), which would stall every thread waiting on the
-// mutex; a trim releases many such buffers at once.
+// Called without the mutex, and it must stay so (see "One mutex"): freeing a
+// large buffer munmaps it, and a trim releases many buffers at once.
 static void returnDetachedToSystem(OMCacheBufferDesc *detached) {
   while (detached) {
     OMCacheBufferDesc *nextDesc = detached->availableNext;
@@ -668,10 +663,8 @@ static size_t detachAllAvailableInCache(OMCacheBufferDesc **detached) {
   return n;
 }
 
-// Return the oldest available buffer of the cache, or NULL if there is none.
-// Each bin's available list is most recent first, so its tail is the bin's
-// oldest; the cache's oldest is the bin tail with the smallest age stamp. This
-// scans the bins (a few dozen), and is only used for eviction.
+// Return the oldest available buffer of the cache (see "age stamp"), or NULL
+// if there is none. Scans the bin tails; only used for eviction.
 static OMCacheBufferDesc *findOldestAvailable(void) {
   OMCacheBufferDesc *oldest = NULL;
   for (int i = 0; i < cache.numBins; i++) {
@@ -720,15 +713,14 @@ static void statCountGiveBack(OMCacheBufferDesc *desc) {
 // Buffer creation.
 //===----------------------------------------------------------------------===//
 
-// Get size bytes aligned to align from the system; memory of 1 MB or more is
-// also advised for huge pages. Returns NULL on failure. Checked:
-// posix_memalign is available on z/OS (OMExternalConstant.c also uses it
-// there), and its memory may be released with free().
+// Get size bytes aligned to align from the system; on Linux, memory of 1 MB or
+// more is also advised for huge pages. Returns NULL on failure. The memory is
+// released with free().
 static void *allocAlignMem(size_t size, size_t align) {
   void *alignedPtr = NULL;
   if (posix_memalign(&alignedPtr, align, size) != 0)
     return NULL;
-#if defined(__linux__) && defined(MADV_HUGEPAGE)
+#if CACHE_USE_HUGE_PAGES
   // Advise once, when the memory is obtained, if the kernel has transparent
   // huge pages enabled; it is ok if the advice fails.
   if (size >= CACHE_HUGE_PAGE && cache.thpAvailable)
@@ -739,19 +731,21 @@ static void *allocAlignMem(size_t size, size_t align) {
 
 // Memory of a new cache buffer (size is a bin size, at least 128 KB): 4 KB
 // aligned, since zdnnx receives cache buffers through OMCacheTryAlloc and zDNN
-// needs 4 KB; 1 MB aligned (and advised for huge pages) from 1 MB up.
+// needs 4 KB; on Linux, 1 MB aligned (and advised for huge pages) from 1 MB up.
 static void *allocCachedBuffer(size_t size) {
-  size_t align = size >= CACHE_HUGE_PAGE ? CACHE_HUGE_PAGE : CACHE_PAGE_4K;
+  size_t align = CACHE_USE_HUGE_PAGES && size >= CACHE_HUGE_PAGE
+                     ? CACHE_HUGE_PAGE
+                     : CACHE_PAGE_4K;
   return allocAlignMem(size, align);
 }
 
 // An uncached buffer (size without a bin, or cache off), for compiled code
-// only, which aligns its own buffers: from
-// 1 MB up, 1 MB-aligned memory advised for huge pages, as OMHugePageMalloc
-// does; otherwise, or if that fails, plain malloc. Freed with free().
+// only, which aligns its own buffers: on Linux, from 1 MB up, 1 MB-aligned
+// memory advised for huge pages, as OMHugePageMalloc does; otherwise, or if
+// that fails, plain malloc. Freed with free().
 static void *allocUncachedBuffer(size_t size) {
   void *buffer = NULL;
-  if (size >= CACHE_HUGE_PAGE)
+  if (CACHE_USE_HUGE_PAGES && size >= CACHE_HUGE_PAGE)
     buffer = allocAlignMem(size, CACHE_HUGE_PAGE);
   return buffer ? buffer : malloc(size); // Last resort, may be unaligned.
 }
@@ -768,17 +762,27 @@ static void *allocWithTrimRetry(void *(*alloc)(size_t), size_t size) {
   return buffer;
 }
 
+// Report a misuse of the interface once per model .so: it is repaired or
+// ignored, but it means a caller bug. Called with the mutex held.
+static void warnMisuseOnce(const char *what) {
+  if (cache.warnedMisuse)
+    return;
+  cache.warnedMisuse = 1;
+  fprintf(stderr,
+      "==OM-MEMORY-CACHE== warning: %s; ignored (reported once). Compare "
+      "with OM_MEMORY_CACHE_MAX=0.\n",
+      what);
+}
+
 // Fill desc for a new in-use buffer of bin binIndex, handed out for a request
 // of requestSize bytes, and map buffer to it. Called with the mutex held;
 // releases it and returns buffer.
 static void *mapNewBufferAndUnlock(
     OMCacheBufferDesc *desc, void *buffer, int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
-  // Never expected: this address is still mapped, so a cache buffer was
-  // released with plain free() (an orphan descriptor, see the vocabulary) and
-  // posix_memalign returned its address again. Callers pair OMCacheAlloc /
-  // OMCacheTryAlloc with OMCacheFree / OMCacheFreeSized. Debug builds stop
-  // here; release builds forget the orphan and repair the counts.
+  // Never expected: this address is still mapped, so it has an orphan
+  // descriptor (see the vocabulary). Release builds forget the orphan and
+  // repair the counts.
   OMCacheBufferDesc *orphanDesc = findBufferDesc(buffer);
   assert(!orphanDesc && "cache buffer released with plain free()");
   if (orphanDesc) {
@@ -792,6 +796,7 @@ static void *mapNewBufferAndUnlock(
     }
     cache.statRegisteredBytes -= orphanDesc->bufferSize;
     cache.statOrphanDescs++;
+    warnMisuseOnce("cache buffer released with plain free()");
     free(orphanDesc);
   }
   desc->buffer = buffer;
@@ -813,12 +818,8 @@ static void *mapNewBufferAndUnlock(
 
 // Create and map a buffer of bin binIndex on a cache miss. The caller has
 // already counted it as in use; on failure, undo that count and return NULL.
-// Memory is obtained before taking the mutex: allocCachedBuffer may mmap and
-// madvise a large buffer (a few to tens of us), and other threads (zdnnx
-// OpenMP workers, concurrent sessions) must not wait on the mutex meanwhile.
-// Misses are rare (warm-up, shape changes), so this is a minor gain; the same
-// rule matters far more for returnDetachedToSystem. A buffer is never handed
-// out unmapped.
+// Memory is obtained before taking the mutex (see "One mutex"). A buffer is
+// never handed out unmapped.
 static void *createBufferOnMiss(int binIndex, size_t requestSize) {
   size_t size = cache.bins[binIndex].bufferSize;
   void *buffer = allocWithTrimRetry(allocCachedBuffer, size);
@@ -851,15 +852,13 @@ static void *tryAllocInCache(size_t size) {
   OMCacheBin *bin = &cache.bins[binIndex];
   pthread_mutex_lock(&cacheMutex);
   // Count the request as in use now, before a miss drops the mutex to allocate:
-  // numInUse means "requests not yet freed", in-flight misses included (the
-  // planned epoch logic will rely on it). createBufferOnMiss undoes the count
-  // if it fails.
+  // numInUse means "requests not yet freed", in-flight misses included.
+  // createBufferOnMiss undoes the count if it fails.
   bin->numInUse++;
   if (bin->numInUse > bin->statPeakInUse)
     bin->statPeakInUse = bin->numInUse;
-  // Epoch policy: a stale head (see "stale buffer" in the vocabulary) is
-  // returned to the system with the older buffers behind it, and the request
-  // gets a fresh buffer.
+  // Epoch policy: a stale head is returned to the system with the older
+  // buffers behind it, and the request gets a fresh buffer.
   OMCacheBufferDesc *detached = NULL;
   OMCacheBufferDesc *head = bin->availableHead; // Most recently freed.
   if (cache.policy == CACHE_POLICY_EPOCH && cache.epoch > 0 &&
@@ -878,9 +877,8 @@ static void *tryAllocInCache(size_t size) {
     desc->inUse = 1;
     statCountHandOut(desc, size);
     bin->statHits++;
-    // The buffer still holds data from its previous use; it is not zeroed
-    // (see "Debugging and testing" at the top of the file).
-    // Read the buffer pointer while the mutex is held.
+    // Not zeroed (see "Debugging and testing"). Read the buffer pointer while
+    // the mutex is held.
     void *buffer = desc->buffer;
     pthread_mutex_unlock(&cacheMutex);
     return buffer;
@@ -913,11 +911,11 @@ static void freeInCache(void *buffer) {
   if (!desc->inUse) {
     // Freed twice: keep the buffer in the cache and ignore the call.
     cache.statDoubleFrees++;
+    warnMisuseOnce("cache buffer freed twice");
     pthread_mutex_unlock(&cacheMutex);
     return;
   }
-  // Kept, not freed: ASan and Valgrind cannot see a later use of buffer (see
-  // "Debugging and testing" at the top of the file).
+  // Kept, not freed (see "Debugging and testing").
   OMCacheBin *bin = &cache.bins[desc->binIndex];
   desc->inUse = 0;
   bin->numInUse--;
@@ -928,9 +926,8 @@ static void freeInCache(void *buffer) {
   if (large)
     bin->freesThisEpoch++;
   if (large && bin->eagerRelease) {
-    // Eager release: return it now (after the mutex is
-    // dropped) rather than at the end of the epoch. It is in use, so not on
-    // the available list: only its mapping is removed.
+    // Eager release: return it after the mutex is dropped. It is in use, so
+    // not on the available list: only its mapping is removed.
     removeBufferMapping(desc);
     cache.statRegisteredBytes -= desc->bufferSize;
     bin->statDetached++;
@@ -1016,11 +1013,8 @@ void OMCacheFreeSized(void *buffer, size_t size) {
 }
 
 // Start (epoch == 0) or end (epoch = the id returned by the start) of an
-// inference; called by the compiled entry point around the model's body. The
-// epoch policy never reuses buffers of 16 MB or more across inferences: at
-// the end, if no later inference has started meanwhile, those available
-// buffers are returned to the system at once. Concurrent inferences on one
-// model are correct but reuse less (each start makes earlier buffers stale).
+// inference; called by the compiled entry point around the model's body. See
+// steps 2 and 5 at the top of the file.
 uint64_t OMCacheEpoch(uint64_t epoch) {
   ensureInit();
   if (!cache.enabled)
@@ -1041,8 +1035,7 @@ uint64_t OMCacheEpoch(uint64_t epoch) {
   if (cache.policy == CACHE_POLICY_EPOCH && epoch == cache.epoch) {
     for (int i = 0; i < cache.numBins; i++) {
       OMCacheBin *bin = &cache.bins[i];
-      // Only deals with bins of big enough buffers.
-      if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE)
+      if (bin->bufferSize < CACHE_EPOCH_MIN_SIZE) // Large bins only.
         continue;
       // Bins used in this epoch: eager release from now on if none of their
       // buffers was reused within it. Bins not used keep their decision.
@@ -1152,14 +1145,17 @@ static void printStats(void) {
 // use (there should be none) are left alone, and so are their descriptors: a
 // late OMCacheFree (another destructor, or a thread still running at exit)
 // must still find them in the registry, whose buckets are static. That leaks
-// them once per dlclose.
-// TODO(z/OS): Open XL accepts __attribute__((destructor)); not yet verified
-// that it runs when the model DLL is freed with dllfree/dlclose (if not, the
-// available buffers are only reclaimed at process exit).
+// them once per dlclose. If the mutex is held (a thread still in the cache at
+// exit, or a child forked while it was held where there are no fork
+// handlers), nothing is returned rather than risking a hang.
+// TODO(z/OS, if the cache is built there): check that the destructor runs when
+// the model DLL is freed with dllfree/dlclose; if not, available buffers are
+// only reclaimed at process exit.
 __attribute__((destructor)) static void finalizeCache(void) {
   if (!cache.enabled)
     return;
-  pthread_mutex_lock(&cacheMutex);
+  if (pthread_mutex_trylock(&cacheMutex) != 0)
+    return;
   if (cache.printStats)
     printStats();
   OMCacheBufferDesc *detached = NULL;

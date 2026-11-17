@@ -244,7 +244,10 @@ private:
   // Delimit each inference for the cache's epoch policy: in every entry point
   // (run_*), wrap the call to the model's body (_mlir_ciface_*) with
   // OMCacheEpoch(0) before (returns the epoch id) and OMCacheEpoch(id) after.
-  // Done whenever the cache is enabled, since zdnnx also uses it.
+  // Done whenever the cache is enabled, since zdnnx also uses it. The prefixes
+  // follow the naming in KrnlEntryPoint.cpp (run_* entry points) and MLIR's C
+  // interface wrappers (_mlir_ciface_*); if they no longer match, nothing is
+  // wrapped and the epoch policy silently stops releasing large buffers.
   void wrapEntryPointsWithCacheEpoch(ModuleOp moduleOp) {
     SmallVector<LLVM::CallOp, 2> bodyCalls;
     moduleOp.walk([&](LLVM::CallOp callOp) {
