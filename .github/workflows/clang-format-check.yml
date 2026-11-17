@@ -17,7 +17,7 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
     - name: clang-format lint
-      uses: DoozyX/clang-format-lint-action@v0.5
+      uses: DoozyX/clang-format-lint-action@v0.20
       with:
         # Source folder to check formatting
         source: ./src
