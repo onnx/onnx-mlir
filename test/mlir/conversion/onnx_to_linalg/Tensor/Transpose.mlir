@@ -52,8 +52,10 @@ func.func @transpose_default_perm_dynamic(%arg0: tensor<?x3x?xf32>)
   return %0 : tensor<?x3x?xf32>
 
   // CHECK-LABEL: func.func @transpose_default_perm_dynamic
-  // CHECK-DAG: [[DIM2:%.+]] = tensor.dim %arg0, %c2 : tensor<?x3x?xf32>
-  // CHECK-DAG: [[DIM0:%.+]] = tensor.dim %arg0, %c0 : tensor<?x3x?xf32>
+  // CHECK-DAG: [[C2:%.+]] = arith.constant 2 : index
+  // CHECK-DAG: [[C0:%.+]] = arith.constant 0 : index
+  // CHECK-DAG: [[DIM2:%.+]] = tensor.dim %arg0, [[C2]] : tensor<?x3x?xf32>
+  // CHECK-DAG: [[DIM0:%.+]] = tensor.dim %arg0, [[C0]] : tensor<?x3x?xf32>
   // CHECK: [[EMPTY:%.+]] = tensor.empty([[DIM2]], [[DIM0]]) : tensor<?x3x?xf32>
   // CHECK: [[RESULT:%.+]] = linalg.transpose ins(%arg0 : tensor<?x3x?xf32>) outs([[EMPTY]] : tensor<?x3x?xf32>) permutation = [2, 1, 0]
   // CHECK: return [[RESULT]] : tensor<?x3x?xf32>
@@ -82,8 +84,10 @@ func.func @transpose_dynamic(%arg0: tensor<?x3x?xf32>)
   return %0 : tensor<?x?x3xf32>
 
   // CHECK-LABEL: func.func @transpose_dynamic
-  // CHECK-DAG: [[DIM2:%.+]] = tensor.dim %arg0, %c2 : tensor<?x3x?xf32>
-  // CHECK-DAG: [[DIM0:%.+]] = tensor.dim %arg0, %c0 : tensor<?x3x?xf32>
+  // CHECK-DAG: [[C2:%.+]] = arith.constant 2 : index
+  // CHECK-DAG: [[C0:%.+]] = arith.constant 0 : index
+  // CHECK-DAG: [[DIM2:%.+]] = tensor.dim %arg0, [[C2]] : tensor<?x3x?xf32>
+  // CHECK-DAG: [[DIM0:%.+]] = tensor.dim %arg0, [[C0]] : tensor<?x3x?xf32>
   // CHECK: [[EMPTY:%.+]] = tensor.empty([[DIM2]], [[DIM0]]) : tensor<?x?x3xf32>
   // CHECK: [[RESULT:%.+]] = linalg.transpose ins(%arg0 : tensor<?x3x?xf32>) outs([[EMPTY]] : tensor<?x?x3xf32>) permutation = [2, 0, 1]
   // CHECK: return [[RESULT]] : tensor<?x?x3xf32>
@@ -126,6 +130,20 @@ func.func @transpose_unranked_not_lowered(%arg0: tensor<*xf32>)
   // CHECK-LABEL: func.func @transpose_unranked_not_lowered
   // CHECK-NOT: linalg.transpose
   // CHECK: "onnx.Transpose"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+}
+
+// -----
+
+func.func @transpose_unranked_result_not_lowered(
+    %arg0: tensor<?x3xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [1, 0]} :
+      (tensor<?x3xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func.func @transpose_unranked_result_not_lowered
+  // CHECK-NOT: tensor.empty
+  // CHECK-NOT: linalg.transpose
+  // CHECK: "onnx.Transpose"(%arg0) {{.*}}perm = [1, 0]
 }
 
 // -----
