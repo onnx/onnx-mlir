@@ -3,7 +3,7 @@
 
 include "mlir/Pass/PassBase.td"
 
-def ConvertONNXToLinalg : Pass<"convert-onnx-to-linalg", "func::FuncOp"> {
+def ConvertONNXToLinalg : Pass<"convert-onnx-to-linalg", "ModuleOp"> {
   let summary = "Lower ONNX operations to Linalg dialect";
   let description = [{
     This pass converts ONNX operations to Linalg dialect operations.
@@ -21,6 +21,12 @@ def ConvertONNXToLinalg : Pass<"convert-onnx-to-linalg", "func::FuncOp"> {
     Option<"useLinalgPath", "use-linalg-path", "bool", /*default=*/"false",
            "Enable Linalg path for all operations (equivalent to --use-linalg-path "
            "in onnx-mlir).">
+  ];
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect",
+    "mlir::tensor::TensorDialect",
+    "mlir::arith::ArithDialect",
+    "mlir::affine::AffineDialect",
   ];
 }
 
