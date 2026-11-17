@@ -48,16 +48,9 @@ struct ONNXTransposeOpLoweringToLinalg
           transposeOp, "expected ranked input tensor type");
 
     int64_t rank = inputType.getRank();
-    IndexExprBuilderForTensor ieBuilder{rewriter, loc};
-    ONNXTransposeOpShapeHelper shapeHelper{
-        transposeOp.getOperation(), transposeOp->getOperands(), &ieBuilder};
-
-    if (failed(shapeHelper.computeShape()))
-      return rewriter.notifyMatchFailure(
-          transposeOp, "failed to compute output shape");
-
     auto outputType =
         dyn_cast<RankedTensorType>(transposeOp.getResult().getType());
+
     if (!outputType)
       return rewriter.notifyMatchFailure(
           transposeOp, "expected ranked output tensor type");
@@ -65,6 +58,14 @@ struct ONNXTransposeOpLoweringToLinalg
     if (outputType.getRank() != rank)
       return rewriter.notifyMatchFailure(
           transposeOp, "input and output ranks must match");
+
+    IndexExprBuilderForTensor ieBuilder{rewriter, loc};
+    ONNXTransposeOpShapeHelper shapeHelper{
+        transposeOp.getOperation(), transposeOp->getOperands(), &ieBuilder};
+
+    if (failed(shapeHelper.computeShape()))
+      return rewriter.notifyMatchFailure(
+          transposeOp, "failed to compute output shape");
 
     // The shape helper materializes ONNX's default reversed permutation when
     // the perm attribute is omitted.
