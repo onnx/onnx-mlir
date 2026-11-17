@@ -376,6 +376,20 @@ parser.add_argument(
     help="Output runtime profile info to file, default runtime.log. "
     "These information will be printed out if the model is compiled with --profile-ir flag",
 )
+parser.add_argument(
+    "--report",
+    action="store",
+    nargs="?",
+    metavar="MAKE_REPORT_OPTIONS",
+    const="",
+    default=None,
+    help="After the run, call utils/make-report.py on the runtime log, passing "
+    "MAKE_REPORT_OPTIONS (a single quoted string, e.g. --report='-l 2 -u ms'). "
+    "The runtime log (-r) and warmup count (-w) are filled in automatically; "
+    "unless given, '-m 0.5' is used and the time unit (-u) is picked so that "
+    "reported times are not tiny fractions. Implies --write-runtime-log "
+    "(default runtime.log). Requires a model compiled with --profile-ir.",
+)
 
 
 def verify_arg():
@@ -668,6 +682,63 @@ def data_without_top_bottom_quartile(data, percent):
         # Want at least one element, return as is.
         return data
     return data[trim:-trim]
+
+
+def pick_report_time_unit(inference_time, min_percent):
+    # Pick the largest unit in which the smallest op still reported
+    # (min_percent of the inference time) is at least 0.1, so that the report
+    # reads e.g. "186.1" or "0.9" rather than "0.0009". E.g. a 186ms model
+    # with -m 0.5 reports in ms (smallest op 0.93ms), a 1ms one in us.
+    smallest = inference_time * (min_percent if min_percent > 0 else 0.5) / 100
+    for unit, scale in (("s", 1), ("ms", 1e3)):
+        if smallest * scale >= 0.1:
+            return unit
+    return "us"
+
+
+def run_make_report(report_options, log_file, warmup, inference_time):
+    # Call make-report.py on the runtime log, appending the user options. The
+    # -w/-m/-u defaults below are only added for options the user did not give.
+    user_opts = shlex.split(report_options)
+
+    def has_opt(short, long):
+        return any(
+            o == short
+            or o.startswith(long)
+            or (o.startswith(short) and not o.startswith("--"))
+            for o in user_opts
+        )
+
+    cmd = [
+        sys.executable,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "make-report.py"),
+        "-r",
+        log_file,
+    ]
+    if not has_opt("-w", "--warmup"):
+        cmd += ["-w", str(warmup)]
+    min_percent = 0.5
+    if not has_opt("-m", "--min"):
+        cmd += ["-m", str(min_percent)]
+    else:
+        # Recover the user's value to choose the unit consistently.
+        for i, o in enumerate(user_opts):
+            try:
+                if o in ("-m", "--min"):
+                    min_percent = float(user_opts[i + 1])
+                elif o.startswith("--min="):
+                    min_percent = float(o[len("--min=") :])
+                elif o.startswith("-m") and len(o) > 2:
+                    min_percent = float(o[2:])
+            except (IndexError, ValueError):
+                pass
+    if not has_opt("-u", "--unit"):
+        cmd += ["-u", pick_report_time_unit(inference_time, min_percent)]
+    cmd += user_opts
+    print("Making report:", shlex.join(cmd), flush=True)
+    ret = subprocess.run(cmd)
+    if ret.returncode != 0:
+        print(f"error: make-report.py failed with code {ret.returncode}")
 
 
 def cache_string(model_name, compile_option):
@@ -1147,7 +1218,9 @@ class InferenceSession:
                     with open(tensor_path, "wb") as f:
                         f.write(tensor.SerializeToString())
 
-        # Verify the output if required.
+        # Verify the output if required. Return False if any verification
+        # failed, True otherwise (including when there is nothing to verify).
+        verified = True
         if args.verify:
             ref_outs = []
             if args.verify.lower() == "onnxruntime":
@@ -1214,7 +1287,7 @@ class InferenceSession:
                         status = "correct" if is_correct else "ERRONEOUS"
                         print("  {}: {}".format(name, status))
                     print()
-                    exit(1)
+                    verified = False
 
             # Verify using cosine similarity. Keep verifying the remaining outputs
             # even if an earlier one is erroneous, so that every output's
@@ -1260,7 +1333,7 @@ class InferenceSession:
                             )
                         )
                     print()
-                    exit(1)
+                    verified = False
 
             # For each output tensor, compare every value. Keep verifying the
             # remaining outputs even if an earlier one is erroneous, so that
@@ -1288,7 +1361,8 @@ class InferenceSession:
                         status = "correct" if is_correct else "ERRONEOUS"
                         print("  {}: {}".format(name, status))
                     print()
-                    exit(1)
+                    verified = False
+        return verified
 
     """
     Perform a short analysis of time spent in the model.
@@ -1368,6 +1442,7 @@ class InferenceSession:
             self.print_instrumentation()
 
         perf_results = []
+        failed_iterations = []  # 1-based indices of iterations that failed.
         for i in range(args.n_iteration):
             start = time.perf_counter()
             try:
@@ -1384,13 +1459,37 @@ class InferenceSession:
             # catch nondeterministic results (e.g. races in parallel code).
             # Verification is outside the timed section; perf runs typically
             # don't verify anyway.
-            if args.verify:
-                self.process_outputs(outs)
+            # On failure, keep going so that the summary below can tell how
+            # many iterations were correct.
+            if args.verify and not self.process_outputs(outs):
+                failed_iterations.append(i + 1)
 
         # Print performance results and verify output.
         self.process_perf_results(perf_results)
         if not args.verify:
             self.process_outputs(outs)
+        if args.report is not None:
+            run_make_report(
+                args.report, log_file, args.warmup, float(np.median(perf_results))
+            )
+        if args.verify and args.n_iteration > 1:
+            # Last line of output, easy to find past noisy runtime output.
+            n_ok = args.n_iteration - len(failed_iterations)
+            print(
+                "Verification summary: {} of {} iterations correct{}.".format(
+                    n_ok,
+                    args.n_iteration,
+                    (
+                        ", failed iteration(s): "
+                        + ", ".join(str(i) for i in failed_iterations)
+                        if failed_iterations
+                        else ""
+                    ),
+                ),
+                flush=True,
+            )
+        if failed_iterations:
+            sys.exit(1)
         if output_name:
             res = {output_name[i]: outs[i] for i in range(len(outs))}
             return res
@@ -1435,6 +1534,10 @@ def handle_args():
         args = parser.parse_args()
 
     verify_arg()
+
+    # The report is made from the runtime log, so make sure there is one.
+    if args.report is not None and not args.write_runtime_log:
+        args.write_runtime_log = "runtime.log"
 
     # print(args)
 

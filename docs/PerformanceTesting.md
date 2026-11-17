@@ -40,6 +40,25 @@ utils/RunONNXModel.py --model mymodel.onnx -w 2 -n 10  \
 `run.log` will contain data from the warmup runs too — pass a matching `-w 2`
 to `make-report.py` in the next step to exclude them.
 
+To run Step 2 automatically after the run, add `--report`. It calls
+`make-report.py` on the runtime log with `-r` and a matching `-w` already
+filled in, so the example above becomes:
+
+```bash
+utils/RunONNXModel.py --model mymodel.onnx -w 2 -n 10  \
+  --compile-args="-O3 --profile-ir=Onnx" --report
+```
+
+* `--report` implies `--write-runtime-log` (default `runtime.log`).
+* Any other `make-report.py` options go in one quoted string, e.g.
+  `--report="-l 2 -f onnx.MatMul"`. Use the `=` form when the string has no
+  space (`--report=-m5`), or it is taken as a separate option.
+* Unless given in that string, `-m 0.5` is used, and the time unit (`-u`) is
+  picked from the measured inference time: the largest of `s`, `ms`, `us` in
+  which an op at the `-m` threshold still takes at least 0.1 (e.g. `ms` for a
+  186 ms model, `us` for a 1 ms one).
+* The full `make-report.py` command is printed before it runs.
+
 ## Step 2: Aggregate stats with `make-report.py`
 
 ```bash
