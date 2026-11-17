@@ -10,14 +10,16 @@
 
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Conversion/ONNXToLinalg/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "llvm/ADT/SmallVector.h"
 
 using namespace mlir;
 
@@ -59,45 +61,43 @@ struct ONNXTransposeOpLoweringToLinalg
       return rewriter.notifyMatchFailure(
           transposeOp, "input and output ranks must match");
 
-    IndexExprBuilderForTensor ieBuilder{rewriter, loc};
-    ONNXTransposeOpShapeHelper shapeHelper{
-        transposeOp.getOperation(), transposeOp->getOperands(), &ieBuilder};
-
-    if (failed(shapeHelper.computeShape()))
-      return rewriter.notifyMatchFailure(
-          transposeOp, "failed to compute output shape");
-
-    // The shape helper materializes ONNX's default reversed permutation when
-    // the perm attribute is omitted.
     ArrayAttr permAttr = transposeOp.getPermAttr();
-    if (!permAttr || static_cast<int64_t>(permAttr.size()) != rank)
+    if (permAttr && static_cast<int64_t>(permAttr.size()) != rank)
       return rewriter.notifyMatchFailure(
           transposeOp, "permutation size must equal the input rank");
 
     SmallVector<int64_t> permutation;
-    for (int64_t i = 0; i < rank; ++i) {
-      int64_t axis = ArrayAttrIntVal(permAttr, i);
-      if (axis < 0)
-        axis += rank;
-      permutation.push_back(axis);
+    SmallVector<bool> seen(rank, false);
+    if (!permAttr) {
+      for (int64_t i = rank - 1; i >= 0; --i)
+        permutation.push_back(i);
+    } else {
+      for (int64_t i = 0; i < rank; ++i) {
+        int64_t axis = ArrayAttrIntVal(permAttr, i);
+        if (axis < 0)
+          axis += rank;
+        if (axis < 0 || axis >= rank || seen[axis])
+          return rewriter.notifyMatchFailure(
+              transposeOp, "permutation axis is out of bounds or duplicated");
+
+        permutation.push_back(axis);
+        seen[axis] = true;
+      }
     }
 
-    const DimsExpr &outputDims = shapeHelper.getOutputDims();
-
-    SmallVector<Value> dynamicSizes;
-    for (int64_t axis = 0; axis < outputType.getRank(); ++axis) {
-      if (outputType.isDynamicDim(axis))
-        dynamicSizes.push_back(outputDims[axis].getValue());
+    llvm::SmallVector<Value> tensorDims;
+    for (int64_t outputAxis = 0; outputAxis < rank; ++outputAxis) {
+      if (outputType.isDynamicDim(outputAxis))
+        tensorDims.push_back(tensor::DimOp::create(
+            rewriter, loc, input, permutation[outputAxis]));
     }
 
-    Value emptyTensor = tensor::EmptyOp::create(rewriter, loc,
-        outputType.getShape(), outputType.getElementType(), dynamicSizes);
-
-    Value result = linalg::TransposeOp::create(
+    Value emptyTensor =
+        tensor::EmptyOp::create(rewriter, loc, outputType, tensorDims);
+    Value linalgTranspose = linalg::TransposeOp::create(
         rewriter, loc, input, emptyTensor, permutation)
-                       ->getResult(0);
-
-    rewriter.replaceOp(transposeOp, result);
+                                ->getResult(0);
+    rewriter.replaceOp(transposeOp, linalgTranspose);
     return success();
   }
 
