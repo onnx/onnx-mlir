@@ -139,18 +139,6 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRTransforms
   )
 
-add_onnx_mlir_library(OMClampSoftmaxMask
-  ClampSoftmaxMask.cpp
-
-  DEPENDS
-  OMONNXTransformsPassIncGen
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  MLIRFuncDialect
-  MLIRPass
-  )
-
 add_onnx_mlir_library(OMExpandAttentionMask
   ExpandAttentionMask.cpp
 

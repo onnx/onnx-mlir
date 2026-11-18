@@ -1,6 +1,6 @@
-// COM: Baseline for onnx_clamp_softmax_mask.mlir (file-mode grounding with
+// COM: Baseline for rewrite-onnx-for-zhigh-clamp-mask.mlir (file-mode grounding with
 // COM: utils/GroundLitTest.py): each function is the expected output of
-// COM: --clamp-softmax-mask, i.e. the test function with its mask constants
+// COM: the mask clamping of --rewrite-onnx-for-zhigh, i.e. the test function with its mask constants
 // COM: below -1e9 (-1e4 for f16) set to that value, and nothing else changed.
 // COM: Not a lit test (lit.cfg.py excludes .baseline files); no RUN line.
 // -----

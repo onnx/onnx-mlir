@@ -256,7 +256,7 @@ bool isDenseONNXConstant(mlir::Value result);
 // stays finite in reduced precision: f16 (max ~65504), or dlfloat16 on NNPA
 // (max ~8.6e9), which also computes f32 tensors. Hence -1e4 for f16 and -1e9
 // otherwise. Used when building masks (onnx.Attention decomposition) and when
-// clamping mask constants (ClampSoftmaxMaskPass).
+// clamping mask constants (RewriteONNXForZHigh on NNPA).
 double getAttentionMaskFillValue(mlir::Type elementType);
 
 // Check whether an ArrayAttr contains all ones.

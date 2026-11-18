@@ -1,9 +1,9 @@
-// RUN: onnx-mlir-opt --clamp-softmax-mask %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
 
-// COM: Cases where --clamp-softmax-mask must leave every constant unchanged,
+// COM: Cases where the mask clamping of --rewrite-onnx-for-zhigh must leave every constant unchanged,
 // COM: one per documented restriction of the pass. Nothing changes, so there
 // COM: is nothing to ground; the clamped cases are in
-// COM: onnx_clamp_softmax_mask.mlir.
+// COM: rewrite-onnx-for-zhigh-clamp-mask.mlir.
 
 // -----
 

@@ -112,13 +112,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Determine if Conv to Im2Col+MatMul decomposition should be enabled.
   bool enableConvToMatmul = !disableConvToMatmul;
 
-  // Raise large negative constants (e.g. -FLT_MAX attention mask fill
-  // values) that only feed a Softmax input to a value that cannot overflow
-  // dlfloat16 once scores are added; otherwise fully masked rows give NaN.
-  // Run before any pass that rewrites or fuses the attention ops.
-  if (!nnpaDisableClampSoftmaxMask)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createClampSoftmaxMaskPass());
-
   // Expand attention masks BEFORE the loop (if not disabled).
   // This pass uses DimAnalysis which is expensive, so run it only once.
   if (!nnpaDisableExpandAttentionMask)

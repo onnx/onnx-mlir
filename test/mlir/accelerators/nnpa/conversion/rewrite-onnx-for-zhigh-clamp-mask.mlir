@@ -1,10 +1,10 @@
-// RUN: onnx-mlir-opt --clamp-softmax-mask %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
 
-// COM: Grounded in file mode: onnx_clamp_softmax_mask.baseline.mlir holds the
+// COM: Grounded in file mode: rewrite-onnx-for-zhigh-clamp-mask.baseline.mlir holds the
 // COM: expected output of the pass (same functions, clamped constants), and
-// COM: `GroundLitTest.py test/mlir/onnx/onnx_clamp_softmax_mask.mlir` checks
+// COM: `GroundLitTest.py test/mlir/accelerators/nnpa/conversion/rewrite-onnx-for-zhigh-clamp-mask.mlir` checks
 // COM: that both compute the same results on CPU. Cases where the pass must
-// COM: not change anything are in onnx_clamp_softmax_mask_keep.mlir.
+// COM: not change anything are in rewrite-onnx-for-zhigh-clamp-mask-keep.mlir.
 // COM: Masked entries get weight 0 either way and fully masked rows are
 // COM: uniform either way, so the results match to rounding.
 // GROUND-ALL: --rtol=1e-5 --atol=1e-6
