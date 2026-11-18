@@ -562,6 +562,11 @@ DenseElementsAttr createDenseElementsAttrFromSize(
   return DenseElementsAttr::get(tensorType, ArrayRef(values));
 }
 
+/// Large negative fill value for additive attention masks (see OpHelper.hpp).
+double getAttentionMaskFillValue(Type elementType) {
+  return elementType.isF16() ? -1.0e4 : -1.0e9;
+}
+
 /// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result) {
   ONNXConstantOp constOp =

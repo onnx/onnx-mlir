@@ -249,6 +249,16 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
+// Large negative value used to mask out entries of an additive attention mask,
+// i.e. a value added to the input of a Softmax so that the entry gets a zero
+// weight. It must be negative enough that exp(value - rowMax) is exactly 0,
+// and small enough in magnitude that adding scores and several such masks
+// stays finite in reduced precision: f16 (max ~65504), or dlfloat16 on NNPA
+// (max ~8.6e9), which also computes f32 tensors. Hence -1e4 for f16 and -1e9
+// otherwise. Used when building masks (onnx.Attention decomposition) and when
+// clamping mask constants (ClampSoftmaxMaskPass).
+double getAttentionMaskFillValue(mlir::Type elementType);
+
 // Check whether an ArrayAttr contains all ones.
 bool hasAllOnesInArrayAttr(mlir::ArrayAttr arrayAttr);
 

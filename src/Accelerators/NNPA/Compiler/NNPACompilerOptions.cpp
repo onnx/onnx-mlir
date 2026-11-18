@@ -4,7 +4,7 @@
 
 //===------------------------- NNPACompilerOptions.cpp --------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -140,6 +140,15 @@ llvm::cl::opt<bool> nnpaDisableShapeRestriction(
 
 llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
     llvm::cl::desc("Disable replacement of malloc with OMHugePageMalloc. "
+                   "Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaDisableClampSoftmaxMask(
+    "nnpa-disable-clamp-softmax-mask",
+    llvm::cl::desc("Disable raising large negative constants (e.g. -FLT_MAX) "
+                   "that only feed a Softmax input, such as attention mask "
+                   "fill values, to -1e9 (-1e4 for f16). Without it, fully "
+                   "masked rows can overflow dlfloat16 and give NaN. "
                    "Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 

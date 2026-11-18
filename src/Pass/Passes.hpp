@@ -123,6 +123,9 @@ std::unique_ptr<mlir::Pass> createONNXCSEWithNodeNamePass();
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
+/// Pass for clamping large negative mask constants that only feed a Softmax.
+std::unique_ptr<mlir::Pass> createClampSoftmaxMaskPass();
+
 /// Pass for expanding attention mask tensors in MatMul-Add-Softmax patterns.
 std::unique_ptr<mlir::Pass> createExpandAttentionMaskPass();
 

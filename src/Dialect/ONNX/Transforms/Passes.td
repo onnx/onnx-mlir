@@ -38,6 +38,38 @@ def AppendInstrumentedOutputsPass : Pass<"append-instrumented-outputs", "ModuleO
   }];
 }
 
+def ClampSoftmaxMaskPass : Pass<"clamp-softmax-mask", "func::FuncOp"> {
+  let summary = "Clamp large negative mask constants that only feed a Softmax.";
+  let description = [{
+    Models often mask attention by adding a large negative value to the
+    Softmax input, built from a constant such as -FLT_MAX (e.g.
+    torch.finfo(float32).min) or -inf. In reduced precision (f16, or
+    dlfloat16 on NNPA, max ~8.6e9) such a value leaves no room for the scores
+    and masks added to it: the sum overflows, and a row where every entry is
+    masked (e.g. a padded query in a sliding-window mask) turns into NaN,
+    which then spreads to every position of that batch row.
+
+    Softmax gives the same result when every input below a large negative
+    value L is raised to L, as exp(L - rowMax) is exactly 0; only rows that
+    are fully masked change, from NaN/overflow to uniform weights (what fp32
+    gives for -FLT_MAX). L is getAttentionMaskFillValue() (-1e9 for f32, -1e4
+    for f16), the value onnx.Attention's decomposition uses for its masks.
+
+    The pass starts from each sink: the input of onnx.Softmax, and the
+    attn_mask input of onnx.Attention. It walks back through ops that cannot
+    make a value more negative than their inputs (Add, Sub's first operand,
+    the two value inputs of Where, Min, Max, Concat, Expand, Reshape,
+    Unsqueeze, Squeeze, Transpose, Slice, Gather's data, Identity, and Cast
+    between identical types). Every float onnx.Constant reached this way that
+    holds a value below L gets those values set to L, provided all its
+    transitive uses stay within these walks (so a -FLT_MAX used as a sentinel
+    elsewhere is left unchanged). It never adds operations.
+  }];
+
+  let constructor = "onnx_mlir::createClampSoftmaxMaskPass()";
+  let dependentDialects = ["mlir::func::FuncDialect", "mlir::ONNXDialect"];
+}
+
 def ExpandAttentionMaskPass : Pass<"expand-attention-mask", "func::FuncOp"> {
   let summary = "Expand attention mask and scale tensors in attention patterns for NNPA.";
   let description = [{
