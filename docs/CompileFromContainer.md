@@ -139,6 +139,95 @@ the error messages suggest. The daemon check in step 2 runs either way.
 - **`OM_DIND_DISABLE=1`**: skip detection and treat the process as running on
   the host, so no prefix is applied.
 
+## Using Podman for both the app and the compiler
+
+### Rootless Podman
+
+Docker's default model is one daemon, `dockerd`, running as root on the host.
+Anyone who can write to `/var/run/docker.sock` can make that root process do
+anything, for example `docker run -v /:/host ...`.
+
+Rootless Podman runs entirely as an ordinary user:
+
+- **No root daemon.** By default `podman run` starts the container as a child
+  process of the user who ran it. For sibling containers, a per-user API
+  service is started with `systemctl --user enable --now podman.socket`. It
+  listens on `$XDG_RUNTIME_DIR/podman/podman.sock` (typically
+  `/run/user/<uid>/podman/podman.sock`), is owned by that user, and speaks the
+  Docker API.
+- **User namespaces.** Root (UID 0) inside the container is mapped to the
+  user's own UID on the host. Other container UIDs are mapped to a private
+  range listed in `/etc/subuid` and `/etc/subgid`. A process that escapes the
+  container has only that user's rights.
+- **Storage and networking as the user.** Images are stored under
+  `~/.local/share/containers`, and networking uses user-mode tools
+  (`slirp4netns` or `pasta`).
+
+So the compiler container started by `OMCompile` runs with the rights of the
+user who owns the socket, not root's.
+
+### Which CLI to put in the app image
+
+**Recommended: the `docker` CLI with the Podman socket mounted** (step 2
+above). With `ContainerEngine::Auto`, `OMCompile` finds `docker`,
+`docker info` reaches Podman through the socket, and the compiler container
+runs as a sibling under the host user. No code changes are needed.
+
+**Alternative: the `podman` CLI.** Plain `podman` does not use a socket by
+default: it tries to run the compiler container *inside* the app container,
+which is true nesting and usually fails without `--privileged` and extra
+storage setup. Point it at the host socket instead:
+
+```bash
+podman run -v $XDG_RUNTIME_DIR/podman/podman.sock:/run/podman/podman.sock \
+           -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+           -v /your/workspace:/your/workspace \
+           your-app
+```
+
+Installing `podman-remote` instead of `podman` in the app image avoids the
+accidental local mode.
+
+### What works unchanged
+
+- Detection: Podman creates `/run/.containerenv`, so `isRunningInContainer()`
+  is true.
+- `info`, `image inspect`, `pull`, and `run --rm --entrypoint sh -v ...`
+  behave the same as with Docker.
+- Mount sources are resolved on the host, so the same-path rule (step 3)
+  applies exactly as with Docker.
+
+### Podman-specific issues
+
+1. **SELinux (Fedora, RHEL, CentOS hosts).** This is the most likely failure.
+   - The app container may be denied access to the socket. Run it with
+     `--security-opt label=disable`.
+   - The compiler container's mounts may be unreadable: `OMCompile` mounts
+     with `:rw` only, while Podman on SELinux hosts needs `:z`. Until the code
+     adds it, relabel the workspace on the host with
+     `chcon -Rt container_file_t /your/workspace`, or run the app container
+     with `--security-opt label=disable`.
+
+   Hosts without SELinux, such as Ubuntu or Debian, are not affected.
+2. **Short image names.** The built-in image name `onnxmlir/onnx-mlir-dev` has
+   no registry. The `podman` CLI may reject it when not run from a terminal
+   (`short-name-mode=enforcing`). Use the full name
+   `docker.io/onnxmlir/onnx-mlir-dev`, or a `ghcr.io/...` image. The `docker`
+   CLI over the Podman socket does not have this problem.
+3. **Output file ownership.** The default images run as root inside the
+   container, which rootless Podman maps to the host user, so outputs are
+   owned by that user. An image that runs as a non-root user leaves files
+   owned by a sub-UID instead (Podman's `--userns=keep-id` avoids this, but
+   `OMCompile` does not pass it).
+4. **Privileged operations.** Rootless containers cannot, for example, bind
+   ports below 1024 by default. Compiling needs none of these.
+5. **Host setup.** The user needs entries in `/etc/subuid` and `/etc/subgid`,
+   and some kernels need the `fuse-overlayfs` storage driver. Recent
+   distributions set these up automatically.
+6. **macOS.** Podman runs in a Linux VM (`podman machine`). The workspace must
+   be a directory the machine shares, such as under `/Users`, and must be
+   mounted at the same path.
+
 ## A real nested daemon
 
 Some CI systems run a separate daemon in its own container, for example
@@ -236,3 +325,5 @@ the socket.
 - Test OM_DOCKER_HOST_PATH_PREFIX
 - Handle `--config-file`
 - Update user manual on how to start the app container and how the compiler related directory should be located
+- Add `:z` to volume mounts when the engine is Podman on SELinux hosts
+- Fully qualify the short image name `onnxmlir/onnx-mlir-dev` in `knownImageConfigs`
