@@ -1649,15 +1649,78 @@ bool isSuitableForZDNN<ONNXDequantizeLinearOp>(
 }
 
 /// Check legality for ONNXAttentionOp.
+/// An attention op is suitable for zDNN when it can be lowered to zhigh.SDPA3D:
+/// Y = Softmax(Q * K^T + Mask) * V without scaling, softcap, causal mask and
+/// KV cache. Q: [B, H, SQ, D], K: [B, H, S, D], V: [B, H, S, DV], and Mask:
+/// [B, H, SQ, S] or [B, 1, SQ, S].
 template <>
 bool isSuitableForZDNN<ONNXAttentionOp>(
     ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
-  // This rule uses the function template
-  // `addDynamicallyLegalOpFor` to define legality using a custom lambda
-  // function instead of `isSuitableForZDNN`. Hence, the legality here should
-  // not be used/called. This legality is here to complete the function
-  // template `addDynamicallyLegalOpFor` so that it's not failed when building
-  // the compiler.
-  llvm_unreachable("Not used");
-  return false;
+  Operation *genericOp = op.getOperation();
+  // The Q * K^T matmul uses the hardware transpose.
+  if (!isCompatibleWithNNPALevel(NNPALevel::M15))
+    return onnxToZHighInCompatibilityReport(genericOp, NNPALevel::M15);
+
+  // No KV cache.
+  if (!isNoneValue(op.getPastKey()) || !isNoneValue(op.getPastValue()) ||
+      !isNoneValue(op.getNonpadKvSeqlen()))
+    return onnxToZHighUnsupportedReport(
+        genericOp, "KV cache is not supported.");
+  if (!isNoneValue(op.getPresentKey()) || !isNoneValue(op.getPresentValue()) ||
+      !isNoneValue(op.getQkMatmulOutput()))
+    return onnxToZHighUnsupportedReport(
+        genericOp, "Present key/value and qk_matmul_output are not supported.");
+
+  // A mask is required, and no other masking, scaling nor softcap.
+  Value mask = op.getAttnMask();
+  if (isNoneValue(mask))
+    return onnxToZHighUnsupportedReport(genericOp, "A mask is required.");
+  if (op.getIsCausal() != 0)
+    return onnxToZHighUnsupportedReport(genericOp, "is_causal must be 0.");
+  if (op.getQkMatmulOutputMode() != 0)
+    return onnxToZHighUnsupportedReport(
+        genericOp, "qk_matmul_output_mode must be 0.");
+  if (!op.getScale().has_value() || op.getScale()->convertToFloat() != 1.0f)
+    return onnxToZHighUnsupportedReport(
+        genericOp, "scale must be explicitly 1.0.");
+  if (op.getSoftcap().convertToFloat() != 0.0f)
+    return onnxToZHighUnsupportedReport(genericOp, "softcap must be 0.0.");
+
+  // All inputs are ranked 4D tensors of f32.
+  Value Q = op.getQ();
+  Value K = op.getK();
+  Value V = op.getV();
+  for (Value val : {Q, K, V, mask}) {
+    auto type = mlir::dyn_cast<RankedTensorType>(val.getType());
+    if (!type || type.getRank() != 4)
+      return onnxToZHighUnsupportedReport(
+          genericOp, "Q, K, V and mask must be ranked 4D tensors.");
+    if (!type.getElementType().isF32())
+      return onnxToZHighUnsupportedReport(
+          genericOp, "Q, K, V and mask must be f32 tensors.");
+  }
+
+  // K and V have the same shape, and they are compatible with Q.
+  for (int64_t i = 0; i < 4; ++i)
+    if (!dimAnalysis->sameDim(K, i, V, i))
+      return onnxToZHighUnsupportedReport(
+          genericOp, "K and V must have the same shape.");
+  if (!dimAnalysis->sameDim(Q, 0, K, 0) || !dimAnalysis->sameDim(Q, 1, K, 1) ||
+      !dimAnalysis->sameDim(Q, 3, K, 3))
+    return onnxToZHighUnsupportedReport(
+        genericOp, "Q and K must have the same batch, heads and head size.");
+
+  // The mask is either non-broadcasting or broadcasting along the heads.
+  if (!dimAnalysis->sameDim(mask, 0, Q, 0))
+    return onnxToZHighUnsupportedReport(
+        genericOp, "The first dimension of mask and Q must be the same.");
+  bool isBroadcasting = !dimAnalysis->sameDim(mask, 1, Q, 1);
+  if (isBroadcasting && getShape(mask.getType())[1] != 1)
+    return onnxToZHighUnsupportedReport(genericOp,
+        "The second dimension of mask must be the same as Q's or be 1.");
+  if (!dimAnalysis->sameDim(mask, 2, Q, 2) ||
+      !dimAnalysis->sameDim(mask, 3, K, 2))
+    return onnxToZHighUnsupportedReport(
+        genericOp, "The last two dimensions of mask must be [SQ, S].");
+  return true;
 }

@@ -1350,9 +1350,10 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
   addDynamicallyLegalOpFor<ONNXAttentionOp>(target, dimAnalysis,
       [](ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
         // AttentionOp can be simply lowered to onnx ops, to different
-        // optimized implementation. Will be controlled by option or
-        // performance model in future.
-        return false;
+        // optimized implementation. Keep it as is if it is suitable for
+        // zhigh.SDPA3D, which is created in ONNXToZHigh. Otherwise, lower it
+        // to onnx ops.
+        return isSuitableForZDNN<ONNXAttentionOp>(op, dimAnalysis);
       });
 }
 

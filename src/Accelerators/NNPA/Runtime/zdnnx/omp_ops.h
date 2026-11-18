@@ -45,7 +45,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 
 zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
-    zdnn_ztensor *output);
+    bool broadcasting_mask, zdnn_ztensor *output);
 
 #endif // ZDNNX_WITH_OMP
 

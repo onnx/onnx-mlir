@@ -653,7 +653,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 
 zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
-    zdnn_ztensor *output) {
+    bool broadcasting_mask, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP SDPA3D]\n");
 #endif
@@ -666,9 +666,14 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "SDPA3D Out");
 
   if (zdnnx_has_one_tile(&si_q))
-    return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, transpose_kt, output);
+    return zdnnx_seq_sdpa_3d(
+        Q, KT, Mask, V, transpose_kt, broadcasting_mask, output);
 
   uint32_t BH = zdnnx_get_num_tiles(&si_q, E4);
+  // When the mask is broadcast, it has BM entries along E4 and each of them is
+  // shared by H = BH / BM consecutive batch elements.
+  uint32_t BM = zdnnx_get_num_tiles(&si_mask, E4);
+  uint32_t H = (broadcasting_mask && BM != 0 && BM != BH) ? BH / BM : 1;
   uint32_t num_threads = zdnnx_get_num_zaiu_threads();
 
 #pragma omp parallel for num_threads(num_threads)
@@ -680,7 +685,7 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
     /* Copy if reuse is off. */
     zdnnx_copy_data_to_tile(&tkt);
-    zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, 0);
+    zdnnx_set_tile(&si_mask, &tmask, NULL, b / H, 0, 0, 0);
     /* Copy if reuse is off. */
     zdnnx_copy_data_to_tile(&tmask);
     /* Copy if reuse is off. */
@@ -689,8 +694,8 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     zdnnx_copy_data_to_tile(&tv);
 
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
-    zdnnx_seq_sdpa_3d(
-        &tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt, &tout.data);
+    zdnnx_seq_sdpa_3d(&tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt,
+        /*broadcasting_mask*/ false, &tout.data);
     /* Copy if reuse is off. */
     zdnnx_copy_data_to_full(&tout);
   }

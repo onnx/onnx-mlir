@@ -1056,10 +1056,47 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
 zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
-    zdnn_ztensor *output) {
+    bool broadcasting_mask, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
-  printf("[SDPA3D, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
+  printf("[SDPA3D, transpose_kt: %s, broadcasting_mask: %s]\n",
+      transpose_kt ? "true" : "false", broadcasting_mask ? "true" : "false");
 #endif
+
+  // The mask has B entries along E4 while Q has B*H entries. Process one
+  // batch element at a time, and use the mask entry (b / H) for each of them.
+  uint32_t BH = zdnnx_get_transformed_dim(Q, E4);
+  uint32_t BM = zdnnx_get_transformed_dim(Mask, E4);
+  if (broadcasting_mask && BM != BH) {
+    uint32_t H = BH / BM;
+    zdnn_status status = ZDNN_OK;
+    zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
+    zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "SDPA3D bcast Q");
+    zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, 0, "SDPA3D bcast KT");
+    zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "SDPA3D bcast Mask");
+    zdnnx_prepare_split_info(&si_v, V, 1, 0, 0, 0, "SDPA3D bcast V");
+    zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "SDPA3D bcast Out");
+    for (uint32_t b = 0; b < BH && status == ZDNN_OK; ++b) {
+      zdnnx_tile tq, tkt, tmask, tv, tout;
+      zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tq);
+      zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tkt);
+      zdnnx_set_tile(&si_mask, &tmask, NULL, b / H, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tmask);
+      zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tv);
+      zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
+      status = zdnnx_seq_sdpa_3d(&tq.data, &tkt.data, &tmask.data, &tv.data,
+          transpose_kt, /*broadcasting_mask*/ false, &tout.data);
+      zdnnx_copy_data_to_full(&tout);
+      zdnnx_free_tile_buffer(&tq);
+      zdnnx_free_tile_buffer(&tkt);
+      zdnnx_free_tile_buffer(&tmask);
+      zdnnx_free_tile_buffer(&tv);
+      zdnnx_free_tile_buffer(&tout);
+    }
+    return status;
+  }
 
   static int use_basic = -1;
   if (use_basic == -1)
