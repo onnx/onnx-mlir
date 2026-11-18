@@ -4,7 +4,7 @@
 
 //===------------------ ConstantOfShape.cpp - ONNX Operations -------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -32,13 +32,23 @@ LogicalResult ONNXConstantOfShapeOpShapeHelper::computeShape() {
   DimsExpr outputDims;
 
   auto inputShape = mlir::cast<RankedTensorType>(input.getType()).getShape();
-  if (inputShape[0] == 0) {
+  int64_t outputRank = inputShape[0];
+  if (ShapedType::isDynamic(outputRank)) {
+    auto outputType = mlir::dyn_cast<RankedTensorType>(getOutput().getType());
+    if (!outputType)
+      return failure();
+    outputRank = outputType.getRank();
+  }
+
+  if (outputRank == 0) {
     // If 'input' is an empty tensor, the output would be a scalar.
     // Represent this by an empty outputDims.
     outputDims.clear();
   } else {
     // Calculate output dimensions.
-    createIE->getIntFromArrayAsDims(input, outputDims);
+    for (int64_t i = 0; i < outputRank; ++i)
+      outputDims.emplace_back(
+          createIE->getIntFromArrayAsDim(input, i, outputRank));
   }
   setOutputDims(outputDims);
   return success();
