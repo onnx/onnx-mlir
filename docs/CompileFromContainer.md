@@ -230,3 +230,9 @@ the socket.
 - `src/Compiler/OMCompile.hpp`: the `OMCompile` API.
 - [Docker: protect the daemon socket](https://docs.docker.com/engine/security/protect-access/)
 - [Podman rootless tutorial](https://github.com/containers/podman/blob/main/docs/tutorials/rootless_tutorial.md)
+
+## Work Items
+** Test rootless Podman
+** Test OM_DOCKER_HOST_PATH_PREFIX
+** Handle `--config-file`
+** Update user manual on how to start the app container and how the compiler related directory should be located
