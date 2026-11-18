@@ -82,7 +82,7 @@ public:
   // Docker-in-Docker (DinD) Support.
   bool detectDinDEnvironment();
   bool isDinDDisabled();
-  void verifyDockerSocket(const std::string &engineName);
+  void verifyEngineAccess(const std::string &engineName, bool inContainer);
   std::string resolveHostPath(const std::string &containerPath);
 
 private:
@@ -156,11 +156,16 @@ std::string ContainerSupport::detectEngine(
 
 bool ContainerSupport::isImageAvailable(
     const std::string &engineName, const std::string &imageName) {
+  // `images -q <name>` exits with 0 even when no image matches, so use
+  // `image inspect`, which fails when the image is not present locally.
   try {
     Command imageCheck(engineName, verbose);
-    imageCheck.appendStr("images");
-    imageCheck.appendStr("-q");
+    imageCheck.appendStr("image");
+    imageCheck.appendStr("inspect");
     imageCheck.appendStr(imageName);
+#ifndef _WIN32
+    imageCheck.redirectExecStreams("/dev/null");
+#endif
     return imageCheck.exec() == 0;
   } catch (...) {
     return false;
@@ -270,30 +275,47 @@ bool ContainerSupport::isDinDDisabled() {
   return dindDisable && std::string(dindDisable) == "1";
 }
 
-void ContainerSupport::verifyDockerSocket(const std::string &engineName) {
-  std::string socketPath = "/var/run/docker.sock";
-  if (!fs::exists(socketPath)) {
-    throw OMCompileException(
-        "Docker-in-Docker detected but Docker socket not found at " +
-        socketPath +
-        ". Mount it with: -v /var/run/docker.sock:/var/run/docker.sock");
-  }
-
+void ContainerSupport::verifyEngineAccess(
+    const std::string &engineName, bool inContainer) {
+  // Ask the engine itself whether it can reach its daemon/service. This honors
+  // DOCKER_HOST, CONTAINER_HOST, docker contexts, and any socket location,
+  // so it works for a mounted host socket (sibling containers), a nested
+  // daemon reached over TCP (e.g. a docker:dind service), and rootless Podman.
+  bool reachable = false;
+  std::string failure;
   try {
     Command testCmd(engineName, false);
     testCmd.appendStr("info");
-    if (testCmd.exec() != 0) {
-      throw OMCompileException(
-          "Docker socket exists but not accessible. Check permissions or "
-          "ensure Docker daemon is running.");
-    }
-
-    if (verbose)
-      std::cout << "Docker socket verified: " << socketPath << std::endl;
+#ifndef _WIN32
+    testCmd.redirectExecStreams("/dev/null");
+#endif
+    reachable = testCmd.exec() == 0;
   } catch (const CommandException &e) {
-    throw OMCompileException(
-        "Failed to verify Docker socket access: " + std::string(e.what()));
+    failure = e.what();
   }
+
+  if (reachable) {
+    if (verbose)
+      std::cout << "Container engine reachable: " << engineName << std::endl;
+    return;
+  }
+
+  std::string msg = "Container engine '" + engineName +
+                    "' is installed but cannot reach its daemon/service";
+  if (!failure.empty())
+    msg += " (" + failure + ")";
+  msg += ".";
+  if (inContainer) {
+    msg += " This process runs inside a container, so the compiler container "
+           "must be started through an engine reachable from here. Either "
+           "mount the host socket (e.g. -v /var/run/docker.sock:/var/run/"
+           "docker.sock, or the Podman socket at the same target), or set "
+           "DOCKER_HOST/CONTAINER_HOST to a reachable daemon. Otherwise, use "
+           "local compilation with onnx-mlir installed in this container.";
+  } else {
+    msg += " Ensure the daemon is running and you have permission to use it.";
+  }
+  throw OMCompileException(msg);
 }
 
 std::string ContainerSupport::resolveHostPath(
@@ -428,17 +450,14 @@ void OMCompile::verifyContainerSetup() {
   // Detect container engine.
   detectedEngineName = support.detectEngine(containerEngine);
 
-  // Check if running in Docker-in-Docker and verify socket if so.
-  if (!support.isDinDDisabled() && support.detectDinDEnvironment()) {
-    dindDetected = true;
-    dindDetectionDone = true;
+  // Check whether this process itself runs inside a container. If so, the
+  // compiler container is launched through whatever engine endpoint is
+  // reachable from here (typically the host's, as a sibling container).
+  bool inContainer = isRunningInContainer();
 
-    if (verbose)
-      std::cout << "Docker-in-Docker (DinD) environment detected" << std::endl;
-
-    // Verify Docker socket is accessible.
-    support.verifyDockerSocket(detectedEngineName);
-  }
+  // Verify the engine can reach its daemon. `--version` (used for detection)
+  // succeeds with only the CLI installed, so check `info` as well.
+  support.verifyEngineAccess(detectedEngineName, inContainer);
 
   // Verify image is available.
   if (!support.isImageAvailable(detectedEngineName, containerImage)) {
