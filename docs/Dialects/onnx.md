@@ -11794,6 +11794,10 @@ the operation proceeds in two steps:
 2. Padding: Apply constant padding (value=0) to the upsampled result.
    The first k elements of pads specify the beginning padding, and the last k
    elements specify the ending padding for each of the innermost k dimensions.
+   A negative pad removes that many elements of the upsampled tensor (zeros
+   included) from that side. The ConvTranspose decomposition produces such
+   pads when a ConvTranspose begin pad exceeds (kernel - 1) * dilation, or
+   an end pad exceeds (kernel - 1) * dilation + output_padding.
 
 Example for 2D case with X=(N,C,H,W) and strides=(sH,sW):
   H_up = (H - 1) * sH + 1

@@ -94,10 +94,16 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
       create.krnl.memset(resMemRef, cValue);
 
       // Copy values from the input to the result.
-      // Iterate over the input tensor dimensions.
-      SmallVector<IndexExpr, 4> lbs(rank, zero);
+      // Iterate over the input elements that remain in the result. A negative
+      // pad removes elements, so on axis `i` they are those in
+      // [max(0, -begin_pad), dim + min(0, end_pad)).
+      SmallVector<IndexExpr, 4> lbs;
       SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(data, ubs);
+      for (uint64_t i = 0; i < rank; ++i) {
+        IndexExpr dim = create.krnlIE.getShapeAsDim(data, i);
+        lbs.emplace_back(IndexExpr::max(zero - shapeHelper.pads[i], 0));
+        ubs.emplace_back(dim + IndexExpr::min(shapeHelper.pads[i + rank], 0));
+      }
       ValueRange mainLoopDef = create.krnl.defineLoops(rank);
       create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange dataLoopInd) {

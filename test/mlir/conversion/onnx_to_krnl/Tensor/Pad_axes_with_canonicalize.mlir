@@ -44,8 +44,9 @@ func.func @pad_axes_dynamic_pads(%arg0: tensor<4x?xi64>, %arg1: tensor<2xi64>, %
 
 // mlir2FileCheck.py -a '["data","pads","constant_value"]'
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1, s2] -> (s0 + s1 + s2)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1)[s0, s1] -> (d1)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0)[s0] -> (d0 + s0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0)[s0, s1] -> (-s0, 0)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1)[s0, s1] -> (d1 + s1, d1)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0)[s0] -> (d0 + s0)>
 // CHECK-LABEL:  func.func @pad_axes_dynamic_pads
 // CHECK-SAME:   ([[DATA_:%.+]]: memref<4x?xi64>, [[PADS_:%.+]]: memref<2xi64>, [[CONSTANT_VALUE_:%.+]]: memref<1xi64>) -> memref<4x?xi64> {
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
@@ -62,9 +63,9 @@ func.func @pad_axes_dynamic_pads(%arg0: tensor<4x?xi64>, %arg1: tensor<2xi64>, %
 // CHECK:           krnl.memset [[RES_]], [[LOAD_CONSTANT_VALUE_MEM_]] : memref<4x?xi64>
 // CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[DATA_]], [[CST_1_]] : memref<4x?xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 4, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]]){{.}}[[VAR_1_]], [[VAR_3_]]{{.}}){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 4, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = max [[MAP_1_]]([[VAR_dim_]]){{.}}[[VAR_1_]], [[VAR_3_]]{{.}} to min [[MAP_2_]]([[VAR_dim_]], [[VAR_dim_0_]]){{.}}[[VAR_1_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_7_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply [[MAP_2_]]([[VAR_7_]]#1){{.}}[[VAR_1_]]{{.}}
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply [[MAP_3_]]([[VAR_7_]]#1){{.}}[[VAR_1_]]{{.}}
 // CHECK-DAG:         [[LOAD_DATA_MEM_:%.+]] = krnl.load [[DATA_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<4x?xi64>
 // CHECK:             krnl.store [[LOAD_DATA_MEM_]], [[RES_]]{{.}}[[VAR_7_]]#0, [[VAR_8_]]{{.}} : memref<4x?xi64>
 // CHECK:           }
