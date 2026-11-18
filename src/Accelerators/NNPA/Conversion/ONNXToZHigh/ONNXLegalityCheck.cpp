@@ -1657,9 +1657,8 @@ template <>
 bool isSuitableForZDNN<ONNXAttentionOp>(
     ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
   Operation *genericOp = op.getOperation();
-  // The Q * K^T matmul uses the hardware transpose.
-  if (!isCompatibleWithNNPALevel(NNPALevel::M15))
-    return onnxToZHighInCompatibilityReport(genericOp, NNPALevel::M15);
+  if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+    return onnxToZHighInCompatibilityReport(genericOp, NNPALevel::M14);
 
   // No KV cache.
   if (!isNoneValue(op.getPastKey()) || !isNoneValue(op.getPastValue()) ||

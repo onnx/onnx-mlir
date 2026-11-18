@@ -1529,6 +1529,12 @@ public:
     ArrayRef<int64_t> maskShape = getShape(mask.getType());
     bool isBroadcastingMask = (maskShape[1] == 1) && (qShape[1] != 1);
 
+    // The hardware transposes K only on NNPA level M15 or newer. Otherwise, K
+    // is transposed explicitly: [B, H, S, D] -> [B, H, D, S].
+    bool hwTransposeK = isCompatibleWithNNPALevel(NNPALevel::M15);
+    if (!hwTransposeK)
+      K = create.onnx.transposeInt64(K, {0, 1, 3, 2});
+
     // Collapse the first two dimensions, then stickify with the 3DS layout.
     StringAttr layout = rewriter.getStringAttr(LAYOUT_3DS);
     auto collapseAndStick = [&](Value val) {
@@ -1540,10 +1546,10 @@ public:
     Value stickV = collapseAndStick(V);
     Value stickMask = collapseAndStick(mask);
 
-    // K is not transposed, the hardware transposes it.
     IntegerType si64Ty = rewriter.getIntegerType(64, /*isSigned=*/true);
     ZHighSDPA3DOp sdpa3dOp = ZHighSDPA3DOp::create(rewriter, loc, stickQ,
-        stickK, stickMask, stickV, rewriter.getIntegerAttr(si64Ty, 1),
+        stickK, stickMask, stickV,
+        rewriter.getIntegerAttr(si64Ty, hwTransposeK ? 1 : 0),
         rewriter.getIntegerAttr(si64Ty, isBroadcastingMask ? 1 : 0));
     (void)sdpa3dOp.inferShapes([](Region &region) {});
     Value unstick = ZHighUnstickOp::create(rewriter, loc, sdpa3dOp.getResult());
