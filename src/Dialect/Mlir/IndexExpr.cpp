@@ -611,7 +611,9 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool propagateIntoMinMax,
       bool isMin;
       llvm::SmallVector<Value, 8> vals;
       AffineMap map;
-      assert(minMaxIE.retrieveAffineMinMax(isMin, vals, map) && "expected one");
+      bool found = minMaxIE.retrieveAffineMinMax(isMin, vals, map);
+      assert(found && "expected one");
+      (void)found;
       // Perform the affineExprFct for each min/max terms.
       llvm::SmallVector<IndexExpr, 4> updatedMinMaxExprs;
       for (AffineExpr affineExpr : map.getResults()) {
