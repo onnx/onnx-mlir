@@ -366,7 +366,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
     // Replace malloc with OMHugePageMalloc for better performance on Z.
     if (!nnpaDisableHugePageMalloc)
-      pm.addPass(onnx_mlir::createReplaceMallocByHugePageMallocPass());
+      pm.addPass(onnx_mlir::createReplaceMallocByHugePageMallocPass(
+          /*enableMemoryCache=*/!nnpaDisableMemoryCache));
   }
 }
 

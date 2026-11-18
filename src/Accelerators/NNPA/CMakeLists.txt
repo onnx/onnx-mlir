@@ -58,6 +58,19 @@ else()
   message(STATUS "zdnnx with OpenMP        : OFF")
 endif()
 
+# Reuse cache for temporary buffers (Runtime/OMMemoryCache.c). OFF compiles
+# Runtime/OMMemoryCachePassThrough.c instead, so compiled models still link.
+# Off by default on z/OS, where its benefit is not measured yet.
+if (CMAKE_SYSTEM_NAME STREQUAL "OS390")
+  set(NNPA_MEMORY_CACHE_DEFAULT OFF)
+else()
+  set(NNPA_MEMORY_CACHE_DEFAULT ON)
+endif()
+option(ONNX_MLIR_NNPA_MEMORY_CACHE
+  "Build the NNPA memory cache (OFF: OMCache* functions are pass-throughs)"
+  ${NNPA_MEMORY_CACHE_DEFAULT})
+message(STATUS "NNPA memory cache        : ${ONNX_MLIR_NNPA_MEMORY_CACHE}")
+
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
 add_subdirectory(Support)

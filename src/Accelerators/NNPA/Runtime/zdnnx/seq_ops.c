@@ -4,7 +4,7 @@
 
 //===-------------------------- seq_ops.c ---------------------------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2025-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,12 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <assert.h>
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 
+#include "../OMMemoryCache.h"
 #include "seq_ops.h"
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
@@ -517,7 +519,11 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
 static void *huge_page_malloc_4k(size_t size) {
   if (size == 0)
     return malloc(size);
-  void *ptr = NULL;
+  // Reuse a block freed by an earlier call when the size is in the cached
+  // range. Cached blocks are 4 KB aligned, and 1 MB aligned from 1 MB up.
+  void *ptr = OMCacheTryAlloc(size);
+  if (ptr)
+    return ptr;
 #if defined(__linux__) && defined(MADV_HUGEPAGE)
   if (size >= HUGE_PAGE_SIZE) {
     if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) == 0) {
@@ -589,11 +595,34 @@ static void broadcast_column_to_tile(
   tile->is_transformed = true;
 }
 
-// Free buffer and heap-allocated descriptors of an intermediate ztensor.
+// Free buffer and heap-allocated descriptors of an intermediate ztensor, then
+// clear it, so that freeing it again (e.g. at the final cleanup, after a
+// failed re-create) does nothing.
 static void free_ztensor(zdnn_ztensor *zt) {
-  free(zt->buffer);
+  // Consistency check of the ztensor (see swap_ztensor_buffers); the free
+  // below does not depend on buffer_size.
+  assert((!zt->buffer ||
+             zt->buffer_size == zdnn_getsize_ztensor(zt->transformed_desc)) &&
+         "ztensor buffer_size does not match its descriptor");
+  // Return the buffer to the cache, which finds it by address; a buffer the
+  // cache does not own is freed. OMCacheFree rather than OMCacheFreeSized:
+  // here the size is not tied to the allocation by construction.
+  OMCacheFree(zt->buffer);
   free(zt->pre_transformed_desc);
   free(zt->transformed_desc);
+  memset(zt, 0, sizeof(*zt));
+}
+
+// Swap the buffers of two intermediate ztensors, each with its buffer_size, so
+// that each ztensor stays self-consistent. The descriptors are not swapped:
+// both ztensors must have the same shape and layout.
+static void swap_ztensor_buffers(zdnn_ztensor *a, zdnn_ztensor *b) {
+  void *buffer = a->buffer;
+  uint64_t bufferSize = a->buffer_size;
+  a->buffer = b->buffer;
+  a->buffer_size = b->buffer_size;
+  b->buffer = buffer;
+  b->buffer_size = bufferSize;
 }
 
 // Helper to create a 3DS ztensor, allocate buffer, and optionally stickify.
@@ -619,6 +648,7 @@ static zdnn_status create_3ds_ztensor(
   if (!zt->buffer) {
     free(pre);
     free(trans);
+    memset(zt, 0, sizeof(*zt)); // Nothing left for free_ztensor.
     return ZDNN_ALLOCATION_FAILURE;
   }
   zt->buffer_size = buf_size;
@@ -652,6 +682,7 @@ static zdnn_status create_2ds_zero_bias(
   if (!zt->buffer) {
     free(pre);
     free(trans);
+    memset(zt, 0, sizeof(*zt)); // Nothing left for free_ztensor.
     return ZDNN_ALLOCATION_FAILURE;
   }
   zt->buffer_size = buf_size;
@@ -965,11 +996,9 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
         if (status == ZDNN_OK)
           zdnn_reduce(&scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
 
-        // 3. Update running max via pointer swap.
+        // 3. Update running max via buffer swap.
         if (status == ZDNN_OK) {
-          void *tmp = old_max_zt.buffer;
-          old_max_zt.buffer = max_row_zt.buffer;
-          max_row_zt.buffer = tmp;
+          swap_ztensor_buffers(&old_max_zt, &max_row_zt);
           zdnn_max(&old_max_zt, &block_max_zt, &max_row_zt);
         }
 
