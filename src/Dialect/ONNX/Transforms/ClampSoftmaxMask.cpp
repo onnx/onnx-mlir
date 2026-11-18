@@ -91,9 +91,10 @@ double toDouble(APFloat f) {
   return f.convertToDouble();
 }
 
-struct ClampSoftmaxMaskPass
+class ClampSoftmaxMaskPass
     : public impl::ClampSoftmaxMaskPassBase<ClampSoftmaxMaskPass> {
-  using ClampSoftmaxMaskPassBase::ClampSoftmaxMaskPassBase;
+public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ClampSoftmaxMaskPass)
 
   void runOnOperation() override;
 
@@ -277,9 +278,4 @@ void ClampSoftmaxMaskPass::runOnOperation() {
 }
 
 } // namespace
-
-std::unique_ptr<Pass> createClampSoftmaxMaskPass() {
-  return std::make_unique<ClampSoftmaxMaskPass>();
-}
-
 } // namespace onnx_mlir

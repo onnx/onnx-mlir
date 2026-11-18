@@ -66,8 +66,6 @@ def ClampSoftmaxMaskPass : Pass<"clamp-softmax-mask", "func::FuncOp"> {
     elsewhere is left unchanged). It never adds operations.
   }];
 
-  let constructor = "onnx_mlir::createClampSoftmaxMaskPass()";
-  let dependentDialects = ["mlir::func::FuncDialect", "mlir::ONNXDialect"];
 }
 
 def ExpandAttentionMaskPass : Pass<"expand-attention-mask", "func::FuncOp"> {
