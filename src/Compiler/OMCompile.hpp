@@ -175,7 +175,9 @@ public:
    * @note Docker-in-Docker Support:
    * When running inside a container, this class automatically detects the DinD
    * scenario and adjusts volume mount paths accordingly. For DinD to work:
-   * - Mount Docker socket: -v /var/run/docker.sock:/var/run/docker.sock
+   * - Make a container engine reachable from the outer container: mount the
+   *   host socket (-v /var/run/docker.sock:/var/run/docker.sock, or the
+   *   Podman socket) or set DOCKER_HOST/CONTAINER_HOST
    * - Use absolute paths for model files
    * - Ensure paths are accessible from the host (not just outer container)
    *

@@ -11,7 +11,7 @@ This document serves as an index for onnx-mlir documents.
 * Installation is covered by [README.md](../README.md), with OS-specific details in [BuildOnLinuxOSX.md](BuildOnLinuxOSX.md) and [BuildOnWindows.md](BuildOnWindows.md).
 * [BuildONNX.md](BuildONNX.md) describes how to install `third_party ONNX` for backend tests or to regenerate ONNX operations.
 * [BuildStandalone.md](BuildStandalone.md) describes how to build onnx-mlir as a standalone binary, without a full LLVM/MLIR build tree.
-* [Docker.md](Docker.md) describes how to build and develop onnx-mlir using Docker, and [DockerInDocker.md](DockerInDocker.md) covers Docker-in-Docker support.
+* [Docker.md](Docker.md) describes how to build and develop onnx-mlir using Docker, and [CompileFromContainer.md](CompileFromContainer.md) covers compiling in container mode from a program that itself runs in a container.
 * [Workflow.md](Workflow.md) describes how to contribute in the github environment.
 * [This guideline](Documentation.md) is used to keep documentation and code consistent.
 * [UpdatingLLVMCommit.md](UpdatingLLVMCommit.md) describes how to update the commit of LLVM that onnx-mlir depends on.
