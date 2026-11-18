@@ -599,22 +599,23 @@ static void broadcast_column_to_tile(
 // clear it, so that freeing it again (e.g. at the final cleanup, after a
 // failed re-create) does nothing.
 static void free_ztensor(zdnn_ztensor *zt) {
-  // OMCacheFreeSized needs the buffer's own size; see swap_ztensor_buffers.
+  // Consistency check of the ztensor (see swap_ztensor_buffers); the free
+  // below does not depend on buffer_size.
   assert((!zt->buffer ||
              zt->buffer_size == zdnn_getsize_ztensor(zt->transformed_desc)) &&
          "ztensor buffer_size does not match its descriptor");
-  // Return the buffer to the cache; a buffer the cache does not own is freed
-  // (sizes the cache never serves without taking its lock).
-  OMCacheFreeSized(zt->buffer, zt->buffer_size);
+  // Return the buffer to the cache, which finds it by address; a buffer the
+  // cache does not own is freed. OMCacheFree rather than OMCacheFreeSized:
+  // here the size is not tied to the allocation by construction.
+  OMCacheFree(zt->buffer);
   free(zt->pre_transformed_desc);
   free(zt->transformed_desc);
   memset(zt, 0, sizeof(*zt));
 }
 
 // Swap the buffers of two intermediate ztensors, each with its buffer_size, so
-// that free_ztensor always passes a buffer's own size to OMCacheFreeSized.
-// The descriptors are not swapped: both ztensors must have the same shape and
-// layout.
+// that each ztensor stays self-consistent. The descriptors are not swapped:
+// both ztensors must have the same shape and layout.
 static void swap_ztensor_buffers(zdnn_ztensor *a, zdnn_ztensor *b) {
   void *buffer = a->buffer;
   uint64_t bufferSize = a->buffer_size;

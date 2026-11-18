@@ -83,9 +83,11 @@ OM_CACHE_INTERNAL void *OMCacheAlloc(size_t size);
  * must be released with OMCacheFree, never with plain free(). */
 OM_CACHE_INTERNAL void OMCacheFree(void *buffer);
 
-/* Same as OMCacheFree, but faster: use it when the caller knows for sure the
- * size passed to OMCacheAlloc or OMCacheTryAlloc for this buffer (e.g.
- * compiled code, which passes the same value). Otherwise use OMCacheFree. */
+/* Same as OMCacheFree, but faster: sizes without a bin skip the lock. Use it
+ * only where the size is the allocation size by construction (compiled code,
+ * which passes the same value as to OMCacheAlloc). A wrong size can send a
+ * cache buffer to free() while it is still registered. Hand-written callers
+ * (e.g. zdnnx) use OMCacheFree, which finds the buffer by address. */
 OM_CACHE_INTERNAL void OMCacheFreeSized(void *buffer, size_t size);
 
 /* Start or end an inference (epoch policy). OMCacheEpoch(0) at the start
