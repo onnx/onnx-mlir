@@ -232,7 +232,7 @@ the socket.
 - [Podman rootless tutorial](https://github.com/containers/podman/blob/main/docs/tutorials/rootless_tutorial.md)
 
 ## Work Items
-** Test rootless Podman
-** Test OM_DOCKER_HOST_PATH_PREFIX
-** Handle `--config-file`
-** Update user manual on how to start the app container and how the compiler related directory should be located
+- Test rootless Podman
+- Test OM_DOCKER_HOST_PATH_PREFIX
+- Handle `--config-file`
+- Update user manual on how to start the app container and how the compiler related directory should be located
