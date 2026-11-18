@@ -102,11 +102,22 @@ struct ONNXUpsampleAndPadOpLowering
     Value zeroValue = create.math.constant(elementType, 0);
     create.krnl.memset(outputMemRef, zeroValue);
 
-    // Loop over input tensor and write to output at correct positions.
+    // Loop over the input elements that land in the output. Input index `j`
+    // goes to `j * stride + pad_begin`, and a negative pad removes elements.
     LitIE zero(0);
     SmallVector<IndexExpr, 4> lbs(rank, zero);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(X, ubs);
+    for (uint64_t i = rank - k; i < rank; ++i) {
+      uint64_t dimIdx = i - (rank - k);
+      int64_t stride = stridesVec[dimIdx];
+      int64_t padBegin = padsVec[dimIdx];
+      int64_t padEnd = padsVec[dimIdx + k];
+      if (padBegin < 0)
+        lbs[i] = LitIE(llvm::divideCeil(-padBegin, stride));
+      if (padEnd < 0)
+        ubs[i] = ubs[i] - LitIE(llvm::divideCeil(-padEnd, stride));
+    }
 
     ValueRange loopDef = create.krnl.defineLoops(rank);
 
