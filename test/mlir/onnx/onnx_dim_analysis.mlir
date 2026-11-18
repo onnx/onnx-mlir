@@ -492,6 +492,37 @@ func.func @test_correct_dimgroup_axis_for_onnx_dim(%arg0: tensor<1x?xi64>) -> te
 
 // -----
 
+// Check ConstantOfShape with a dynamically sized shape tensor and a known
+// output rank.
+func.func @test_constant_of_shape_dynamic_shape_length(
+    %arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
+  %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} :
+      (tensor<?x?xf32>) -> tensor<1xi64>
+  %1 = "onnx.Dim"(%arg0) {axis = 1 : si64} :
+      (tensor<?x?xf32>) -> tensor<1xi64>
+  %shape = "onnx.Concat"(%0, %1) {axis = 0 : si64} :
+      (tensor<1xi64>, tensor<1xi64>) -> tensor<?xi64>
+  %result = "onnx.ConstantOfShape"(%shape) {
+    value = dense<0.000000e+00> : tensor<1xf32>
+  } : (tensor<?xi64>) -> tensor<?x?xf32>
+  return %result : tensor<?x?xf32>
+
+// CHECK-LABEL:  func.func @test_constant_of_shape_dynamic_shape_length
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 1 : si64, group_id = [[GID_ARG0_1:[0-9]+]] : si64, group_name = "arg0_1"}> : (tensor<?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 0 : si64, group_id = [[GID_ARG0_0:[0-9]+]] : si64, group_name = "arg0_0"}> : (tensor<?x?xf32>) -> ()
+// CHECK-DAG:       [[DIM_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[DIM_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 1 : si64}> : (tensor<?x?xf32>) -> tensor<1xi64>
+// CHECK:           [[SHAPE_:%.+]] = "onnx.Concat"([[DIM_0_]], [[DIM_1_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>) -> tensor<?xi64>
+// CHECK:           [[RESULT_:%.+]] = onnx.ConstantOfShape([[SHAPE_]]) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<?xi64>) -> tensor<?x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[RESULT_]]) <{axis = 1 : si64, group_id = [[GID_ARG0_1]] : si64, group_name = "arg0_1"}> : (tensor<?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[RESULT_]]) <{axis = 0 : si64, group_id = [[GID_ARG0_0]] : si64, group_name = "arg0_0"}> : (tensor<?x?xf32>) -> ()
+// CHECK:           return [[RESULT_]] : tensor<?x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_matmul_reduction_dimension(%arg0: tensor<5x?xf32>, %arg1: tensor<?x10xf32>) -> tensor<5x10xf32> {
   %0 =  "onnx.MatMul"(%arg0, %arg1) : (tensor<5x?xf32>, tensor<?x10xf32>) -> tensor<5x10xf32>
   return %0 : tensor<5x10xf32>
