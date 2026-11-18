@@ -1,8 +1,8 @@
-// COM: Baseline for rewrite-onnx-for-zhigh-clamp-mask.mlir (file-mode grounding with
-// COM: utils/GroundLitTest.py): each function is the expected output of
-// COM: the mask clamping of --rewrite-onnx-for-zhigh, i.e. the test function with its mask constants
-// COM: below -1e9 (-1e4 for f16) set to that value, and nothing else changed.
-// COM: Not a lit test (lit.cfg.py excludes .baseline files); no RUN line.
+// COM: Baseline for rewrite-onnx-for-zhigh-clamp-mask.mlir (file-mode
+// COM: grounding with utils/GroundLitTest.py): each function with its mask
+// COM: constant uses replaced by hand by a copy whose values below -1e9 (-1e4
+// COM: for f16) are raised to that value, and nothing else changed. Not a lit
+// COM: test (lit.cfg.py excludes .baseline files); no RUN line.
 // -----
 
 // CHECK-LABEL: func.func @test_where_masks
@@ -22,6 +22,8 @@ func.func @test_where_masks(%mask: tensor<2x4xf32> {onnx.name = "mask"}, %win: t
   %a1 = "onnx.Add"(%s1, %w) : (tensor<2x1x4x4xf32>, tensor<2x1x4x4xf32>) -> tensor<2x1x4x4xf32>
   %p1 = "onnx.Softmax"(%a1) {axis = -1 : si64} : (tensor<2x1x4x4xf32>) -> tensor<2x1x4x4xf32>
   return %p0, %p1 : tensor<2x1x4x4xf32>, tensor<2x1x4x4xf32>
+
+
 }
 // -----
 
@@ -42,6 +44,8 @@ func.func @test_where_masks_dyn(%mask: tensor<?x?xf32> {onnx.name = "mask"}, %wi
   %a1 = "onnx.Add"(%s1, %w) : (tensor<?x1x?x?xf32>, tensor<?x1x?x?xf32>) -> tensor<?x1x?x?xf32>
   %p1 = "onnx.Softmax"(%a1) {axis = -1 : si64} : (tensor<?x1x?x?xf32>) -> tensor<?x1x?x?xf32>
   return %p0, %p1 : tensor<?x1x?x?xf32>, tensor<?x1x?x?xf32>
+
+
 }
 // -----
 
@@ -56,6 +60,8 @@ func.func @test_where_mask_mixed(%mask: tensor<2x?xf32> {onnx.name = "mask"}, %s
   %a = "onnx.Add"(%s, %m) : (tensor<2x3x?xf32>, tensor<2x1x?xf32>) -> tensor<2x3x?xf32>
   %p = "onnx.Softmax"(%a) {axis = -1 : si64} : (tensor<2x3x?xf32>) -> tensor<2x3x?xf32>
   return %p : tensor<2x3x?xf32>
+
+
 }
 // -----
 
@@ -69,6 +75,8 @@ func.func @test_added_masks(%pad: tensor<1x1x1x3xi1> {onnx.name = "pad"}, %s: te
   %a = "onnx.Add"(%s, %m) : (tensor<1x1x3x3xf32>, tensor<1x1x3x3xf32>) -> tensor<1x1x3x3xf32>
   %y = "onnx.Softmax"(%a) {axis = -1 : si64} : (tensor<1x1x3x3xf32>) -> tensor<1x1x3x3xf32>
   return %y : tensor<1x1x3x3xf32>
+
+
 }
 // -----
 
@@ -80,6 +88,8 @@ func.func @test_f16(%pad: tensor<1x4xi1> {onnx.name = "pad"}, %s: tensor<3x4xf16
   %a = "onnx.Add"(%s, %m) : (tensor<3x4xf16>, tensor<1x4xf16>) -> tensor<3x4xf16>
   %y = "onnx.Softmax"(%a) {axis = -1 : si64} : (tensor<3x4xf16>) -> tensor<3x4xf16>
   return %y : tensor<3x4xf16>
+
+
 }
 // -----
 
@@ -91,4 +101,20 @@ func.func @test_attention_mask(%Q: tensor<1x1x2x2xf32> {onnx.name = "q"}, %K: te
   %m = "onnx.Where"(%pad, %min, %zero) : (tensor<1x1x1x3xi1>, tensor<f32>, tensor<f32>) -> tensor<1x1x1x3xf32>
   %Y, %pk, %pv, %qk = "onnx.Attention"(%Q, %K, %V, %m, %none, %none, %none) {is_causal = 0 : si64, qk_matmul_output_mode = 0 : si64, softcap = 0.000000e+00 : f32} : (tensor<1x1x2x2xf32>, tensor<1x1x3x2xf32>, tensor<1x1x3x2xf32>, tensor<1x1x1x3xf32>, none, none, none) -> (tensor<1x1x2x2xf32>, none, none, none)
   return %Y : tensor<1x1x2x2xf32>
+
+}
+// -----
+
+// CHECK-LABEL: func.func @test_shared_sentinel
+func.func @test_shared_sentinel(%pad: tensor<1x4xi1> {onnx.name = "pad"}, %s: tensor<3x4xf32> {onnx.name = "s"}) -> (tensor<3x4xf32> {onnx.name = "y"}, tensor<3x4xf32> {onnx.name = "r"}) {
+  %min = onnx.Constant dense<-3.40282347E+38> : tensor<f32>
+  %minc = onnx.Constant dense<-1.000000e+09> : tensor<f32>
+  %zero = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %m = "onnx.Where"(%pad, %minc, %zero) : (tensor<1x4xi1>, tensor<f32>, tensor<f32>) -> tensor<1x4xf32>
+  %a = "onnx.Add"(%s, %m) : (tensor<3x4xf32>, tensor<1x4xf32>) -> tensor<3x4xf32>
+  %y = "onnx.Softmax"(%a) {axis = -1 : si64} : (tensor<3x4xf32>) -> tensor<3x4xf32>
+  %r = "onnx.Max"(%s, %min) : (tensor<3x4xf32>, tensor<f32>) -> tensor<3x4xf32>
+  return %y, %r : tensor<3x4xf32>, tensor<3x4xf32>
+
+
 }

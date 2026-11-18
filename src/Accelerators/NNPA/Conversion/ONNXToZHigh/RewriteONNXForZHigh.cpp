@@ -975,11 +975,15 @@ public:
 // change, from NaN to uniform weights, which is what fp32 gives for -FLT_MAX.
 // L is getAttentionMaskFillValue(): -1e9 for f32, -1e4 for f16.
 //
-// A constant is clamped when every use of it, followed forward through ops
-// that cannot make a value more negative than their inputs, ends at a sink:
-// the input of a Softmax, or the float attn_mask of an onnx.Attention. A
-// constant that also reaches anything else (e.g. -FLT_MAX used as a sentinel)
-// is left unchanged. No operation is added; only constant values change.
+// Starting from every sink (the input of a Softmax, or the float attn_mask
+// of an onnx.Attention), the walk goes up through ops that cannot make a
+// value more negative than their inputs. Each use of a constant reached this
+// way that has values below L (e.g. -FLT_MAX in a Where) is given a copy of
+// the constant with those values raised to L, provided the values computed
+// from that use reach nothing but sinks (so a mask that is also a model
+// output stays unchanged). The original constant stays for its other users
+// (e.g. -FLT_MAX used as a sentinel) and is erased if none is left. No other
+// operation is added.
 // Disabled by --nnpa-disable-clamp-softmax-mask; traced with
 // -debug-only=rewrite-for-zhigh (lines start with "clamp-softmax-mask:").
 
@@ -1059,43 +1063,27 @@ double toDouble(APFloat f) {
   return f.convertToDouble();
 }
 
-// Raise the values of `constOp` below the fill value of its element type to
-// that value, if it only feeds softmax masks. Return true if it changed.
-bool clampSoftmaxMaskConstant(ONNXConstantOp constOp) {
+// Return the values of `constOp` with those below `fill` raised to it, or
+// nullopt if it is not a small enough float constant with such a value.
+// Also return the number of raised values and the smallest original value.
+std::optional<DenseElementsAttr> getClampedMaskValues(ONNXConstantOp constOp,
+    double fill, int64_t &numClamped, double &minValue) {
   auto elementsAttr = dyn_cast_or_null<ElementsAttr>(constOp.getValueAttr());
   if (!elementsAttr)
-    return false;
+    return std::nullopt;
   auto type = cast<ShapedType>(elementsAttr.getType());
   auto floatType = dyn_cast<FloatType>(type.getElementType());
   if (!floatType || !type.hasStaticShape() ||
       type.getNumElements() > clampMaxConstantSize)
-    return false;
-  double fill = getAttentionMaskFillValue(floatType);
-
-  // Check the uses first: it rejects weights and most other constants
-  // without looking at their values.
-  DenseSet<Value> visited;
-  bool reachesSink = false;
-  bool onlyMasks =
-      onlyFeedsSoftmaxMasks(constOp.getResult(), visited, reachesSink);
-  if (!onlyMasks || !reachesSink) {
-    LLVM_DEBUG({
-      if (elementsAttr.isSplat() &&
-          toDouble(elementsAttr.getSplatValue<APFloat>()) < fill)
-        llvm::dbgs() << "clamp-softmax-mask: keep " << constOp.getLoc()
-                     << ": it does not only feed softmax masks\n";
-    });
-    return false;
-  }
-
+    return std::nullopt;
   APFloat fillF(fill);
   bool losesInfo;
   fillF.convert(
       floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
   SmallVector<APFloat> values;
   values.reserve(type.getNumElements());
-  int64_t numClamped = 0;
-  double minValue = 0;
+  numClamped = 0;
+  minValue = 0;
   for (APFloat f : elementsAttr.getValues<APFloat>()) {
     double d = toDouble(f);
     if (d < fill) { // False for NaN, which is left unchanged.
@@ -1107,20 +1095,102 @@ bool clampSoftmaxMaskConstant(ONNXConstantOp constOp) {
     }
   }
   if (numClamped == 0)
-    return false;
-
-  LLVM_DEBUG(llvm::dbgs() << "clamp-softmax-mask: clamp " << constOp.getLoc()
-                          << " (" << type << "): " << numClamped << " of "
-                          << type.getNumElements() << " values, min "
-                          << minValue << " -> " << fill << "\n");
-  constOp.setValueAttr(DenseElementsAttr::get(type, values));
-  return true;
+    return std::nullopt;
+  return DenseElementsAttr::get(type, values);
 }
 
-// Clamp every constant of `module` that only feeds softmax masks.
+// Walk up from every softmax mask sink through mask-forwarding ops, and give
+// each use of a mask fill constant found on the way (e.g. -FLT_MAX in a
+// Where) its own clamped copy of the constant. The original constant is left
+// for its other users, if any, and erased otherwise.
 void clampSoftmaxMaskConstants(ModuleOp module) {
-  module.walk(
-      [](ONNXConstantOp constOp) { clampSoftmaxMaskConstant(constOp); });
+  // Collect the sink operands.
+  SmallVector<OpOperand *> worklist;
+  module.walk([&](Operation *op) {
+    for (OpOperand &use : op->getOpOperands())
+      if (isSoftmaxMaskSink(op, use.getOperandNumber()))
+        worklist.push_back(&use);
+  });
+
+  // Walk up, collecting the uses of constants on mask paths.
+  SetVector<OpOperand *> fillUses;
+  DenseSet<Value> visited;
+  while (!worklist.empty()) {
+    OpOperand *use = worklist.pop_back_val();
+    Value v = use->get();
+    if (isa_and_nonnull<ONNXConstantOp>(v.getDefiningOp())) {
+      fillUses.insert(use);
+      continue;
+    }
+    Operation *def = v.getDefiningOp();
+    if (!def || !visited.insert(v).second)
+      continue;
+    for (OpOperand &operand : def->getOpOperands())
+      if (isMaskForwardingUse(def, operand.getOperandNumber()))
+        worklist.push_back(&operand);
+  }
+
+  // Replace each fill use whose results reach only softmax masks. One clamped
+  // copy is shared by all the replaced uses of the same constant.
+  DenseMap<Operation *, Value> clampedCopies;
+  for (OpOperand *use : fillUses) {
+    auto constOp = cast<ONNXConstantOp>(use->get().getDefiningOp());
+    auto floatType = dyn_cast<FloatType>(getElementType(constOp.getType()));
+    if (!floatType)
+      continue;
+    double fill = getAttentionMaskFillValue(floatType);
+    Operation *user = use->getOwner();
+    unsigned index = use->getOperandNumber();
+
+    Value clamped = clampedCopies.lookup(constOp);
+    int64_t numClamped = 0;
+    double minValue = 0;
+    std::optional<DenseElementsAttr> values;
+    if (!clamped) {
+      values = getClampedMaskValues(constOp, fill, numClamped, minValue);
+      if (!values)
+        continue; // No value below the fill: nothing to do.
+    }
+
+    // The values computed from this use must only reach softmax masks, or a
+    // model output (e.g. the mask itself) would change.
+    if (!isSoftmaxMaskSink(user, index)) {
+      DenseSet<Value> checked;
+      bool reachesSink = false;
+      bool onlyMasks = llvm::all_of(user->getResults(), [&](Value result) {
+        return !checked.insert(result).second ||
+               onlyFeedsSoftmaxMasks(result, checked, reachesSink);
+      });
+      if (!onlyMasks || !reachesSink) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "clamp-softmax-mask: keep " << constOp.getLoc() << " in "
+                   << user->getName() << " (operand " << index
+                   << "): its result does not only feed softmax masks\n");
+        continue;
+      }
+    }
+
+    if (!clamped) {
+      OpBuilder builder(constOp);
+      builder.setInsertionPointAfter(constOp);
+      MultiDialectBuilder<OnnxBuilder> create(builder, constOp.getLoc());
+      clamped = create.onnx.constant(*values);
+      clampedCopies[constOp] = clamped;
+      LLVM_DEBUG(llvm::dbgs()
+                 << "clamp-softmax-mask: clamped copy of " << constOp.getLoc()
+                 << " (" << constOp.getType() << "): " << numClamped
+                 << " value(s), min " << minValue << " -> " << fill << "\n");
+    }
+    LLVM_DEBUG(llvm::dbgs()
+               << "clamp-softmax-mask: use it in " << user->getName()
+               << " (operand " << index << ") at " << user->getLoc() << "\n");
+    use->set(clamped);
+  }
+
+  // Erase the original constants that no longer have users.
+  for (auto &entry : clampedCopies)
+    if (entry.first->use_empty())
+      entry.first->erase();
 }
 
 } // namespace
