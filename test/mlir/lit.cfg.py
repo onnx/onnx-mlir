@@ -77,6 +77,17 @@ config.substitutions.append(
     ("%onnx-mlir-home", os.path.dirname(os.path.normpath(config.onnx_mlir_tools_dir)))
 )
 
+# The OpenMP runtime library is built only when LLVM was built with OpenMP
+# (OMP_SUPPORTED); without it, --parallel generates no OpenMP code.
+if os.path.exists(
+    os.path.join(
+        os.path.dirname(os.path.normpath(config.onnx_mlir_tools_dir)),
+        "lib",
+        "libompruntime.a",
+    )
+):
+    config.available_features.add("openmp")
+
 # This is based on the same code in llvm and it is meant to determine what
 # the supported targets for llvm & friends are - this allow us to filter test
 # execution based on the available targets
