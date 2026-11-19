@@ -14,6 +14,8 @@
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 
+#include <atomic>
+#include <cstdio>
 #include <cstring>
 #include <string>
 
@@ -166,6 +168,41 @@ float getNNPASaturationLimit() { return nnpaSaturationLimit; }
 bool isNNPASoftmaxMaskClampEnabled() {
   return nnpaSaturationKind == NNPASaturationKind::Mask &&
          !nnpaDisableSaturation;
+}
+
+// Statistics for -opt-report=NNPASaturation; atomic, since passes may run on
+// several functions in parallel.
+static std::atomic<uint64_t> statConstantValues{0}, statBeyondRange{0},
+    statClippedByLimit{0}, statMaskValues{0};
+
+void recordNNPAConstantSaturation(
+    uint64_t numValues, uint64_t numBeyondRange, uint64_t numClippedByLimit) {
+  statConstantValues += numValues;
+  statBeyondRange += numBeyondRange;
+  statClippedByLimit += numClippedByLimit;
+}
+
+void recordNNPAMaskClamp(uint64_t numValues) { statMaskValues += numValues; }
+
+void printNNPASaturationReport() {
+  // Same fields in every mode, all comma separated: the target type (dlf16
+  // for now; other types, e.g. int8 or float8, would get their own line), the
+  // mode, the mask values raised to the fill value (0 unless mask), the
+  // values outside the dlfloat16 range, the limit and the values outside it
+  // but inside the dlfloat16 range (0 unless limit < DLF16_MAX), and the
+  // total number of constant values converted. With --nnpa-disable-saturation
+  // the mode is "disabled": there is no mask handling (masked is 0), but
+  // constants are still saturated, so their counts and the limit are reported
+  // as they are.
+  printf("==SATURATION-REPORT==, dlf16, mode, %s, masked, %llu, "
+         "outside-range, %llu, outside-limit, %g, %llu, total, %llu\n",
+      nnpaDisableSaturation ? "disabled" : nnpaSaturation.c_str(),
+      static_cast<unsigned long long>(statMaskValues.exchange(0)),
+      static_cast<unsigned long long>(statBeyondRange.exchange(0)),
+      static_cast<double>(nnpaSaturationLimit),
+      static_cast<unsigned long long>(statClippedByLimit.exchange(0)),
+      static_cast<unsigned long long>(statConstantValues.exchange(0)));
+  fflush(stdout);
 }
 
 llvm::cl::list<NNPAQuantOptions, std::vector<NNPAQuantOptions>>

@@ -1176,6 +1176,7 @@ void clampSoftmaxMaskConstants(ModuleOp module) {
       MultiDialectBuilder<OnnxBuilder> create(builder, constOp.getLoc());
       clamped = create.onnx.constant(*values);
       clampedCopies[constOp] = clamped;
+      recordNNPAMaskClamp(numClamped);
       LLVM_DEBUG(llvm::dbgs()
                  << "clamp-softmax-mask: clamped copy of " << constOp.getLoc()
                  << " (" << constOp.getType() << "): " << numClamped

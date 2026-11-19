@@ -255,6 +255,20 @@ void normalizeMemRefsPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
+namespace {
+// Print the -opt-report=NNPASaturation line. Added last in the NNPA pipeline,
+// after every pass that converts constants to dlfloat16.
+struct NNPASaturationReportPass
+    : public mlir::PassWrapper<NNPASaturationReportPass,
+          mlir::OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(NNPASaturationReportPass)
+  llvm::StringRef getArgument() const override {
+    return "nnpa-saturation-report";
+  }
+  void runOnOperation() override { printNNPASaturationReport(); }
+};
+} // namespace
+
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) {
@@ -368,6 +382,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     if (!nnpaDisableHugePageMalloc)
       pm.addPass(onnx_mlir::createReplaceMallocByHugePageMallocPass());
   }
+
+  if (optReport == OptReport::NNPASaturation)
+    pm.addPass(std::make_unique<NNPASaturationReportPass>());
 }
 
 } // namespace onnx_mlir
