@@ -984,7 +984,7 @@ public:
 // output stays unchanged). The original constant stays for its other users
 // (e.g. -FLT_MAX used as a sentinel) and is erased if none is left. No other
 // operation is added.
-// Disabled by --nnpa-disable-clamp-softmax-mask; traced with
+// On with --nnpa-saturation=mask (the default); traced with
 // -debug-only=rewrite-for-zhigh (lines start with "clamp-softmax-mask:").
 
 namespace {
@@ -1624,7 +1624,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // Make attention mask constants safe for dlfloat16 before any rewrite, so
   // that onnx.Attention masks are seen before Attention is decomposed.
-  if (!nnpaDisableClampSoftmaxMask)
+  if (isNNPASoftmaxMaskClampEnabled())
     clampSoftmaxMaskConstants(module);
 
   // Run the unknown dimension analysis to help check equality of unknown

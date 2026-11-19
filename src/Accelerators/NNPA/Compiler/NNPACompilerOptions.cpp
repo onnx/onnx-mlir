@@ -12,6 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
+
+#include <cstring>
+#include <string>
 
 #define DEBUG_TYPE "NNPACompilerOptions"
 
@@ -79,6 +83,91 @@ llvm::cl::opt<bool> nnpaDisableSaturation("nnpa-disable-saturation",
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
+namespace {
+
+// Parsed value of --nnpa-saturation (default: mask).
+enum class NNPASaturationKind { Mask, Max, Limit };
+NNPASaturationKind nnpaSaturationKind = NNPASaturationKind::Mask;
+float nnpaSaturationLimit = DLF16_MAX;
+
+// Default limit of --nnpa-saturation=limit: DLF16_MAX / 4 (exactly
+// representable in dlfloat16), which leaves room for the scores plus two
+// masks added on the zAIU.
+constexpr float defaultNNPASaturationLimit = DLF16_MAX / 4;
+
+// Round a positive value down to a value representable in dlfloat16 (9
+// fraction bits), so that the limit never exceeds what was asked for.
+float roundDownToDLF16(float value) {
+  uint32_t bits;
+  std::memcpy(&bits, &value, sizeof(bits));
+  bits &= ~((1u << (23 - 9)) - 1); // Drop the f32 fraction bits dlf16 lacks.
+  std::memcpy(&value, &bits, sizeof(value));
+  return value;
+}
+
+// Parser of --nnpa-saturation that rejects invalid values when the option is
+// parsed, and records the parsed kind and limit.
+struct NNPASaturationParser : public llvm::cl::parser<std::string> {
+  using llvm::cl::parser<std::string>::parser;
+
+  bool parse(llvm::cl::Option &opt, llvm::StringRef argName,
+      llvm::StringRef arg, std::string &value) {
+    value = arg.str();
+    if (arg == "mask") {
+      nnpaSaturationKind = NNPASaturationKind::Mask;
+      nnpaSaturationLimit = DLF16_MAX;
+      return false;
+    }
+    if (arg == "max") {
+      nnpaSaturationKind = NNPASaturationKind::Max;
+      nnpaSaturationLimit = DLF16_MAX;
+      return false;
+    }
+    if (arg == "limit") {
+      nnpaSaturationKind = NNPASaturationKind::Limit;
+      nnpaSaturationLimit = defaultNNPASaturationLimit;
+      return false;
+    }
+    double limit;
+    llvm::StringRef number = arg;
+    if (number.consume_front("limit") && !number.getAsDouble(limit) &&
+        limit >= 1.0 && limit <= DLF16_MAX) {
+      nnpaSaturationKind = NNPASaturationKind::Limit;
+      nnpaSaturationLimit = roundDownToDLF16(static_cast<float>(limit));
+      return false;
+    }
+    return opt.error("invalid value '" + arg +
+                     "': expected mask, max, limit, or limit<value> with "
+                     "1 <= value <= DLF16_MAX (~8.57e9), e.g. limit1e9");
+  }
+};
+
+} // namespace
+
+static llvm::cl::opt<std::string, false, NNPASaturationParser> nnpaSaturation(
+    "nnpa-saturation",
+    llvm::cl::desc(
+        "How f32 values are kept within the dlfloat16 range for NNPA. "
+        "mask (default): saturate at +/-DLF16_MAX (~8.6e9), and raise large "
+        "negative constants (e.g. -FLT_MAX) that only feed a Softmax, such "
+        "as attention mask fills, to -1e9 (-1e4 for f16), so that fully "
+        "masked rows do not overflow into NaN. max: saturate at "
+        "+/-DLF16_MAX only (behavior before the mask handling). limit: "
+        "saturate at +/-DLF16_MAX/4 (~2.1e9), no mask handling. "
+        "limit<value>: saturate at +/-value (1 <= value <= DLF16_MAX, "
+        "rounded down to a dlfloat16 value), e.g. limit1e9. "
+        "--nnpa-disable-saturation turns off all of these, except for "
+        "constants, which are always saturated."),
+    llvm::cl::value_desc("mask|max|limit|limit<value>"), llvm::cl::init("mask"),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+float getNNPASaturationLimit() { return nnpaSaturationLimit; }
+
+bool isNNPASoftmaxMaskClampEnabled() {
+  return nnpaSaturationKind == NNPASaturationKind::Mask &&
+         !nnpaDisableSaturation;
+}
+
 llvm::cl::list<NNPAQuantOptions, std::vector<NNPAQuantOptions>>
     nnpaQuantDynamicOpt("nnpa-quant-dynamic",
         llvm::cl::desc(
@@ -140,15 +229,6 @@ llvm::cl::opt<bool> nnpaDisableShapeRestriction(
 
 llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
     llvm::cl::desc("Disable replacement of malloc with OMHugePageMalloc. "
-                   "Default is false"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<bool> nnpaDisableClampSoftmaxMask(
-    "nnpa-disable-clamp-softmax-mask",
-    llvm::cl::desc("Disable raising large negative constants (e.g. -FLT_MAX) "
-                   "that only feed a Softmax input, such as attention mask "
-                   "fill values, to -1e9 (-1e4 for f16). Without it, fully "
-                   "masked rows can overflow dlfloat16 and give NaN. "
                    "Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 

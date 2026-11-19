@@ -4,7 +4,7 @@
 
 //===--- ZLowStickExpansion.cpp - ZLow Stick/Unstick Expansion Patterns ---===//
 //
-// Copyright 2024-2025 The IBM Research Authors.
+// Copyright 2024-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,6 +28,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
@@ -269,9 +270,11 @@ public:
     // Values for saturation.
     Value vecDlf16Min, vecDlf16Max;
     if (saturation) {
-      Value dlf16Min = create.math.constant(f32Type, DLF16_MIN);
+      // Saturation limit: DLF16_MAX unless --nnpa-saturation asks for less.
+      float limit = getNNPASaturationLimit();
+      Value dlf16Min = create.math.constant(f32Type, -limit);
       vecDlf16Min = create.vec.broadcast(vecF32Type, dlf16Min);
-      Value dlf16Max = create.math.constant(f32Type, DLF16_MAX);
+      Value dlf16Max = create.math.constant(f32Type, limit);
       vecDlf16Max = create.vec.broadcast(vecF32Type, dlf16Max);
     }
 

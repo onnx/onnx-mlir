@@ -74,12 +74,20 @@ extern llvm::cl::opt<bool> nnpaEnableScalarBcastBinary;
 extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<bool> nnpaDisableSaturation;
+
+// Saturation limit for f32 to dlfloat16 conversions, from --nnpa-saturation:
+// DLF16_MAX unless a smaller limit was requested (limit, limit<value>).
+float getNNPASaturationLimit();
+
+// True if large negative constants that only feed a Softmax (attention mask
+// fills) are clamped: --nnpa-saturation=mask (default), unless
+// --nnpa-disable-saturation.
+bool isNNPASoftmaxMaskClampEnabled();
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
 extern llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick;
 extern llvm::cl::opt<bool> nnpaDisableShapeRestriction;
 extern llvm::cl::opt<bool> nnpaDisableHugePageMalloc;
-extern llvm::cl::opt<bool> nnpaDisableClampSoftmaxMask;
 extern llvm::cl::opt<bool> nnpaDisableExpandAttentionMask;
 extern llvm::cl::opt<bool> nnpaDisableConstructSDPA3D;
 extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;
