@@ -88,10 +88,35 @@ float getNNPASaturationLimit();
 // --nnpa-disable-saturation.
 bool isNNPASoftmaxMaskClampEnabled();
 
-// Compile-time saturation statistics, printed as one "==SATURATION-REPORT=="
-// line at the end of the NNPA pipeline with -opt-report=NNPASaturation. Only
-// constants converted by the compiler are counted; tensors computed at run
-// time are saturated by the generated code and not counted.
+// -opt-report=NNPASaturation: how many constant values the compiler had to
+// change to fit dlfloat16. At the end of the NNPA pipeline, one line is
+// printed, with the same comma-separated fields in every mode:
+//
+//   ==SATURATION-REPORT==, dlf16, mode, M, masked, A, outside-range, B,
+//   outside-limit, L, C, total, T
+//
+//   M  --nnpa-saturation mode (mask, max, limit, limit<value>), or "disabled"
+//      with --nnpa-disable-saturation (no mask handling; constants are still
+//      saturated, so B and C are still counted).
+//   A  attention-mask fill values (e.g. -FLT_MAX, -inf) raised to -1e9; 0
+//      unless M is mask. Counts values, so a scalar fill counts 1.
+//   B  values outside the dlfloat16 range (|x| > DLF16_MAX ~8.57e9, incl.
+//      +/-inf), clipped to +/-DLF16_MAX.
+//   L  saturation limit in use; C values inside the dlfloat16 range but
+//      beyond L, clipped to +/-L (0 unless L < DLF16_MAX, i.e. limit modes).
+//   T  all constant values converted to dlfloat16 at compile time.
+//
+// B / T and C / T give the share of weights that were changed. B > 0 means
+// the model has constants dlfloat16 cannot represent; check where they come
+// from before trusting the outputs. A rising C as L is lowered shows how much
+// a smaller limit costs.
+// Only constants are counted: tensors computed at run time are saturated by
+// the generated code, which this report cannot see. Compile-time stickifying
+// of constants only runs on big-endian hosts, so on other hosts B, C and T
+// are 0 and only A is meaningful. Use --EmitZHighIR to get the report quickly
+// without building the library. Lines are easy to grep and split on ", " for
+// comparing models or modes.
+
 // Record a conversion of numValues constant values to dlfloat16, of which
 // numBeyondRange were outside the dlfloat16 range (+/-DLF16_MAX, incl. inf)
 // and numClippedByLimit within it but beyond a smaller --nnpa-saturation limit.
