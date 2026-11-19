@@ -195,7 +195,8 @@ void printNNPASaturationReport() {
   // constants are still saturated, so their counts and the limit are reported
   // as they are.
   printf("==SATURATION-REPORT==, dlf16, mode, %s, masked, %llu, "
-         "outside-range, %llu, outside-limit, %g, %llu, total, %llu\n",
+         "outside-range, %llu, outside-limit, %g, %llu, total-compile-time, "
+         "%llu\n",
       nnpaDisableSaturation ? "disabled" : nnpaSaturation.c_str(),
       static_cast<unsigned long long>(statMaskValues.exchange(0)),
       static_cast<unsigned long long>(statBeyondRange.exchange(0)),

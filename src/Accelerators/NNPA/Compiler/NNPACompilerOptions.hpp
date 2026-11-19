@@ -93,7 +93,7 @@ bool isNNPASoftmaxMaskClampEnabled();
 // printed, with the same comma-separated fields in every mode:
 //
 //   ==SATURATION-REPORT==, dlf16, mode, M, masked, A, outside-range, B,
-//   outside-limit, L, C, total, T
+//   outside-limit, L, C, total-compile-time, T
 //
 //   M  --nnpa-saturation mode (mask, max, limit, limit<value>), or "disabled"
 //      with --nnpa-disable-saturation (no mask handling; constants are still
