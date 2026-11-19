@@ -24,6 +24,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
@@ -959,6 +960,243 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// Clamp large negative constants that only feed a Softmax (attention masks).
+//===----------------------------------------------------------------------===//
+//
+// Models often mask attention by adding a large negative value, built from a
+// constant such as -FLT_MAX (torch.finfo(float32).min) or -inf, to the input
+// of a Softmax. On NNPA, such a value is saturated to -DLF16_MAX (~-8.6e9)
+// when stickified; adding the scores then overflows dlfloat16, and a row whose
+// entries are all masked (e.g. a padded query in a sliding-window mask)
+// becomes NaN, which then spreads to every position of its batch row.
+//
+// Softmax is unchanged when every input below a large negative value L is
+// raised to L, since exp(L - rowMax) is exactly 0. Only fully masked rows
+// change, from NaN to uniform weights, which is what fp32 gives for -FLT_MAX.
+// L is getAttentionMaskFillValue(): -1e9 for f32, -1e4 for f16.
+//
+// Starting from every sink (the input of a Softmax, or the float attn_mask
+// of an onnx.Attention), the walk goes up through ops that cannot make a
+// value more negative than their inputs. Each use of a constant reached this
+// way that has values below L (e.g. -FLT_MAX in a Where) is given a copy of
+// the constant with those values raised to L, provided the values computed
+// from that use reach nothing but sinks (so a mask that is also a model
+// output stays unchanged). The original constant stays for its other users
+// (e.g. -FLT_MAX used as a sentinel) and is erased if none is left. No other
+// operation is added.
+// On with --nnpa-saturation=mask (the default); traced with
+// -debug-only=rewrite-for-zhigh (lines start with "clamp-softmax-mask:").
+
+namespace {
+
+// Largest constant whose values are inspected. Mask constants are scalars or
+// small tensors; this only bounds the cost for a large constant.
+constexpr int64_t clampMaxConstantSize = 1 << 22;
+
+// True if operand `operandIndex` of `op` is forwarded to its results by an op
+// that cannot make an output more negative than that input, so that raising
+// a very negative input to the fill value only changes outputs that are
+// themselves below it.
+bool isMaskForwardingUse(Operation *op, unsigned operandIndex) {
+  // Ops that only move or broadcast their data operand.
+  if (isa<ONNXExpandOp, ONNXReshapeOp, ONNXUnsqueezeOp, ONNXSqueezeOp,
+          ONNXTransposeOp, ONNXSliceOp, ONNXGatherOp, ONNXIdentityOp>(op))
+    return operandIndex == 0;
+  // A Cast that keeps the element type keeps the values.
+  if (auto castOp = dyn_cast<ONNXCastOp>(op))
+    return operandIndex == 0 &&
+           getElementType(castOp.getInput().getType()) ==
+               getElementType(castOp.getOutput().getType());
+  // Where selects between its two value inputs (not the condition).
+  if (isa<ONNXWhereOp>(op))
+    return operandIndex == 1 || operandIndex == 2;
+  // Sub is monotone in its first operand only.
+  if (isa<ONNXSubOp>(op))
+    return operandIndex == 0;
+  // Ops monotone in every operand: combinations of masks and scores.
+  return isa<ONNXAddOp, ONNXMinOp, ONNXMaxOp, ONNXConcatOp>(op);
+}
+
+// True if operand `operandIndex` of `op` is added to attention scores right
+// before a softmax.
+bool isSoftmaxMaskSink(Operation *op, unsigned operandIndex) {
+  if (isa<ONNXSoftmaxOp, ONNXSoftmaxV11Op>(op))
+    return operandIndex == 0;
+  if (auto attentionOp = dyn_cast<ONNXAttentionOp>(op)) {
+    OpOperand &mask = attentionOp.getAttnMaskMutable();
+    return operandIndex == mask.getOperandNumber() &&
+           isa<FloatType>(getElementType(mask.get().getType()));
+  }
+  return false;
+}
+
+// True if every use of `v`, followed forward through mask-forwarding ops,
+// ends at a softmax mask sink. Sets `reachesSink` when at least one does.
+// `visited` holds the values already checked (and found to qualify).
+bool onlyFeedsSoftmaxMasks(
+    Value v, DenseSet<Value> &visited, bool &reachesSink) {
+  for (OpOperand &use : v.getUses()) {
+    Operation *user = use.getOwner();
+    unsigned index = use.getOperandNumber();
+    if (isSoftmaxMaskSink(user, index)) {
+      reachesSink = true;
+      continue;
+    }
+    if (!isMaskForwardingUse(user, index)) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "clamp-softmax-mask:   also used by " << user->getName()
+                 << " (operand " << index << "), not a softmax mask\n");
+      return false;
+    }
+    for (Value result : user->getResults())
+      if (visited.insert(result).second &&
+          !onlyFeedsSoftmaxMasks(result, visited, reachesSink))
+        return false;
+  }
+  return true;
+}
+
+// Convert `f` to double (exact for f16, bf16, f32 and f64).
+double toDouble(APFloat f) {
+  bool losesInfo;
+  f.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
+  return f.convertToDouble();
+}
+
+// Return the values of `constOp` with those below `fill` raised to it, or
+// nullopt if it is not a small enough float constant with such a value.
+// Also return the number of raised values and the smallest original value.
+std::optional<DenseElementsAttr> getClampedMaskValues(ONNXConstantOp constOp,
+    double fill, int64_t &numClamped, double &minValue) {
+  auto elementsAttr = dyn_cast_or_null<ElementsAttr>(constOp.getValueAttr());
+  if (!elementsAttr)
+    return std::nullopt;
+  auto type = cast<ShapedType>(elementsAttr.getType());
+  auto floatType = dyn_cast<FloatType>(type.getElementType());
+  if (!floatType || !type.hasStaticShape() ||
+      type.getNumElements() > clampMaxConstantSize)
+    return std::nullopt;
+  APFloat fillF(fill);
+  bool losesInfo;
+  fillF.convert(
+      floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
+  SmallVector<APFloat> values;
+  values.reserve(type.getNumElements());
+  numClamped = 0;
+  minValue = 0;
+  for (APFloat f : elementsAttr.getValues<APFloat>()) {
+    double d = toDouble(f);
+    if (d < fill) { // False for NaN, which is left unchanged.
+      minValue = std::min(minValue, d);
+      ++numClamped;
+      values.push_back(fillF);
+    } else {
+      values.push_back(f);
+    }
+  }
+  if (numClamped == 0)
+    return std::nullopt;
+  return DenseElementsAttr::get(type, values);
+}
+
+// Walk up from every softmax mask sink through mask-forwarding ops, and give
+// each use of a mask fill constant found on the way (e.g. -FLT_MAX in a
+// Where) its own clamped copy of the constant. The original constant is left
+// for its other users, if any, and erased otherwise.
+void clampSoftmaxMaskConstants(ModuleOp module) {
+  // Collect the sink operands.
+  SmallVector<OpOperand *> worklist;
+  module.walk([&](Operation *op) {
+    for (OpOperand &use : op->getOpOperands())
+      if (isSoftmaxMaskSink(op, use.getOperandNumber()))
+        worklist.push_back(&use);
+  });
+
+  // Walk up, collecting the uses of constants on mask paths.
+  SetVector<OpOperand *> fillUses;
+  DenseSet<Value> visited;
+  while (!worklist.empty()) {
+    OpOperand *use = worklist.pop_back_val();
+    Value v = use->get();
+    if (isa_and_nonnull<ONNXConstantOp>(v.getDefiningOp())) {
+      fillUses.insert(use);
+      continue;
+    }
+    Operation *def = v.getDefiningOp();
+    if (!def || !visited.insert(v).second)
+      continue;
+    for (OpOperand &operand : def->getOpOperands())
+      if (isMaskForwardingUse(def, operand.getOperandNumber()))
+        worklist.push_back(&operand);
+  }
+
+  // Replace each fill use whose results reach only softmax masks. One clamped
+  // copy is shared by all the replaced uses of the same constant.
+  DenseMap<Operation *, Value> clampedCopies;
+  for (OpOperand *use : fillUses) {
+    auto constOp = cast<ONNXConstantOp>(use->get().getDefiningOp());
+    auto floatType = dyn_cast<FloatType>(getElementType(constOp.getType()));
+    if (!floatType)
+      continue;
+    double fill = getAttentionMaskFillValue(floatType);
+    Operation *user = use->getOwner();
+    unsigned index = use->getOperandNumber();
+
+    Value clamped = clampedCopies.lookup(constOp);
+    int64_t numClamped = 0;
+    double minValue = 0;
+    std::optional<DenseElementsAttr> values;
+    if (!clamped) {
+      values = getClampedMaskValues(constOp, fill, numClamped, minValue);
+      if (!values)
+        continue; // No value below the fill: nothing to do.
+    }
+
+    // The values computed from this use must only reach softmax masks, or a
+    // model output (e.g. the mask itself) would change.
+    if (!isSoftmaxMaskSink(user, index)) {
+      DenseSet<Value> checked;
+      bool reachesSink = false;
+      bool onlyMasks = llvm::all_of(user->getResults(), [&](Value result) {
+        return !checked.insert(result).second ||
+               onlyFeedsSoftmaxMasks(result, checked, reachesSink);
+      });
+      if (!onlyMasks || !reachesSink) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "clamp-softmax-mask: keep " << constOp.getLoc() << " in "
+                   << user->getName() << " (operand " << index
+                   << "): its result does not only feed softmax masks\n");
+        continue;
+      }
+    }
+
+    if (!clamped) {
+      OpBuilder builder(constOp);
+      builder.setInsertionPointAfter(constOp);
+      MultiDialectBuilder<OnnxBuilder> create(builder, constOp.getLoc());
+      clamped = create.onnx.constant(*values);
+      clampedCopies[constOp] = clamped;
+      recordNNPAMaskClamp(numClamped);
+      LLVM_DEBUG(llvm::dbgs()
+                 << "clamp-softmax-mask: clamped copy of " << constOp.getLoc()
+                 << " (" << constOp.getType() << "): " << numClamped
+                 << " value(s), min " << minValue << " -> " << fill << "\n");
+    }
+    LLVM_DEBUG(llvm::dbgs()
+               << "clamp-softmax-mask: use it in " << user->getName()
+               << " (operand " << index << ") at " << user->getLoc() << "\n");
+    use->set(clamped);
+  }
+
+  // Erase the original constants that no longer have users.
+  for (auto &entry : clampedCopies)
+    if (entry.first->use_empty())
+      entry.first->erase();
+}
+
+} // namespace
+
+//===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
 
@@ -1384,6 +1622,11 @@ struct RewriteONNXForZHighPass
 
 void RewriteONNXForZHighPass::runOnOperation() {
   ModuleOp module = getOperation();
+
+  // Make attention mask constants safe for dlfloat16 before any rewrite, so
+  // that onnx.Attention masks are seen before Attention is decomposed.
+  if (isNNPASoftmaxMaskClampEnabled())
+    clampSoftmaxMaskConstants(module);
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.

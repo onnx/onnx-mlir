@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMZLowRewrite
   MLIRTransformUtils
   MLIRViewLikeInterface
   OMONNXToKrnl
+  OMNNPACompilerOptions
   OMZHighToZLow
   OMZLowOps
 

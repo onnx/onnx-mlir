@@ -4,7 +4,7 @@
 
 //====-------------- DialectBuilder.cpp - Krnl Dialect Builder ------------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/DialectBuilder.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
@@ -54,8 +55,10 @@ Value ZLowBuilder::convertF32ToDLF16(
     // Saturation is requested
     MultiDialectBuilder<MathBuilder> create(*this);
     Type f32Type = b().getF32Type();
-    Value minInF32 = create.math.constant(f32Type, DLF16_MIN);
-    Value maxInF32 = create.math.constant(f32Type, DLF16_MAX);
+    // Saturation limit: DLF16_MAX unless --nnpa-saturation asks for less.
+    float limit = getNNPASaturationLimit();
+    Value minInF32 = create.math.constant(f32Type, -limit);
+    Value maxInF32 = create.math.constant(f32Type, limit);
     highF32 = create.math.min(highF32, maxInF32);
     lowF32 = create.math.min(lowF32, maxInF32);
     highF32 = create.math.max(highF32, minInF32);

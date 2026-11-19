@@ -43,15 +43,6 @@ Value createScalarFloatConstant(
   return create.onnx.constant(DenseElementsAttr::get(tensorType, {f}));
 }
 
-// f16's max finite magnitude (~65504) is small enough that -1e9 would
-// overflow to -inf, which can turn into NaN once multiple masks are summed
-// and then passed through Softmax's max-subtraction stabilization on a
-// fully-masked row. Use a smaller-magnitude value for f16 to stay safely
-// finite through that arithmetic.
-double negMaskValueFor(Type elementType) {
-  return elementType.isF16() ? -1.0e4 : -1.0e9;
-}
-
 // Computes the effective multiplicative scale applied to Q@K^T: the `scale`
 // attribute if present, else the spec's documented default of
 // 1/sqrt(head_size) (head_size = Q's last dim after reshaping to 4D).
@@ -133,7 +124,7 @@ Value createScalarOffsetCausalMaskConstant(
     MultiDialectBuilder<OnnxBuilder> &create, Type elementType, int64_t qSeqLen,
     int64_t kvSeqLen, int64_t offset) {
   auto floatType = mlir::cast<FloatType>(elementType);
-  APFloat zeroF(0.0), negF(negMaskValueFor(elementType));
+  APFloat zeroF(0.0), negF(getAttentionMaskFillValue(elementType));
   bool losesInfo;
   zeroF.convert(
       floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
@@ -238,7 +229,7 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
 
   Value zeroConst = createScalarFloatConstant(create, elementType, 0.0);
   Value negConst = createScalarFloatConstant(
-      create, elementType, negMaskValueFor(elementType));
+      create, elementType, getAttentionMaskFillValue(elementType));
 
   Type i64Type = rewriter.getI64Type();
   Value kvPositions =
@@ -516,7 +507,7 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
     if (maskElemType.isInteger(1)) {
       Value zeroConst = createScalarFloatConstant(create, elementType, 0.0);
       Value negConst = createScalarFloatConstant(
-          create, elementType, negMaskValueFor(elementType));
+          create, elementType, getAttentionMaskFillValue(elementType));
       Type additiveMaskType =
           RankedTensorType::get(attnMaskType.getShape(), elementType);
       additiveMask =
