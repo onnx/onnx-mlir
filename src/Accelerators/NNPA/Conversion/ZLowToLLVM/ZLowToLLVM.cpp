@@ -1153,8 +1153,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     Value transposeKTVal = create.llvm.constant(
         rewriter.getI64Type(), static_cast<int64_t>(transposeKT ? 1 : 0));
-    Value broadcastingMaskVal = create.llvm.constant(rewriter.getI64Type(),
-        static_cast<int64_t>(broadcastingMask ? 1 : 0));
+    Value broadcastingMaskVal = create.llvm.constant(
+        rewriter.getI64Type(), static_cast<int64_t>(broadcastingMask ? 1 : 0));
 
     // Call zdnnx_sdpa_3d runtime function.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNNX_SDPA3D,

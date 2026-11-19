@@ -1547,10 +1547,10 @@ public:
     Value stickMask = collapseAndStick(mask);
 
     IntegerType si64Ty = rewriter.getIntegerType(64, /*isSigned=*/true);
-    ZHighSDPA3DOp sdpa3dOp = ZHighSDPA3DOp::create(rewriter, loc, stickQ,
-        stickK, stickMask, stickV,
-        rewriter.getIntegerAttr(si64Ty, hwTransposeK ? 1 : 0),
-        rewriter.getIntegerAttr(si64Ty, isBroadcastingMask ? 1 : 0));
+    ZHighSDPA3DOp sdpa3dOp =
+        ZHighSDPA3DOp::create(rewriter, loc, stickQ, stickK, stickMask, stickV,
+            rewriter.getIntegerAttr(si64Ty, hwTransposeK ? 1 : 0),
+            rewriter.getIntegerAttr(si64Ty, isBroadcastingMask ? 1 : 0));
     (void)sdpa3dOp.inferShapes([](Region &region) {});
     Value unstick = ZHighUnstickOp::create(rewriter, loc, sdpa3dOp.getResult());
 
