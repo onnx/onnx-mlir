@@ -26,10 +26,20 @@ namespace onnx_mlir {
 /*static*/ void ParallelMachineSupport::setGlobalParallelMachineSupport(
     const std::string &triple, const std::string &arch,
     const std::string &cpu) {
-  // Every target gets the same numbers for now; see the header for why. The
-  // triple/arch/cpu are taken so that adding a per-target subclass later is a
-  // change here and nowhere else.
-  globalParallelMachineSupport = new GenericParallelMachineSupport();
+  // Recognize targets from the -march/-mcpu the user gave, as
+  // VectorMachineSupport does: IBM Z by its arch number, Apple silicon by an
+  // apple-m* arch (what -march=native gives on a Mac). Not from the default
+  // (host) triple, so a build without -march -- every lit test that does not
+  // pin a target -- gets the generic numbers on any host. A Mac
+  // cross-compiling with -march=z17 gets the z17 numbers, as it should.
+  int64_t zArchNum = getZArchNum(arch, cpu);
+  bool isAppleArm = zArchNum < 0 && arch.rfind("apple-m", 0) == 0;
+  if (zArchNum == 15)
+    globalParallelMachineSupport = new ZArch15ParallelMachineSupport();
+  else if (isAppleArm)
+    globalParallelMachineSupport = new AppleArmParallelMachineSupport();
+  else
+    globalParallelMachineSupport = new GenericParallelMachineSupport();
   assert(globalParallelMachineSupport &&
          "failed to allocate parallel machine support");
 
@@ -45,6 +55,8 @@ namespace onnx_mlir {
     tuning.minAmortWork = collapseMinAmortWork;
   if (collapseMaxForkCount >= 0)
     tuning.maxForkCount = collapseMaxForkCount;
+  if (parallelForkCost > 0)
+    tuning.forkCost = parallelForkCost;
   globalParallelMachineSupport->tuning = tuning;
 
   LLVM_DEBUG(llvm::dbgs() << "use parallel tuning " << getArchName()
@@ -52,7 +64,8 @@ namespace onnx_mlir {
                           << "\" cpu \"" << cpu << "\": minParTripCountFloor "
                           << tuning.minParTripCountFloor << ", minAmortWork "
                           << tuning.minAmortWork << ", maxForkCount "
-                          << tuning.maxForkCount << "\n");
+                          << tuning.maxForkCount << ", forkCost "
+                          << tuning.forkCost << "\n");
 }
 
 /*static*/ void ParallelMachineSupport::clearGlobalParallelMachineSupport() {

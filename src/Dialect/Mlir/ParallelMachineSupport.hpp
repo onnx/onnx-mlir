@@ -44,6 +44,10 @@ struct ParallelTuning {
   // target is max(this, the site's own minTripCountForParallel), so a value of
   // 0 leaves every site exactly where it is today. This is where a
   // "4 x threads" rule goes once someone has a thread count to put in it.
+  //
+  // To investigate: a work-based test (trip count times body cost against
+  // forkCost) would decide whether a region has enough work more directly, and
+  // so would likely subsume this floor. Kept until measured on more models.
   int64_t minParTripCountFloor;
   // Smallest amount of work one fused iteration must cover for an index
   // rematerialization chain to stay amortized, in KrnlParallelCost::bodyCost's
@@ -58,23 +62,36 @@ struct ParallelTuning {
   // group entirely and lands the region on the innermost level under an unknown
   // entry count, which is worse. Which *start* wins among candidate groups is
   // decided by the ordering in GroupCandidate, not here.
+  //
+  // Still needed with forkCost: z17 measurements (2026-11-20) put index
+  // recovery at ~1 ns per fused iteration, ~5 work units, against a ~0.2 ns
+  // copy body, so collapsing small bodies does cost time. A candidate for
+  // per-target calibration.
   int64_t minAmortWork;
   // Largest statically known fork count accepted without penalty, i.e. how
   // many times a region may be entered before its depth stops being free.
+  //
+  // To investigate: this is the static counterpart of the per-entry test that
+  // forkCost (below) drives for a dynamic prefix. A static prefix of K entries
+  // is fine whenever each entry repays its fork/join, so the same test could
+  // replace this count. Kept as is until that is measured.
   int64_t maxForkCount;
-  // There is deliberately no price for an unresolved (dynamic) fork count.
-  // Earlier drafts carried one -- a flat ~4000 cycles for an OpenMP region
-  // entry
-  // -- summed into the candidate's cost beside the index-rematerialization
-  // estimate. That was removed rather than retuned, because pricing it is not
-  // possible with the information available: the cost of entering a region is
-  // paid per entry, and the number of entries is exactly what is unknown when a
-  // dynamic level sits above the group. See the "how a candidate is priced"
-  // banner in KrnlParallelPlan.cpp. An unresolved fork count is now a gate in
-  // the candidate ordering, which is what it always was in practice -- the flat
-  // penalty was two orders of magnitude above the tiers it was summed with, so
-  // it decided every comparison it appeared in. maxForkCount below is the knob
-  // for the case where the entry count *is* known.
+  // No total price is computed for an unresolved (dynamic) fork count. Earlier
+  // drafts summed a flat ~4000 cycles per region entry into the candidate's
+  // cost beside the index-rematerialization estimate; that was removed, since
+  // the total depends on the number of entries, which is exactly what is
+  // unknown when a dynamic level sits above the group, and the flat penalty
+  // decided every comparison it appeared in. See the "how a candidate is
+  // priced" banner in KrnlParallelPlan.cpp. forkCost below brings the region
+  // entry cost back as a per-entry test instead, which needs no entry count.
+  //
+  // Cost of entering one parallel region (fork/join and the static schedule),
+  // in bodyCost's work units, for a typical thread count. Not summed into a
+  // candidate's cost, for the reason above: it prices *one entry*. A region
+  // under a dynamic level is accepted only if the known work of one entry is at
+  // least a few forkCost, so each entry repays itself however many entries
+  // there are, which needs no guess at the unknown entry count. Must be > 0.
+  int64_t forkCost;
 };
 
 //===----------------------------------------------------------------------===//
@@ -121,14 +138,18 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// One implementation for every target, deliberately.
+// Per-target implementations, selected in setGlobalParallelMachineSupport.
 //
-// There is no measurement on any target to differentiate these values, so
-// inventing per-target numbers would dress a guess up as data. The point of the
-// hook is that differentiating them later is a subclass and not a refactor:
-// add a subclass overriding computeTuning, and select it in
+// Only forkCost is measured per target (with
+// amodels/micro-bench/fork_cost, which links onnx-mlir's OpenMP runtime); the
+// collapse knobs keep the values they had for every target. A new target is a
+// subclass overriding computeTuning, selected in
 // setGlobalParallelMachineSupport.
 
+// Unknown targets, and any build without -march. forkCost is the ~4000-cycle
+// region entry of an earlier draft, a middle value between the measured
+// targets. Regions are placed as before, except that none is placed under a
+// dynamic loop for little work per entry.
 class GenericParallelMachineSupport : public ParallelMachineSupport {
 public:
   GenericParallelMachineSupport() = default;
@@ -136,8 +157,43 @@ public:
 
   std::string computeArchName() override { return "generic"; }
   ParallelTuning computeTuning() override {
-    return {
-        /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2};
+    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
+        /*maxForkCount=*/2, /*forkCost=*/4000};
+  }
+};
+
+// IBM z17 (arch15). Measured 2026-11-20 on Linux on Z, one thread per core,
+// default wait policy: an empty region costs 86 / 530 / 925 ns at 1 / 4 / 8
+// threads and a simple vectorized element op ~0.19 ns, so one work unit is
+// ~0.2 ns. forkCost is the 4-thread value (530 ns). Going parallel breaks even
+// at about forkCost * T / (T - 1) of work and halves the time at about
+// 4 * forkCost on 4 threads.
+class ZArch15ParallelMachineSupport : public ParallelMachineSupport {
+public:
+  ZArch15ParallelMachineSupport() = default;
+  virtual ~ZArch15ParallelMachineSupport() = default;
+
+  std::string computeArchName() override { return "z17"; }
+  ParallelTuning computeTuning() override {
+    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
+        /*maxForkCount=*/2, /*forkCost=*/2700};
+  }
+};
+
+// Apple silicon Macs, selected by -march=apple-m* (what -march=native gives).
+// Measured 2026-11-20 on an M4 Max, threads not pinned: an empty region costs
+// ~8.3 us at 4 threads and a simple element op ~0.075 ns, so forkCost is
+// ~110,000 work units. A development target: these mostly keep Mac runs from
+// being dominated by fork/join.
+class AppleArmParallelMachineSupport : public ParallelMachineSupport {
+public:
+  AppleArmParallelMachineSupport() = default;
+  virtual ~AppleArmParallelMachineSupport() = default;
+
+  std::string computeArchName() override { return "apple-arm"; }
+  ParallelTuning computeTuning() override {
+    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
+        /*maxForkCount=*/2, /*forkCost=*/110000};
   }
 };
 

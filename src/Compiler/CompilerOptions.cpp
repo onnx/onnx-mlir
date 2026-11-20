@@ -95,6 +95,7 @@ bool disableOMPNowait;                                 // onnx-mlir only
 int64_t collapseMinParTripCountFloor;                  // common for both
 int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
+int64_t parallelForkCost;                              // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -785,6 +786,15 @@ static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
         "Largest statically known fork count accepted without penalty\n"
         "(default=-1, meaning use the target's own value)."),
     llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> parallelForkCostOpt("parallel-fork-cost",
+    llvm::cl::desc(
+        "Cost of entering one parallel region, in work units (about one\n"
+        "simple vector element operation each). A region under a loop with\n"
+        "a dynamic trip count is only placed when its work per entry repays\n"
+        "this cost (default=-1, meaning use the target's own value)."),
+    llvm::cl::location(parallelForkCost), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",

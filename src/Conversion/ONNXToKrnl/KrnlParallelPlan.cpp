@@ -239,6 +239,34 @@ static AtLeast atLeast(TripCountProduct prod, int64_t target) {
 // Estimates for a modern out-of-order core. Only the shape matters -- ALU
 // cheap, constant divide a few times that, hardware divide an order above again
 // -- so being off by a factor of two throughout changes no decision.
+// A region under a loop with a dynamic trip count is entered an unknown number
+// of times. That is fine only if one entry carries enough work to repay its own
+// fork/join: with forkCost F, an entry doing W work on T threads takes about
+// F + W/T instead of W, so W >= 4F keeps every entry at least ~2x faster at
+// 4 threads, whatever the number of entries. Below that, entering once per row
+// is the GridFM regression (a region per edge for 8 elements of work).
+static constexpr int64_t kWorkPerEntryInForkCosts = 4;
+
+// Is a region whose levels [first, rank) form one entry, under a prefix with a
+// dynamic trip count, worth entering? Only known factors count toward the
+// work, so an unresolved inner level never makes an entry look heavier.
+static bool entryRepaysForkUnderDynamicLoop(ArrayRef<IndexExpr> lbs,
+    ArrayRef<IndexExpr> ubs, int64_t first, int64_t bodyCost) {
+  int64_t rank = lbs.size();
+  TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, first);
+  if (forkCount.dyn == 0)
+    return true; // Not under a dynamic loop: nothing to repay per entry.
+  const ParallelTuning &tune = ParallelMachineSupport::getTuning();
+  TripCountProduct entry = tripCountProduct(lbs, ubs, first, rank);
+  int64_t work = saturatingMul(entry.known, literalTripCountAsFactor(bodyCost));
+  int64_t needed = saturatingMul(kWorkPerEntryInForkCosts, tune.forkCost);
+  LLVM_DEBUG(llvm::dbgs() << "  level " << first
+                          << " is under a dynamic loop: known work per entry "
+                          << work << (work >= needed ? " >= " : " < ") << needed
+                          << "\n");
+  return work >= needed;
+}
+
 static int64_t overheadForIndexRematerializationInCycles(IndexExpr tripCount) {
   if (!tripCount.isLiteral())
     return 40;
@@ -464,6 +492,15 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
         cand.tripCountVerdict = AtLeast::YES;
       cand.dynTripCounts = work.dyn;
       cand.hasDynamicForkCount = forkCount.dyn > 0;
+      // Entered once per iteration of a dynamic loop: only a candidate whose
+      // every entry repays its fork/join may compete.
+      if (cand.hasDynamicForkCount &&
+          !entryRepaysForkUnderDynamicLoop(lbs, ubs, d, cost.bodyCost)) {
+        LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 2: reject group [" << d
+                                << ", " << g << "): too little work per entry"
+                                << " under a dynamic loop\n");
+        continue;
+      }
       cand.rematOverhead = (100 * rematerializationInCycles) /
                            std::max<int64_t>(1, amortAtG.known);
       LLVM_DEBUG(llvm::dbgs()
@@ -537,8 +574,16 @@ KrnlParallelDecision decideKrnlParallel(ArrayRef<IndexExpr> lbs,
     if (findSuitableParallelDimension(lbs, ubs, parFirstInclusiveDim,
             parLastExclusiveDim, exclusiveDims, parId,
             cost.minTripCountForParallel)) {
-      decision.firstDim = parId;
-      decision.numDims = 1;
+      // A level below a dynamic loop (e.g. the one left when a site excludes
+      // the outer level) would enter its region once per outer iteration.
+      if (entryRepaysForkUnderDynamicLoop(lbs, ubs, parId, cost.bodyCost)) {
+        decision.firstDim = parId;
+        decision.numDims = 1;
+      } else {
+        LLVM_DEBUG(llvm::dbgs() << "STEP 0: reject level " << parId
+                                << ": too little work per entry under a "
+                                   "dynamic loop\n");
+      }
     }
     return decision;
   }
