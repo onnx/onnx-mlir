@@ -693,7 +693,7 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   uint32_t HV = zdnnx_get_transformed_dim(V, E1);
 
   zdnn_ztensor scores = {0}, masked_scores = {0}, probs = {0}, bias1 = {0},
-      bias2 = {0};
+               bias2 = {0};
 
   // scores = Q * KT (or Q * K when transpose_kt)
   status = create_3ds_ztensor(B, S, SK, &scores, NULL);
