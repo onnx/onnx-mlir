@@ -692,7 +692,8 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
                              : zdnnx_get_transformed_dim(KT, E1);
   uint32_t HV = zdnnx_get_transformed_dim(V, E1);
 
-  zdnn_ztensor scores = {0}, probs = {0}, bias1 = {0}, bias2 = {0};
+  zdnn_ztensor scores = {0}, masked_scores = {0}, probs = {0}, bias1 = {0},
+               bias2 = {0};
 
   // scores = Q * KT (or Q * K when transpose_kt)
   status = create_3ds_ztensor(B, S, SK, &scores, NULL);
@@ -707,17 +708,20 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   }
   free_ztensor(&bias1);
 
-  // masks = scores + Mask
+  // masked_scores = scores + Mask
   if (status == ZDNN_OK)
-    zdnnx_add(&scores, Mask, &scores);
+    status = create_3ds_ztensor(B, S, SK, &masked_scores, NULL);
+  if (status == ZDNN_OK)
+    zdnnx_add(&scores, Mask, &masked_scores);
 
   // probs = softmax(scores);
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(B, S, SK, &probs, NULL);
 
   if (status == ZDNN_OK)
-    zdnnx_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
+    zdnnx_softmax(&masked_scores, NULL, SOFTMAX_ACT_NONE, &probs);
   free_ztensor(&scores);
+  free_ztensor(&masked_scores);
 
   // output = probs * V
   if (status == ZDNN_OK)
