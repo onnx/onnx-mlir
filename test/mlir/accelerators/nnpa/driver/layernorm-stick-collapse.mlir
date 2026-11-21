@@ -53,17 +53,19 @@ func.func @layernorm_batch_1(%arg0: tensor<1x?x768xf32>, %arg1: tensor<768xf32>,
 // NOCOLLAPSE:       krnl.parallel([[BLOCK_TILE_]]) : !krnl.loop
 }
 
-// A static batch large enough on its own keeps the region on the batch loop:
-// STEP 1 of the cost model prefers a single level with a literal trip count.
+// A static batch of 8 meets the trip-count target but not the balanced width
+// (4 iterations per expected thread, 16), so it no longer stops the search on
+// its own: the batch loop is collapsed with the tile loop of the blocked seq
+// loop, as for the dynamic batch, for 8 * ceil(seq / 4) parallel iterations.
 func.func @layernorm_batch_8(%arg0: tensor<8x?x768xf32>, %arg1: tensor<768xf32>, %arg2: tensor<768xf32>) -> tensor<8x?x768xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
   %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = 2 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<8x?x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<8x?x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none, none)
   return %Y : tensor<8x?x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
 // CHECK-LABEL: func.func @layernorm_batch_8
-// CHECK-NOT:   krnl.collapse
 // CHECK:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-// CHECK-NOT:   krnl.collapse
-// CHECK:       krnl.parallel([[LOOP_0_]]#0) : !krnl.loop
+// CHECK:       [[BLOCK_TILE_:%.+]], [[BLOCK_IN_:%.+]] = krnl.block [[LOOP_0_]]#1 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:       [[COLL_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[BLOCK_TILE_]]) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:       krnl.parallel([[COLL_]]) : !krnl.loop
 }
 
 // RMS LayerNorm shares the lowering, and collapses the same way.
