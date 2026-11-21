@@ -734,42 +734,29 @@ static llvm::cl::opt<bool, true> onnxOpTransformReportOpt(
     llvm::cl::location(onnxOpTransformReport), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-// Parser for --parallel: bare --parallel enables parallelism with the target's
-// expected thread count (value 0); --parallel=N, N > 0, enables it and has the
-// compile-time parallel decisions assume N threads; --parallel=0 disables it
-// (value -1, as when the option is absent).
-namespace {
-class ParallelOptionParser : public llvm::cl::parser<int64_t> {
-public:
-  ParallelOptionParser(llvm::cl::Option &opt)
-      : llvm::cl::parser<int64_t>(opt) {}
-  bool parse(llvm::cl::Option &opt, llvm::StringRef argName,
-      llvm::StringRef arg, int64_t &val) {
-    if (arg.empty()) {
-      val = 0;
-      return false;
-    }
-    if (arg.getAsInteger(10, val) || val < 0)
-      return opt.error("expected a thread count, got '" + arg + "'");
-    if (val == 0)
-      val = -1;
-    return false;
-  }
-};
-} // namespace
-
-static llvm::cl::opt<int64_t, false, ParallelOptionParser> enableParallelOpt(
-    "parallel",
+// --parallel takes an optional thread count: bare --parallel enables
+// parallelism with the target's expected thread count; --parallel=N, N > 0,
+// enables it and has the compile-time parallel decisions assume N threads;
+// --parallel=0 disables it, as when the option is absent. A string option
+// parsed in the callback, because llvm::cl::parser<long> is final on Linux.
+static llvm::cl::opt<std::string> enableParallelOpt("parallel",
     llvm::cl::desc(
         "Enable parallelization (default: off).\n"
         "--parallel enables it; --parallel=<N> (N > 0) also has the\n"
         "compile-time parallel decisions assume N threads instead of the\n"
         "target's default (the run-time thread count is still set by\n"
         "OMP_NUM_THREADS); --parallel=0 disables it."),
-    llvm::cl::ValueOptional, llvm::cl::init(-1),
-    llvm::cl::callback([](const int64_t &val) {
-      enableParallel = val >= 0;
-      parallelExpectedThreads = val > 0 ? val : -1;
+    llvm::cl::value_desc("N"), llvm::cl::ValueOptional,
+    llvm::cl::callback([](const std::string &arg) {
+      int64_t threads = 0;
+      if (!arg.empty() &&
+          (llvm::StringRef(arg).getAsInteger(10, threads) || threads < 0)) {
+        llvm::errs() << "onnx-mlir: --parallel expects a thread count, got '"
+                     << arg << "'\n";
+        exit(1);
+      }
+      enableParallel = arg.empty() || threads > 0;
+      parallelExpectedThreads = threads > 0 ? threads : -1;
     }),
     llvm::cl::cat(OnnxMlirOptions));
 
