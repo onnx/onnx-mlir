@@ -92,6 +92,13 @@ struct ParallelTuning {
   // least a few forkCost, so each entry repays itself however many entries
   // there are, which needs no guess at the unknown entry count. Must be > 0.
   int64_t forkCost;
+  // Thread count the compile-time decisions assume (the real count is a
+  // run-time setting). Used with forkCost, which is measured at that count, for
+  // the work per thread of a region entry, and for the width a region needs to
+  // keep every thread busy (balanced trip count, about 4 x this). It only
+  // steers how far levels are collapsed and which level gets the region, never
+  // whether the code is correct.
+  int64_t expectedThreads;
 };
 
 //===----------------------------------------------------------------------===//
@@ -158,7 +165,7 @@ public:
   std::string computeArchName() override { return "generic"; }
   ParallelTuning computeTuning() override {
     return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
-        /*maxForkCount=*/2, /*forkCost=*/4000};
+        /*maxForkCount=*/2, /*forkCost=*/4000, /*expectedThreads=*/4};
   }
 };
 
@@ -176,7 +183,7 @@ public:
   std::string computeArchName() override { return "z17"; }
   ParallelTuning computeTuning() override {
     return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
-        /*maxForkCount=*/2, /*forkCost=*/2700};
+        /*maxForkCount=*/2, /*forkCost=*/2700, /*expectedThreads=*/4};
   }
 };
 
@@ -193,7 +200,7 @@ public:
   std::string computeArchName() override { return "apple-arm"; }
   ParallelTuning computeTuning() override {
     return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
-        /*maxForkCount=*/2, /*forkCost=*/110000};
+        /*maxForkCount=*/2, /*forkCost=*/110000, /*expectedThreads=*/4};
   }
 };
 

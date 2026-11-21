@@ -57,6 +57,8 @@ namespace onnx_mlir {
     tuning.maxForkCount = collapseMaxForkCount;
   if (parallelForkCost > 0)
     tuning.forkCost = parallelForkCost;
+  if (parallelExpectedThreads > 0)
+    tuning.expectedThreads = parallelExpectedThreads;
   globalParallelMachineSupport->tuning = tuning;
 
   LLVM_DEBUG(llvm::dbgs() << "use parallel tuning " << getArchName()
@@ -65,7 +67,8 @@ namespace onnx_mlir {
                           << tuning.minParTripCountFloor << ", minAmortWork "
                           << tuning.minAmortWork << ", maxForkCount "
                           << tuning.maxForkCount << ", forkCost "
-                          << tuning.forkCost << "\n");
+                          << tuning.forkCost << ", expectedThreads "
+                          << tuning.expectedThreads << "\n");
 }
 
 /*static*/ void ParallelMachineSupport::clearGlobalParallelMachineSupport() {

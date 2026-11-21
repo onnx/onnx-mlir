@@ -186,13 +186,16 @@ func.func @expand_dyn_batch_mask(%arg0: tensor<?x1x1x?xf32> {onnx.name = "x"}) -
 
 // -----
 
-// Heads broadcast at batch 1: 1x1xSxT -> 1x12xSxT. Unchanged by the wider
-// window: level 1 (12) is wide enough, so the region stays there.
+// Heads broadcast at batch 1: 1x1xSxT -> 1x12xSxT. Level 1 (12) meets the
+// trip-count target but not the balanced width of 16 (4 iterations per expected
+// thread), so the region fuses heads with the dynamic S level: 12 x S wide
+// instead of 12.
 // GROUND-THIS: --shape-info=0:1x1x7x37
 func.func @expand_bs1_heads(%arg0: tensor<1x1x?x?xf32> {onnx.name = "x"}) -> (tensor<1x12x?x?xf32> {onnx.name = "y"}) {
   %shape = onnx.Constant dense<[1, 12, 1, 1]> : tensor<4xi64>
   %0 = "onnx.Expand"(%arg0, %shape) : (tensor<1x1x?x?xf32>, tensor<4xi64>) -> tensor<1x12x?x?xf32>
   return %0 : tensor<1x12x?x?xf32>
+
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d1)>
@@ -207,11 +210,12 @@ func.func @expand_bs1_heads(%arg0: tensor<1x1x?x?xf32> {onnx.name = "x"}) -> (te
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_0_]]) alignment = 16 : memref<1x12x?x?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           krnl.parallel([[LOOP_0_]]#1) : !krnl.loop
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 12, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]])){
-// CHECK:             [[VAR_1_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[CST_0_]], [[CST_0_]], [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<1x1x?x?xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<1x12x?x?xf32>
+// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_1_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[VAR_1_]], [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 12, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]])){
+// CHECK:             [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[VAR_1_]], [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[CST_0_]], [[CST_0_]], [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<1x1x?x?xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<1x12x?x?xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x12x?x?xf32>
 // CHECK:         }
@@ -221,13 +225,15 @@ func.func @expand_bs1_heads(%arg0: tensor<1x1x?x?xf32> {onnx.name = "x"}) -> (te
 
 // -----
 
-// Heads broadcast at dynamic batch: Bx1xSxT -> Bx12xSxT. Unchanged: the group
-// B*12 already meets the target, so growth stops before level 2.
+// Heads broadcast at dynamic batch: Bx1xSxT -> Bx12xSxT. The group B*12 has a
+// guaranteed width of 12, below the balanced width of 16, so growth also absorbs
+// S: B x 12 x S, which stays wide at batch 1.
 // GROUND-THIS: --shape-info=0:3x1x7x37
 func.func @expand_dyn_batch_heads(%arg0: tensor<?x1x?x?xf32> {onnx.name = "x"}) -> (tensor<?x12x?x?xf32> {onnx.name = "y"}) {
   %shape = onnx.Constant dense<[1, 12, 1, 1]> : tensor<4xi64>
   %0 = "onnx.Expand"(%arg0, %shape) : (tensor<?x1x?x?xf32>, tensor<4xi64>) -> tensor<?x12x?x?xf32>
   return %0 : tensor<?x12x?x?xf32>
+
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d1)>
@@ -244,10 +250,10 @@ func.func @expand_dyn_batch_heads(%arg0: tensor<?x1x?x?xf32> {onnx.name = "x"}) 
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_0_]], [[VAR_dim_1_]]) alignment = 16 : memref<?x12x?x?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> !krnl.loop
 // CHECK:           krnl.parallel([[VAR_1_]]) : !krnl.loop
-// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 12, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]]), [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_]], [[VAR_dim_0_]], [[VAR_dim_1_]])){
-// CHECK:             [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[VAR_1_]], [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 12, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]]), [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_]], [[VAR_dim_0_]], [[VAR_dim_1_]])){
+// CHECK:             [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[VAR_1_]], [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop) -> (index, index, index, index)
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_2_]]#0, [[CST_0_]], [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<?x1x?x?xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<?x12x?x?xf32>
 // CHECK:           }

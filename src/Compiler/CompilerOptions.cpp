@@ -96,6 +96,7 @@ int64_t collapseMinParTripCountFloor;                  // common for both
 int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
 int64_t parallelForkCost;                              // common for both
+int64_t parallelExpectedThreads = -1; // set by --parallel=<N>; onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -733,10 +734,43 @@ static llvm::cl::opt<bool, true> onnxOpTransformReportOpt(
     llvm::cl::location(onnxOpTransformReport), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
-    llvm::cl::desc("Enable parallelization (default=false)\n"
-                   "Set to 'true' if you want to enable parallelization."),
-    llvm::cl::location(enableParallel), llvm::cl::init(false),
+// Parser for --parallel: bare --parallel enables parallelism with the target's
+// expected thread count (value 0); --parallel=N, N > 0, enables it and has the
+// compile-time parallel decisions assume N threads; --parallel=0 disables it
+// (value -1, as when the option is absent).
+namespace {
+class ParallelOptionParser : public llvm::cl::parser<int64_t> {
+public:
+  ParallelOptionParser(llvm::cl::Option &opt)
+      : llvm::cl::parser<int64_t>(opt) {}
+  bool parse(llvm::cl::Option &opt, llvm::StringRef argName,
+      llvm::StringRef arg, int64_t &val) {
+    if (arg.empty()) {
+      val = 0;
+      return false;
+    }
+    if (arg.getAsInteger(10, val) || val < 0)
+      return opt.error("expected a thread count, got '" + arg + "'");
+    if (val == 0)
+      val = -1;
+    return false;
+  }
+};
+} // namespace
+
+static llvm::cl::opt<int64_t, false, ParallelOptionParser> enableParallelOpt(
+    "parallel",
+    llvm::cl::desc(
+        "Enable parallelization (default: off).\n"
+        "--parallel enables it; --parallel=<N> (N > 0) also has the\n"
+        "compile-time parallel decisions assume N threads instead of the\n"
+        "target's default (the run-time thread count is still set by\n"
+        "OMP_NUM_THREADS); --parallel=0 disables it."),
+    llvm::cl::ValueOptional, llvm::cl::init(-1),
+    llvm::cl::callback([](const int64_t &val) {
+      enableParallel = val >= 0;
+      parallelExpectedThreads = val > 0 ? val : -1;
+    }),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableCollapseOpt("disable-collapse",
