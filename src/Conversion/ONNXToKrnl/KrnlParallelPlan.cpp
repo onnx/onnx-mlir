@@ -275,13 +275,24 @@ static bool entryRepaysForkUnderDynamicLoop(ArrayRef<IndexExpr> lbs,
   return workPerThread >= tune.forkCost;
 }
 
-// Parallel iterations per thread for a region to keep every thread busy: the
-// slowest thread runs ceil(P/T) iterations, so the imbalance loss is at most
-// about T/P, and P >= 4T keeps it at 25% or less. Used only to decide how wide
-// a single level must be to stop the search (STEP 1) and how far a group grows
-// (STEP 2); whether a region is worth having at all keeps the site's trip-count
-// target.
-static constexpr int64_t kBalancedIterationsPerThread = 4;
+// Does a region of P parallel iterations keep T threads busy? The slowest
+// thread runs ceil(P/T) iterations against P/T on average; the region counts as
+// balanced when that is at most 25% more (kMaxImbalancePercent). Exact for a
+// literal P, so a multiple of T (12 heads on 4 threads) is balanced whatever
+// its size, and 5 on 4 threads is not. Used only to decide when a single level
+// stops the search (STEP 1) and how far a group grows (STEP 2); whether a
+// region is worth having at all keeps the site's trip-count target.
+static constexpr int64_t kMaxImbalancePercent = 125;
+
+static bool isBalancedWidth(int64_t width, int64_t threads) {
+  if (width <= 0)
+    return true; // Nothing to balance.
+  threads = std::max<int64_t>(1, threads);
+  int64_t slowest = (width + threads - 1) / threads;
+  // slowest * threads / width <= kMaxImbalancePercent / 100.
+  return saturatingMul(100, saturatingMul(slowest, threads)) <=
+         saturatingMul(kMaxImbalancePercent, width);
+}
 
 static int64_t overheadForIndexRematerializationInCycles(IndexExpr tripCount) {
   if (!tripCount.isLiteral())
@@ -394,14 +405,12 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
   // count the plain search accepts still clears the bar.
   int64_t tripCountTarget =
       std::max(cost.minTripCountForParallel, tune.minParTripCountFloor);
-  // Width that keeps every expected thread busy. Separate from tripCountTarget,
-  // which answers "is a region worth it at all" (the verdict and STEP 3): this
-  // one answers "is this region wide enough to stop looking for a wider one".
-  // With a single target, a literal level of 4 to 31 stopped the search even
-  // when collapsing it with the next level kept twice the threads busy.
-  int64_t balancedTripCount = std::max(
-      tripCountTarget, saturatingMul(kBalancedIterationsPerThread,
-                           std::max<int64_t>(1, tune.expectedThreads)));
+  // Separate from tripCountTarget, which answers "is a region worth it at all"
+  // (the verdict and STEP 3): balance answers "does this region keep the
+  // expected threads busy, or should we look for a wider one". With the target
+  // alone, a literal level of 5 stopped the search on 4 threads, leaving most
+  // of a second round idle.
+  int64_t threads = std::max<int64_t>(1, tune.expectedThreads);
   // The work one iteration of a group ending at `g` does, in bodyCost's work
   // units: the levels left sequential inside it, times the body. Denominator of
   // both things bodyCost feeds -- the growth guard and the recovery ratio.
@@ -413,14 +422,13 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
   };
 
   // STEP 1: a single level, so no fused space and no index recovery. Stricter
-  // than STEP 0 in two ways: the trip count must be *literally* at least the
-  // balanced width (trusting a dynamic extent is the defect being fixed, and it
-  // breaks on a level swinging between 1 and 4096 across inference phases),
-  // and the prefix above
-  // it must be statically small (a wide level entered an unknown number of
-  // times is not a good answer). Being stricter loses nothing because STEP 2
-  // follows: what this refuses, STEP 2 either rescues as a group or returns as
-  // a one-member group.
+  // than STEP 0 in two ways: the trip count must be a literal that meets the
+  // target and keeps the threads balanced (trusting a dynamic extent is the
+  // defect being fixed, and it breaks on a level swinging between 1 and 4096
+  // across inference phases), and the prefix above it must be statically small
+  // (a wide level entered an unknown number of times is not a good answer).
+  // Being stricter loses nothing because STEP 2 follows: what this refuses,
+  // STEP 2 either rescues as a group or returns as a one-member group.
   //
   // Searched over the profitability window, filtered only by what makes a level
   // parallelizable. Deliberately *not* filtered by fusability: this step emits
@@ -430,18 +438,19 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
     if (!canParallelize(i))
       continue;
     IndexExpr tripCount = ubs[i] - lbs[i];
-    if (!tripCount.isLiteral() || tripCount.getLiteral() < balancedTripCount)
+    if (!tripCount.isLiteral() || tripCount.getLiteral() < tripCountTarget ||
+        !isBalancedWidth(tripCount.getLiteral(), threads))
       continue;
     // Number of times this region is entered (level i).
     TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, i);
     // Called too many times, not an interesting solution.
     if (forkCount.dyn > 0 || forkCount.known > tune.maxForkCount)
       continue;
-    LLVM_DEBUG(llvm::dbgs()
-               << "Collapse STEP 1: single dim " << i
-               << " with literal trip count " << tripCount.getLiteral()
-               << " >= " << balancedTripCount << " under a static prefix of "
-               << forkCount.known << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 1: single dim " << i
+                            << " with literal trip count "
+                            << tripCount.getLiteral() << " balanced on "
+                            << threads << " threads under a static prefix of "
+                            << forkCount.known << "\n");
     decision.firstDim = i;
     decision.numDims = 1;
     return decision;
@@ -475,8 +484,8 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
       // compared.
       if (forkCount.dyn == 0 && forkCount.known > tune.maxForkCount)
         continue;
-      // Grow while the guaranteed trip count falls short of the balanced width
-      // (not merely the target: a group that is worth a region can still leave
+      // Grow while the group does not keep the threads balanced (not merely
+      // while it misses the target: a group worth a region can still leave
       // threads idle), but never past the point where the recovery chain is
       // known to have lost its amortization. That second guard keeps a group
       // off the innermost level, preserving both the hoist of the recovery
@@ -495,21 +504,29 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
       //
       // The growth guard is deliberately not tied to the recovery tier of the
       // level being added (e.g. "work >= 10 x recovery"). Growth only happens
-      // while the group is narrower than the balanced width, so the
+      // while the group is not balanced, so the
       // alternative to absorbing a level is far less width -- at BS = 1 none at
       // all. On T threads absorbing pays off while recovery r < (T - 1) x work:
       // up to ~3x the work at T = 4, i.e. work >= ~13 for a dynamic divisor
       // (r = 40), which minAmortWork already enforces. A stricter rule lost the
       // BS = 1 parallelism of embedding-row gathers (rows of 64 or 384 floats).
       int64_t g = d + 1;
-      // A group already fusing two or more dynamic levels counts as balanced,
+      // The group's width is K x D: K its literal part, D its dynamic sizes.
+      // With one dynamic size, judge the D = 1 corner (BS = 1): if K alone is
+      // balanced, so is every larger width, and growing would only add index
+      // recovery and split the inner copies; if not, growing protects BS = 1.
+      // A group already fusing two or more dynamic sizes counts as balanced,
       // as it counts as wide enough in the verdict below: two unknown sizes are
-      // unlikely to be small together, and growing on into the literal inner
-      // levels (e.g. the stick loops under [B, S]) would only shrink the work
-      // per iteration and add index recovery.
+      // unlikely to be small together.
+      // Growth also continues while the guaranteed width misses the target, as
+      // before balance was considered; on 4 threads that is implied (a width
+      // below 4 is never balanced), with fewer threads it is not.
       auto isBalanced = [&](int64_t end) {
         TripCountProduct width = tripCountProduct(lbs, ubs, d, end);
-        return width.known >= balancedTripCount || width.dyn >= 2;
+        if (width.dyn >= 2)
+          return true;
+        return width.known >= tripCountTarget &&
+               isBalancedWidth(width.known, threads);
       };
       while (g < runEnd && !isBalanced(g) &&
              atLeast(amortWork(g + 1), tune.minAmortWork) != AtLeast::NO)

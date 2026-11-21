@@ -137,19 +137,19 @@ func.func @test_par_one_member_group(%arg0 : tensor<?x1x1x2xf32>) -> tensor<?x1x
 // -----
 
 // Expand, the granite-4 shape. Same outcome and same reason as the Slice case
-// above -- {0,1} has a known entry count and {1} does not -- but on a rank-5 nest.
-// The group grows to {0,1,2}: a region 4 wide meets Expand's floor of 4 (worth a
-// region at all), but not the balanced width of 16 (4 iterations per expected
-// thread), so growth absorbs level 2 and the region is 16 wide whatever the
-// batch. Levels 3..4 stay sequential: 16 meets the balanced width.
+// above -- {0,1} has a known entry count and {1} does not -- but on a rank-5 nest, which is
+// what makes the point that the group is bounded by the site's window and not by
+// the nest: levels 2..4 stay sequential because Expand's window stops at 2, even
+// though absorbing level 2 would make the region 16-wide rather than 4-wide.
+// Widening that window is a separate decision, and on its own it would not be
+// enough: growth also stops as soon as the target is met, and 4 already meets
+// Expand's floor of 4.
 // GROUND-THIS: --shape-info=0:3x4x1x7x128
 func.func @test_collapse_expand(%arg0 : tensor<?x4x1x?x128xf32>) -> tensor<?x4x4x?x128xf32> {
   %shape = onnx.Constant dense<[1, 4, 4, 1, 128]> : tensor<5xi64>
   %1 = "onnx.Expand"(%arg0, %shape) : (tensor<?x4x1x?x128xf32>, tensor<5xi64>) -> tensor<?x4x4x?x128xf32>
   "func.return"(%1) : (tensor<?x4x4x?x128xf32>) -> ()
 
-// Flag off: the region lands on the dynamic level alone, and the nest keeps all
-// five levels.
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d1)>
@@ -161,24 +161,25 @@ func.func @test_collapse_expand(%arg0 : tensor<?x4x1x?x128xf32>) -> tensor<?x4x4
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x1x?x128xf32>
 // CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_3_]] : memref<?x4x1x?x128xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_0_]]) alignment = 16 : memref<?x4x4x?x128xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_0_]]) {{.*}}: memref<?x4x4x?x128xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:5 = krnl.define_loops 5
-// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
 // CHECK:           krnl.parallel([[VAR_1_]]) : !krnl.loop
-// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#3, [[LOOP_0_]]#4) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 4, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]]), [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 128){
-// CHECK:             [[VAR_2_:%.+]]:5 = krnl.get_induction_var_value([[VAR_1_]], [[LOOP_0_]]#3, [[LOOP_0_]]#4) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index, index)
+// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#2, [[LOOP_0_]]#3, [[LOOP_0_]]#4) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 4, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_0_]]), [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 128){
+// CHECK:             [[VAR_2_:%.+]]:5 = krnl.get_induction_var_value([[VAR_1_]], [[LOOP_0_]]#2, [[LOOP_0_]]#3, [[LOOP_0_]]#4) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index, index)
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[CST_0_]], [[VAR_2_]]#3, [[VAR_2_]]#4] : memref<?x4x1x?x128xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3, [[VAR_2_]]#4] : memref<?x4x4x?x128xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x4x4x?x128xf32>
 // CHECK:         }
 
+// Flag off: the region lands on the dynamic level alone, and the nest keeps all
+// five levels.
 // NOCOLLAPSE-LABEL:  func.func @test_collapse_expand
 // NOCOLLAPSE:          [[LOOP_OFF_:%.+]]:5 = krnl.define_loops 5
 // NOCOLLAPSE-NOT:      krnl.collapse
 // NOCOLLAPSE:          krnl.parallel([[LOOP_OFF_]]#0) : !krnl.loop
 // NOCOLLAPSE:          krnl.iterate([[LOOP_OFF_]]#0, [[LOOP_OFF_]]#1, [[LOOP_OFF_]]#2, [[LOOP_OFF_]]#3, [[LOOP_OFF_]]#4)
-
 }
 
 // -----
