@@ -15,6 +15,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 
 #include <filesystem>
 #include <sstream>
@@ -1217,6 +1218,13 @@ static int64_t decodeZArchNum(std::string str) {
   return -1;
 }
 
+// True for 64-bit x86 names known by LLVM: the generic "x86-64" as well as
+// CPU names such as "znver3" or "skylake", which --march=native returns.
+static bool isX86Arch(const std::string &arch) {
+  return llvm::X86::parseArchX86(arch, /*Only64Bit=*/true) !=
+         llvm::X86::CK_None;
+}
+
 int64_t getZArchNum(const std::string &arch, const std::string cpu) {
   // Give priority to march, use (deprecated) mcpu if march is not defined.
   int64_t num = decodeZArchNum(arch);
@@ -1237,6 +1245,9 @@ std::string getTargetArchOption(bool forLLVMToolchain) {
     if (march == "apple-m1" || march == "apple-m2" || march == "apple-m3" ||
         march == "apple-m4")
       return "--march=arm64";
+    // On x86, llc wants x86-64; the specific CPU is given with --mcpu.
+    if (isX86Arch(march))
+      return "--march=x86-64";
   }
   return (march != "") ? "--march=" + march : "";
 }
@@ -1269,6 +1280,9 @@ std::string getTargetCPUOption(bool forLLVMToolchain, bool cpuOnly) {
       zArchNum = std::min(zArchNum, (int64_t)MAX_LLVM_Z_ARCH_LEVEL);
       return str.append("arch" + std::to_string(zArchNum));
     }
+    // Pass the x86 CPU given by --march (e.g. "znver3"), unless --mcpu is set.
+    if (mcpu.empty() && march != "x86-64" && isX86Arch(march))
+      return str + march;
   }
   return (mcpu != "") ? str + mcpu : "";
 }

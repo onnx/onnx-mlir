@@ -13,6 +13,7 @@
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 
 #include <algorithm>
 
@@ -40,8 +41,9 @@ namespace onnx_mlir {
     globalVectorMachineSupport = new ZArch14VectorMachineSupport();
   } else if (zArchNum == 15) {
     globalVectorMachineSupport = new ZArch15VectorMachineSupport();
-    // Intel uses arch
-  } else if (arch.compare("x86-64") == 0) {
+    // Intel uses arch, and arch=native returns a CPU name such as znver3.
+  } else if (llvm::X86::parseArchX86(arch, /*Only64Bit=*/true) !=
+             llvm::X86::CK_None) {
     // Intel arch
     if (cpu.compare("skylake") == 0 && attr.compare("avx2") == 0)
       globalVectorMachineSupport = new AVX2x86VectorMachineSupport();
