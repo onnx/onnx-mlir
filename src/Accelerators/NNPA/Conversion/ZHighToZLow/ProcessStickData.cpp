@@ -203,7 +203,7 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
-    bool enablePrefetch,
+    bool enablePrefetch, int64_t workPerValue,
     UnifiedStickSupportList::IterateFctOver4xF32 processVectorOfF32Vals) {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
@@ -236,13 +236,12 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    // One iteration processes one stick of 64 values: unstick each input,
-    // the elementwise ops and stick the result, about 4 work units per value.
+    // One iteration processes one stick of 64 values, workPerValue each.
     // Small tensors are entered once for little work, so the region must
     // repay its fork cost.
     auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ rank,
         {.minTripCountForParallel = 8,
-            .bodyCost = 4 * stickLen,
+            .bodyCost = workPerValue * stickLen,
             .alwaysRepayForkCost = true});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
@@ -546,9 +545,15 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
         };
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
     int64_t unrollFactor = 8;
+    // Work per value, for the parallel decision: the op itself, plus a load
+    // and a dlf16 conversion per input and a conversion, saturation and store
+    // for the output.
+    GenOpMix mix = getGenOpMix<ElementwiseOp>(rewriter.getF32Type(), op);
+    int64_t workPerValue =
+        estimateWorkPerElement(mix, 2 * (int64_t)op->getNumOperands() + 3);
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
         shapeHelper->getOutputDims(), unrollFactor, enableParallel,
-        disableSaturation, true /*prefetch*/, fct);
+        disableSaturation, true /*prefetch*/, workPerValue, fct);
 
     // replace op.
     rewriter.replaceOp(op, alloc);

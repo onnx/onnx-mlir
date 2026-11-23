@@ -850,9 +850,10 @@ int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
 
 // Rough work of one element of a loop with this op mix, in
 // KrnlParallelCost::bodyCost's work units: one per load or store
-// (numLoadsAndStores), 1 per simple op, and 10 per expensive one (divide,
-// square root, exp, log, pow, erf, trigonometry). An order of magnitude, as
-// bodyCost asks for.
+// (numLoadsAndStores), 1 per simple op, 10 per divide, square root, exp, log,
+// pow or erf, and 50 per trigonometric op. An order of magnitude, as bodyCost
+// asks for. z17, 2026-11-23: Sin ~48 and Erf ~16 units per value, all loads
+// and stores included.
 int64_t estimateWorkPerElement(const GenOpMix &mix, int64_t numLoadsAndStores);
 
 // Compute a suitable SIMD Vector Length (totVL). If no SIMD is suitable,
