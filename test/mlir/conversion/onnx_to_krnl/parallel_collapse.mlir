@@ -1,5 +1,8 @@
-// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel and collapse code; by default most no longer repay a fork and stay
+// sequential.
 
 // GROUND-ALL: -c="-O3 --parallel" -r="--disable-collapse"
 

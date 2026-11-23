@@ -96,9 +96,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
     // conversion and store, about 2 work units per value. Small tensors are
     // entered once for little work, so the region must repay its fork cost.
     auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ rank,
-        {.minTripCountForParallel = 8,
-            .bodyCost = 2 * stickLen,
-            .alwaysRepayForkCost = true});
+        {.minTripCount = 8, .bodyCost = 2 * stickLen, .mustRepayFork = true});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
     if (parId == NO_PAR_FOUND)

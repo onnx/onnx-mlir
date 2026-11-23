@@ -94,7 +94,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 
     // Parallelize the outermost 2 loops (N and first output spatial dimension).
     auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCountForParallel = 16});
+        loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCount = 16});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "im2col simple", lbs, ubs);
 
@@ -258,7 +258,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     DimsExpr lbs(1, LitIE(0));
     DimsExpr ubs(1, totalColumns);
     auto plan = KrnlParallelPlan::noCollapse(outerLoopDef, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 8});
+        /*last excl*/ 1, {.minTripCount = 8});
     if (enableParallel) {
       plan.tryCreateParallel(
           create.krnl, op, "im2col outer loop parallelized", lbs, ubs);

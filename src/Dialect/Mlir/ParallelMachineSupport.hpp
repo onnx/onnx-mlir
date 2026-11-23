@@ -41,7 +41,7 @@ namespace onnx_mlir {
 // everywhere changes nothing.
 struct ParallelTuning {
   // Raises every site's floor on the trip count worth a parallel region. The
-  // target is max(this, the site's own minTripCountForParallel), so a value of
+  // target is max(this, the site's own minTripCount), so a value of
   // 0 leaves every site exactly where it is today. This is where a
   // "4 x threads" rule goes once someone has a thread count to put in it.
   //
@@ -100,10 +100,10 @@ struct ParallelTuning {
   // steers how far levels are collapsed and which level gets the region, never
   // whether the code is correct. Must be > 0.
   int64_t expectedThreads;
-  // Honor KrnlParallelCost::alwaysRepayForkCost at the sites that set it. Not
-  // a target property: an off switch (--parallel-always-repay-fork-cost=false)
+  // Honor KrnlParallelCost::mustRepayFork at the sites that set it. Not
+  // a target property: an off switch (--parallel-must-repay-fork=false)
   // to compare against the placement without that test, from the same build.
-  bool honorAlwaysRepayForkCost = true;
+  bool honorMustRepayFork = true;
 };
 
 //===----------------------------------------------------------------------===//

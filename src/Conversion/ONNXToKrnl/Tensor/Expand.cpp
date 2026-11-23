@@ -84,7 +84,7 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     KrnlParallelPlan plan(outputLoopDef, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
         /*collapseLastExclusiveDim=*/parLevels,
-        {.minTripCountForParallel = 4, .bodyCost = 1});
+        {.minTripCount = 4, .bodyCost = 1, .mustRepayFork = true});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "expand", lbs, ubs);
 

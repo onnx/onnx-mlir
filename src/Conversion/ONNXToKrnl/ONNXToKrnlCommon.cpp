@@ -1140,7 +1140,7 @@ void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
     // bodyCost: one iteration copies a chunk of chunkElems elements.
     auto plan = KrnlParallelPlan::noCollapse(loopDef,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/1,
-        {.minTripCountForParallel = 2, .bodyCost = chunkElems});
+        {.minTripCount = 2, .bodyCost = chunkElems});
     plan.tryCreateParallel(createKrnl, op, msg, lbs, ubs);
     createKrnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {

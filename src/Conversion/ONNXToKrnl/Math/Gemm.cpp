@@ -71,7 +71,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
     auto plan = KrnlParallelPlan::noCollapse(outerLoopDef, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 4});
+        /*last excl*/ 1, {.minTripCount = 4});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "generic GEMM on outer loop", loopLbs, loopUbs);
@@ -225,7 +225,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // Blocked/permuted refs can never collapse. Plan holds the iterate's own
       // list; the window restricts the choice to the outermost ref.
       auto plan = KrnlParallelPlan::noCollapse({ii1, jj1}, /*first*/ 0,
-          /*last excl*/ 1, {.minTripCountForParallel = 4 * iCacheTile});
+          /*last excl*/ 1, {.minTripCount = 4 * iCacheTile});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "GEMM tiled copy I parallel", {zeroIE}, {I});
@@ -282,7 +282,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
       // As above: blocked/permuted refs, plan over the iterate's list.
       auto plan = KrnlParallelPlan::noCollapse({jj1, kk1}, /*first*/ 0,
-          /*last excl*/ 1, {.minTripCountForParallel = 4 * jCacheTile});
+          /*last excl*/ 1, {.minTripCount = 4 * jCacheTile});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "GEMM tiled no copy J parallel", {zeroIE}, {J});
@@ -336,7 +336,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     }
     ValueRange outerLoops = create.krnl.defineLoops(2);
     auto plan = KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 16});
+        /*last excl*/ 1, {.minTripCount = 16});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op,
           "GEMM alpha/beta epilogue outer loop", {zeroIE}, {I});

@@ -30,7 +30,7 @@
 // size is never counted toward a threshold. The numbers that drive the steps:
 //
 //   target        smallest width worth a region at all (the site's
-//                 minTripCountForParallel, raised by minParTripCountFloor)
+//                 minTripCount, raised by minParTripCountFloor)
 //   T             expected thread count (expectedThreads, -parallel=N)
 //   balanced      the width keeps T threads busy: at least the target, and the
 //                 slowest thread at most 25% above the average; one dynamic
@@ -70,7 +70,7 @@
 // even if one entry does little work. With an unknown one (a dynamic prefix),
 // nothing caps the count, so each entry must repay its own cost: work per
 // thread per entry at least forkCost (repaysForkCost). A site may opt in to
-// that test with a static prefix too (KrnlParallelCost::alwaysRepayForkCost),
+// that test with a static prefix too (KrnlParallelCost::mustRepayFork),
 // on top of the maxForkCount cap.
 //
 // STEP 0 is chosen by the frame when the site makes no collapse claim or no two
@@ -202,7 +202,7 @@ struct ParallelNestDesc {
 
   // The glossary of the algorithm: target and T (forkCost is tune.forkCost).
   int64_t target() const {
-    return std::max(cost.minTripCountForParallel, tune.minParTripCountFloor);
+    return std::max(cost.minTripCount, tune.minParTripCountFloor);
   }
   int64_t threads() const { return tune.expectedThreads; }
 
@@ -328,14 +328,14 @@ static bool repaysForkCost(
 
 // The per-entry half of the fork-overhead rule, as this site requires it.
 // Under a dynamic loop, each entry must repay its fork cost. With a static
-// prefix, only if the site opts in (alwaysRepayForkCost), and then a dynamic
+// prefix, only if the site opts in (mustRepayFork), and then a dynamic
 // size in or below the region gets the benefit of the doubt: it may be large,
 // as in STEP 0's search, and treating it as 1 would drop every dynamic shape.
 static bool meetsPerEntryForkRule(
     const ParallelNestDesc &desc, int64_t first, int64_t end) {
   if (desc.isUnderDynamicLoop(first))
     return repaysForkCost(desc, first, end);
-  if (!desc.cost.alwaysRepayForkCost || !desc.tune.honorAlwaysRepayForkCost)
+  if (!desc.cost.mustRepayFork || !desc.tune.honorMustRepayFork)
     return true;
   return desc.width(first, desc.rank()).dynSizeCount > 0 ||
          repaysForkCost(desc, first, end);
@@ -343,7 +343,7 @@ static bool meetsPerEntryForkRule(
 
 // Is the total fork/join overhead of a region over [first, end) bounded? With
 // a known entry count, by capping it at maxForkCount; with an unknown one, by
-// having each entry repay its own fork cost; with alwaysRepayForkCost, both.
+// having each entry repay its own fork cost; with mustRepayFork, both.
 // (See "Fork overhead" at the top.)
 static bool forkOverheadIsBounded(
     const ParallelNestDesc &desc, int64_t first, int64_t end) {
@@ -352,11 +352,11 @@ static bool forkOverheadIsBounded(
 }
 
 // STEP 0's search: the outermost parallelizable level whose trip count is
-// dynamic or at least minTripCountForParallel; NO_PAR_FOUND if none.
+// dynamic or at least minTripCount; NO_PAR_FOUND if none.
 static int64_t findOutermostSuitableLevel(const ParallelNestDesc &desc) {
   // The site's own minimum, not target(): no minParTripCountFloor here, so
   // these sites keep their pre-collapse threshold.
-  int64_t minSize = desc.cost.minTripCountForParallel;
+  int64_t minSize = desc.cost.minTripCount;
   for (int64_t level = desc.parFirstInclusiveDim;
        level < desc.parLastExclusiveDim; ++level) {
     if (!desc.canParallelize(level))

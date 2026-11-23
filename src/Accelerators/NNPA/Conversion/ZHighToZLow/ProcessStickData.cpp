@@ -77,7 +77,7 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     // The window excludes the innermost level: E1 is iterated as sticks below,
     // so splitting it across threads would cut a stick in two.
     auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank - 1, {.minTripCountForParallel = 8});
+        /*first*/ 0, /*last excl*/ rank - 1, {.minTripCount = 8});
     parId =
         plan.findParallelDim(op, "simd min/max for DQL in parallel", lbs, ubs);
     if (parId == NO_PAR_FOUND) {
@@ -240,9 +240,9 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // Small tensors are entered once for little work, so the region must
     // repay its fork cost.
     auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ rank,
-        {.minTripCountForParallel = 8,
+        {.minTripCount = 8,
             .bodyCost = workPerValue * stickLen,
-            .alwaysRepayForkCost = true});
+            .mustRepayFork = true});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
     if (parId == NO_PAR_FOUND)
@@ -681,13 +681,18 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     //
     // The plan is handed E2's bound in tiles, ceil(E2 / B): that is the tile
     // loop's trip count, and what a collapsed E2 iterates. bodyCost: one
-    // iteration normalizes B rows of E1 values, reading each value a few times.
+    // iteration normalizes B rows of E1 values, ~20 work units per value: the
+    // statistics pass (load, conversion, square, sums through the reduction
+    // buffers) and the normalize pass (loads and conversions of x, scale and
+    // bias, four ops, saturation, conversion, store).
     int64_t outerRank = ubs.size();
     int64_t parRank = std::min(outerRank, static_cast<int64_t>(2));
     KrnlParallelPlan plan(outerOptLoops, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parRank,
         /*collapseLastExclusiveDim=*/outerRank,
-        {.minTripCountForParallel = 4, .bodyCost = B * E1.getLiteral()});
+        {.minTripCount = 4,
+            .bodyCost = 20 * B * E1.getLiteral(),
+            .mustRepayFork = true});
     if (enableParallel) {
       // LBs and UBs are here only used to determine when/where parallelism is
       // good; not used in the actual LB/UB of the actual loops.

@@ -1,4 +1,7 @@
-// RUN: onnx-mlir-opt -O3 --march=z16 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --march=z16 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel and collapse code; by default most no longer repay a fork and stay
+// sequential.
 
 // Parallel coverage for Gather, whose selection window is [0, outputRank) rather
 // than the [0, 2) most sites use. These cases pin down which level the search

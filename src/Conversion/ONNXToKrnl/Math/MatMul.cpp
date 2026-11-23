@@ -73,7 +73,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
                                                               //
     auto plan = KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 16});
+        /*last excl*/ 1, {.minTripCount = 16});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "matmul generic", loopLbs, loopUbs);
@@ -319,7 +319,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     // Blocked/permuted refs can never collapse. Plan holds all of outerLoops,
     // the iterate's own list; the window picks the outermost.
     auto plan = KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 4 * iRegTile});
+        /*last excl*/ 1, {.minTripCount = 4 * iRegTile});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "matmul no broadcast", {zeroIE}, {dimI});
@@ -390,7 +390,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     // Decision is over the outermost bound only; plan holds the whole
     // broadcast nest, which is what the iterate consumes.
     auto plan = KrnlParallelPlan::noCollapse(broadcastLoop, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 4});
+        /*last excl*/ 1, {.minTripCount = 4});
     if (enableParallel) {
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)),
           ub(1, shapeHelper.getOutputDims()[0]);

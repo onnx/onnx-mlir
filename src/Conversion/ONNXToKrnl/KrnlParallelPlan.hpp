@@ -59,7 +59,7 @@ static constexpr int64_t NO_COLLAPSE_CLAIM = -1;
 // clean. Keep `cost` ahead of `exclusiveDims` and keep both labelled.
 struct KrnlParallelCost {
   // This site's floor on the trip count worth a parallel region.
-  int64_t minTripCountForParallel = 4;
+  int64_t minTripCount = 4;
   // Roughly how much work one iteration of this nest's innermost loop does, in
   // *work units*: one scalar operation, or one element copied, counts as 1. An
   // order of magnitude read off the body:
@@ -72,7 +72,7 @@ struct KrnlParallelCost {
   // denominator of the index-recovery ratio, which both ask whether the body
   // is big enough to hide an integer divide, and the fork-cost test, which asks
   // whether one region entry under a dynamic loop (or any entry, with
-  // alwaysRepayForkCost) does at least forkCost of work.
+  // mustRepayFork) does at least forkCost of work.
   //
   // Work units and not cycles, deliberately. Cycles would be the ideal unit --
   // the recovery chain it is weighed against is measured in them -- but pricing
@@ -100,7 +100,7 @@ struct KrnlParallelCost {
   // pay, and set an honest bodyCost with it, since the test is computed from
   // it. On z17 (forkCost 2,700) a flat loop of bodyCost 1 then needs about
   // 10,800 iterations, where going parallel halves the time on 4 threads.
-  bool alwaysRepayForkCost = false;
+  bool mustRepayFork = false;
 };
 
 // What the decision procedure concluded: no parallelism, one level, or a group
@@ -143,7 +143,7 @@ public:
   //
   // `cost` has no default here while the factories below keep theirs. At a
   // noCollapse or noLoopRefs site, bodyCost is read only by the fork-cost
-  // test: always with alwaysRepayForkCost, otherwise only when the
+  // test: always with mustRepayFork, otherwise only when the
   // single-level search lands under a dynamic loop, which needs
   // parFirstInclusiveDim > 0 or an excluded dynamic level (no current site has
   // either). At a collapse-eligible site it is always read,

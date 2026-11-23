@@ -158,7 +158,7 @@ private:
     // May block and unroll loopDef[rank-1] below, so it can never collapse; the
     // list handed to the iterate starts from the plan's and is rewritten below.
     auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCountForParallel = 8});
+        loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCount = 8});
     int64_t parId = NO_PAR_FOUND;
     if (enableParallel) {
       // TODO: consider flattening the outer dims, or along inner dims.
@@ -263,16 +263,20 @@ private:
     // argument the comment below makes for a single level, which composes
     // across levels.
     //
-    // bodyCost is the block length: one innermost iteration here copies
-    // elemsToCopy elements, so that many work units, not the one a scalar body
-    // would cost. Declaring it is what lets a group be judged against the work
-    // it is amortized over. It only ever feeds the policy --
-    // STEP 0, and so the flag-off path, reads minTripCountForParallel alone.
+    // bodyCost is the block length plus the call: one innermost iteration
+    // here copies elemsToCopy elements, so that many work units, not the one a
+    // scalar body would cost, plus ~20 for the two offsets and the memcpy
+    // call, which dominate small blocks. Declaring it is what lets a group be
+    // judged against the work it is amortized over, and a region against its
+    // fork cost.
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2,
-        {.minTripCountForParallel = 8,
+        {.minTripCount = 8,
             .bodyCost =
-                elemsToCopy.isLiteral() ? elemsToCopy.getLiteral() : 1});
+                elemsToCopy.isLiteral() ? elemsToCopy.getLiteral() + 20 : 1,
+            // Only with a known block length: at 1 a dynamic block would be
+            // taken for almost no work.
+            .mustRepayFork = elemsToCopy.isLiteral()});
     if (enableParallel) {
       // Because we are doing block copying, there is no risk that the
       // parallelized dimension result in systematic false sharing of the

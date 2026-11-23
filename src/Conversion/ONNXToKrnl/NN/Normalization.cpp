@@ -953,9 +953,9 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       // the trip-count floor applies, as before.
       IndexExpr rowLen = XFlatDims[1];
       auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
-          {.minTripCountForParallel = 4,
+          {.minTripCount = 4,
               .bodyCost = rowLen.isLiteral() ? 10 * rowLen.getLiteral() : 1,
-              .alwaysRepayForkCost = rowLen.isLiteral()});
+              .mustRepayFork = rowLen.isLiteral()});
       if (plan.findParallelDim(op, "layer-norm", lb, ub) != NO_PAR_FOUND)
         useParallel = true;
     }

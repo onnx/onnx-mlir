@@ -317,9 +317,7 @@ public:
     // so the region must repay its fork cost.
     auto plan = KrnlParallelPlan::noCollapse(loopDefs, /*first*/ 0,
         /*last excl*/ rank,
-        {.minTripCountForParallel = 8,
-            .bodyCost = 3 * 64,
-            .alwaysRepayForkCost = true});
+        {.minTripCount = 8, .bodyCost = 3 * 64, .mustRepayFork = true});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
       plan.tryCreateParallel(

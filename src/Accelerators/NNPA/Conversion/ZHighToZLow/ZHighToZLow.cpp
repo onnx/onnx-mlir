@@ -2280,15 +2280,13 @@ struct ZHighToZLowDataConversionLowering
     DimsExpr lbs = {LitIE(0)};
     bool useParallel = false;
     if (enableParallel) {
-      // The bound is in elements and one element is ~1 work unit, so with the
-      // fork-cost test always on, a static size needs ceil(elems / T) >=
-      // forkCost, i.e. about 4 x forkCost elements (~10,800 on z17, where
-      // going parallel halves the time on 4 threads). That test, not the 1024
-      // floor, decides for a static size; a dynamic one is still parallel.
+      // The bound is in elements; one element is a load, a conversion and a
+      // store, ~2 work units (as for an unstick). With the fork-cost test
+      // always on, a static size needs ceil(elems / T) x 2 >= forkCost, about
+      // 2 x forkCost elements (~5,400 on z17). That test, not the 1024 floor,
+      // decides for a static size; a dynamic one is still parallel.
       auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
-          {.minTripCountForParallel = 1024,
-              .bodyCost = 1,
-              .alwaysRepayForkCost = true});
+          {.minTripCount = 1024, .bodyCost = 2, .mustRepayFork = true});
       if (plan.findParallelDim(op, "dlf16-f32 conversion fully parallelized",
               lbs, flattenedOutputDims) != NO_PAR_FOUND)
         useParallel = true;
@@ -2451,13 +2449,17 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     // batch x seq (one dynamic divide), and the remaining levels run as a
     // sequential loop inside each fused iteration.
     //
-    // bodyCost: one innermost iteration converts or copies one stick of
-    // innerTile elements.
+    // bodyCost: one innermost iteration copies one stick of innerTile
+    // elements (1 per value), or converts it to f32 (a load, a conversion and
+    // a store, 2 per value), plus ~16 for the split/transpose/merge indices.
     int64_t parLevels = std::min(loopRank - 1, (int64_t)2);
+    int64_t workPerValue = layoutTransform.getDlf16ToF32() ? 2 : 1;
     KrnlParallelPlan plan(loopDef, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
         /*collapseLastExclusiveDim=*/parLevels,
-        {.minTripCountForParallel = 4, .bodyCost = innerTile});
+        {.minTripCount = 4,
+            .bodyCost = workPerValue * innerTile + 16,
+            .mustRepayFork = true});
     if (enableParallel) {
       plan.tryCreateParallel(
           create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
@@ -2707,22 +2709,26 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     assert((int64_t)ubs.size() == loopRank && "missing ubs values");
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(innerTile);
 
-    // Same nest, collapse argument and windows as the unfused
-    // ZHighToZLowExtendedLayoutTransformLowering above.
-    int64_t parLevels = std::min(loopRank - 1, (int64_t)2);
-    KrnlParallelPlan plan(loopDef, enableCollapse,
-        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
-        /*collapseLastExclusiveDim=*/parLevels,
-        {.minTripCountForParallel = 4, .bodyCost = innerTile});
-    if (enableParallel) {
-      plan.tryCreateParallel(
-          create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
-    }
-
     // A neutral (1.f) scalar means the source chain had no trailing Mul
     // (only possible with dlf16ToF32); skip the multiply entirely rather than
     // emitting a multiply-by-one.
     bool hasMulScalar = dlf16ToF32 && fusion.mulScalar != 1.0f;
+
+    // Same nest, collapse argument and windows as the unfused
+    // ZHighToZLowExtendedLayoutTransformLowering above; bodyCost as there,
+    // plus 1 per value for the multiply by the scalar.
+    int64_t parLevels = std::min(loopRank - 1, (int64_t)2);
+    int64_t workPerValue = dlf16ToF32 ? (hasMulScalar ? 3 : 2) : 1;
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
+        /*collapseLastExclusiveDim=*/parLevels,
+        {.minTripCount = 4,
+            .bodyCost = workPerValue * innerTile + 16,
+            .mustRepayFork = true});
+    if (enableParallel) {
+      plan.tryCreateParallel(
+          create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
+    }
     Value scalarConst = hasMulScalar
                             ? create.math.constant(rewriter.getF32Type(),
                                   (double)fusion.mulScalar)
@@ -2992,7 +2998,7 @@ struct ZHighToZLowFusedExpandMulStickLowering
         /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/std::min(loopRank - 1, (int64_t)2),
         /*collapseLastExclusiveDim=*/loopRank - 1,
-        {.minTripCountForParallel = 4, .bodyCost = 1000});
+        {.minTripCount = 4, .bodyCost = 1000, .mustRepayFork = true});
 
     // USS list: 1 read (input) + N writes (same output tensor/alloc, N
     // distinct instances so each can carry its own beforeStickLoop offset).
@@ -3414,7 +3420,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       KrnlParallelPlan plan(outerLoopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/maxId,
           /*collapseLastExclusiveDim=*/maxId,
-          {.minTripCountForParallel = 4, .bodyCost = 1000});
+          {.minTripCount = 4, .bodyCost = 1000});
       if (enableParallel) {
         plan.tryCreateParallel(create.krnl, op,
             "concat-expand-stick fused outer loop", outerLbs, outerUbs);
@@ -3594,11 +3600,14 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
     // s (the conversion of the N sticks is unrolled inside the body, so s is
     // not a SIMD span). Single-level parallelism stays on the top two
     // levels, as in the other fused lowerings. bodyCost: one 64-element
-    // stick converted or copied per output.
+    // stick per output, converted to f32 and stored (~2 per value) or copied
+    // (~1 per value, plus offsets); 2 per value covers both.
     KrnlParallelPlan plan(loopDef, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
         /*collapseLastExclusiveDim=*/3,
-        {.minTripCountForParallel = 4, .bodyCost = stickLen * N});
+        {.minTripCount = 4,
+            .bodyCost = 2 * stickLen * N,
+            .mustRepayFork = true});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "unstick-split-heads fused loop", lbs, ubs);
@@ -3784,11 +3793,13 @@ struct ZHighToZLowFusedMulAddStickLowering
     // locations, so any run of levels may be collapsed (the tile itself is
     // fully unrolled in the body, so no level is a SIMD span). Single-level
     // parallelism stays on the top two levels, as in the other fused
-    // lowerings. bodyCost: one tile, with four reads and one write per value.
+    // lowerings. bodyCost: one tile, ~12 per value: four loads, two
+    // multiplies, an add, saturation (a min and a max), a conversion and a
+    // store.
     KrnlParallelPlan plan(loopDef, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
         /*collapseLastExclusiveDim=*/R,
-        {.minTripCountForParallel = 4, .bodyCost = 5 * tile});
+        {.minTripCount = 4, .bodyCost = 12 * tile, .mustRepayFork = true});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "mul-add-stick fused loop", lbs, ubs);

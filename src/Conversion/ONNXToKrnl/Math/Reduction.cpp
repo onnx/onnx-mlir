@@ -440,9 +440,9 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     // region must repay its fork cost: bodyCost is one element's work, its
     // load and the reduction ops (accumulated in registers, no store).
     auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
-        {.minTripCountForParallel = 32 * totVL,
+        {.minTripCount = 32 * totVL,
             .bodyCost = estimateWorkPerElement(mix, /*numLoadsAndStores=*/1),
-            .alwaysRepayForkCost = true});
+            .mustRepayFork = true});
     if (plan.findParallelDim(op, "simd reduction to one element", {lb}, {ub}) ==
         NO_PAR_FOUND)
       enableParallel = false;
@@ -1060,7 +1060,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
       auto plan = KrnlParallelPlan::noCollapse(loop3Def, /*first*/ 0,
-          /*last excl*/ 1, {.minTripCountForParallel = 4});
+          /*last excl*/ 1, {.minTripCount = 4});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "reduction scalar mean", lbs3, ubs3);
@@ -1186,7 +1186,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     auto plan = KrnlParallelPlan::noCollapse(outLoopDef, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCountForParallel = 128});
+        /*last excl*/ 1, {.minTripCount = 128});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "reduction h-simd", lbs, flatOutDims);
@@ -1338,7 +1338,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     // Innermost entry is a krnl.block result: can never collapse.
     auto plan = KrnlParallelPlan::noCollapse(optimizedOutLoopDef, /*first*/ 0,
-        /*last excl*/ flatOutRank, {.minTripCountForParallel = 8 * VL});
+        /*last excl*/ flatOutRank, {.minTripCount = 8 * VL});
     if (enableParallel) {
       plan.tryCreateParallel(
           create.krnl, op, "reduction shuffle h-simd", lbs, flatOutDims);

@@ -1588,7 +1588,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   KrnlParallelPlan plan(loopDef, enableCollapse,
       /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
       /*collapseLastExclusiveDim=*/parLevels,
-      {.minTripCountForParallel = 4,
+      {.minTripCount = 4,
           .bodyCost = simdUb.isLiteral() ? simdUb.getLiteral() : VL});
   if (enableParallel) {
     // Prefer an outer loop whenever there is one, including a single outer
@@ -1613,9 +1613,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       GenOpMix mix = getGenOpMix<OP_TYPE>(outputElementType, op);
       auto simdPlan = KrnlParallelPlan::noLoopRefs(/*first*/ 0,
           /*last excl*/ 1,
-          {.minTripCountForParallel = VL * 32,
+          {.minTripCount = VL * 32,
               .bodyCost = estimateWorkPerElement(mix, numArgs + 1),
-              .alwaysRepayForkCost = true});
+              .mustRepayFork = true});
       if (simdPlan.findParallelDim(op,
               "inner-loop of elementwise simd partially flattened", {zero},
               {simdUb}) != NO_PAR_FOUND)
@@ -2234,7 +2234,7 @@ struct ONNXElementwiseUnaryOpLowering
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise unary not simdized", lbs, ubs);
@@ -2423,7 +2423,7 @@ struct ONNXElementwiseBinaryOpLowering
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise binary not simdized", lbs, ubs);
@@ -2603,7 +2603,7 @@ struct ONNXElementwiseVariadicOpLowering
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise variable not simdized", lbs, ubs);
@@ -2729,7 +2729,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = 10});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "where op not simdized", lbs, ubs);

@@ -450,7 +450,8 @@ void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
 void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGridSampleOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXDeformConvOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 
