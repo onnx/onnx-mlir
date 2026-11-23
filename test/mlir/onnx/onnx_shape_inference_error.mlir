@@ -136,3 +136,137 @@ func.func @test_split_sizes_do_not_sum_to_axis_dim(%arg0 : tensor<16x32x64xf32>)
   %0, %1 = "onnx.Split"(%arg0, %split) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 }
+
+
+//===----------------------------------------------------------------------===//
+/// Unsupported and invalid configurations for ONNXSliceOp.
+//===----------------------------------------------------------------------===//
+
+func.func @test_slice_dynamic_control_length(%data: tensor<2x4xf32>,
+    %starts: tensor<?xi64>, %ends: tensor<?xi64>,
+    %steps: tensor<?xi64>) -> tensor<*xf32> {
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  // expected-error @+3 {{starts must have a statically known length}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) :
+      (tensor<2x4xf32>, tensor<?xi64>, tensor<?xi64>, tensor<1xi64>,
+      tensor<?xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_dynamic_control_length_without_axes(
+    %data: tensor<2x4xf32>, %starts: tensor<?xi64>,
+    %ends: tensor<?xi64>, %steps: tensor<?xi64>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+3 {{starts must have a statically known length}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %none, %steps) :
+      (tensor<2x4xf32>, tensor<?xi64>, tensor<?xi64>, none,
+      tensor<?xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_dynamic_control_length_without_steps(
+    %data: tensor<2x4xf32>, %starts: tensor<?xi64>,
+    %ends: tensor<?xi64>) -> tensor<*xf32> {
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+3 {{starts must have a statically known length}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %none) :
+      (tensor<2x4xf32>, tensor<?xi64>, tensor<?xi64>, tensor<1xi64>,
+      none) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_starts_longer_than_rank(
+    %data: tensor<2xf32>) -> tensor<*xf32> {
+  %starts = onnx.Constant dense<[0, 0]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %axes = onnx.Constant dense<[0, 0]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  // expected-error @+3 {{starts length must not exceed the data rank}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) :
+      (tensor<2xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>,
+      tensor<2xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_mismatched_ends(
+    %data: tensor<2x4xf32>) -> tensor<*xf32> {
+  %starts = onnx.Constant dense<[0]> : tensor<1xi64>
+  %ends = onnx.Constant dense<[2, 4]> : tensor<2xi64>
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %steps = onnx.Constant dense<[1]> : tensor<1xi64>
+  // expected-error @+3 {{starts and ends must have the same length}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) :
+      (tensor<2x4xf32>, tensor<1xi64>, tensor<2xi64>, tensor<1xi64>,
+      tensor<1xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_mismatched_axes(
+    %data: tensor<2x4xf32>) -> tensor<*xf32> {
+  %starts = onnx.Constant dense<[0]> : tensor<1xi64>
+  %ends = onnx.Constant dense<[2]> : tensor<1xi64>
+  %axes = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1]> : tensor<1xi64>
+  // expected-error @+3 {{starts and axes must have the same length}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) :
+      (tensor<2x4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<2xi64>,
+      tensor<1xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_mismatched_steps(
+    %data: tensor<2x4xf32>) -> tensor<*xf32> {
+  %starts = onnx.Constant dense<[0]> : tensor<1xi64>
+  %ends = onnx.Constant dense<[2]> : tensor<1xi64>
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %steps = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  // expected-error @+3 {{starts and steps must have the same length}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) :
+      (tensor<2x4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>,
+      tensor<2xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_slice_zero_step(
+    %data: tensor<2x4xf32>) -> tensor<*xf32> {
+  %starts = onnx.Constant dense<[0]> : tensor<1xi64>
+  %ends = onnx.Constant dense<[2]> : tensor<1xi64>
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %steps = onnx.Constant dense<[0]> : tensor<1xi64>
+  // expected-error @+3 {{step input parameter cannot be zero}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %result = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) :
+      (tensor<2x4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>,
+      tensor<1xi64>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
