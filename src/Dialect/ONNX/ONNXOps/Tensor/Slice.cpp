@@ -4,7 +4,7 @@
 
 //===------------------ Slice.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,6 +30,20 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   ONNXSliceOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.getData();
   uint64_t dataRank = mlir::cast<ShapedType>(data.getType()).getShape().size();
+  Value startsValue = operandAdaptor.getStarts();
+  int64_t startsSize = createIE->getArraySize(startsValue);
+  if (startsSize == ShapedType::kDynamic && isInDimAnalysisMode())
+    return failure();
+  if (startsSize == ShapedType::kDynamic)
+    return op->emitError("starts must have a statically known length");
+  if (startsSize < 0 || static_cast<uint64_t>(startsSize) > dataRank)
+    return op->emitError("starts length must not exceed the data rank");
+
+  int64_t endsSize = createIE->getArraySize(operandAdaptor.getEnds());
+  if (endsSize != startsSize)
+    return op->emitError("starts and ends must have the same length");
+
+  uint64_t sliceRank = startsSize;
 
   // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 4> axesIntLit;
@@ -39,9 +53,14 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     for (uint64_t i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
   } else {
+    int64_t axesSize = createIE->getArraySize(axes);
+    if (axesSize != startsSize)
+      return op->emitError("starts and axes must have the same length");
     SmallVector<IndexExpr, 4> axesSymbol;
     createIE->getIntFromArrayAsSymbols(axes, axesSymbol);
     for (IndexExpr val : axesSymbol) {
+      if (!val.isLiteral() && isInDimAnalysisMode())
+        return failure();
       if (!val.isLiteral())
         return op->emitError("Axes must be known at compile time");
       int64_t axis = val.getLiteral();
@@ -52,7 +71,13 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
       axesIntLit.emplace_back(axis);
     }
   }
-  uint64_t sliceRank = axesIntLit.size();
+
+  Value stepsValue = operandAdaptor.getSteps();
+  if (!isNoneValue(stepsValue)) {
+    int64_t stepsSize = createIE->getArraySize(stepsValue);
+    if (stepsSize != startsSize)
+      return op->emitError("starts and steps must have the same length");
+  }
 
   // Initialize context and results (start & output)
   starts.resize(dataRank);
@@ -77,8 +102,10 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
-    SymbolIndexExpr stepInput =
-        createIE->getIntFromArrayAsSymbol(operandAdaptor.getSteps(), i);
+    IndexExpr stepInput =
+        isNoneValue(stepsValue)
+            ? LitIE(1)
+            : createIE->getIntFromArrayAsSymbol(stepsValue, i);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
@@ -167,6 +194,12 @@ LogicalResult ONNXSliceOp::inferShapes(
       mlir::dyn_cast<RankedTensorType>(getStarts().getType());
   assert(startsType != nullptr && "starts type is not a RankedTensorType");
   auto startsDim = startsType.getShape()[0];
+  if (ShapedType::isDynamic(startsDim)) {
+    Type elementType =
+        mlir::cast<ShapedType>(getData().getType()).getElementType();
+    ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
+    return shapeHelper.computeShapeAndUpdateType(elementType);
+  }
   {
     OpBuilder builder(this->getContext());
     OnnxBuilder createONNX(builder, this->getLoc());
