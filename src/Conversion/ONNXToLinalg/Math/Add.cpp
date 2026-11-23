@@ -14,7 +14,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -34,10 +36,8 @@ struct ONNXAddOpLoweringToLinalg : public OpRewritePattern<ONNXAddOp> {
       return rewriter.notifyMatchFailure(
           addOp, "operation not selected for Linalg conversion");
 
-    ONNXAddOpAdaptor adaptor(addOp);
-    Value lhs = adaptor.getA();
-    Value rhs = adaptor.getB();
-
+    Value lhs = addOp.getA();
+    Value rhs = addOp.getB();
     Location loc = addOp.getLoc();
 
     auto lhsTy = dyn_cast<RankedTensorType>(lhs.getType());
@@ -47,19 +47,35 @@ struct ONNXAddOpLoweringToLinalg : public OpRewritePattern<ONNXAddOp> {
     if (!lhsTy || !rhsTy || !outTy)
       return rewriter.notifyMatchFailure(addOp, "expected ranked tensor types");
 
-    // no broadcasting yet.
-    if (lhsTy.getShape() != rhsTy.getShape())
+    if (!lhsTy.hasStaticShape() || !rhsTy.hasStaticShape() ||
+        !outTy.hasStaticShape())
       return rewriter.notifyMatchFailure(
-          addOp, "no broadcasting supported yet");
+          addOp, "dynamic dimensions are not supported yet");
 
-    if (lhsTy.getElementType() != rhsTy.getElementType())
+    if (lhsTy.getRank() != rhsTy.getRank() ||
+        lhsTy.getRank() != outTy.getRank())
+      return rewriter.notifyMatchFailure(
+          addOp, "rank broadcasting is not supported yet");
+
+    ONNXAddOpShapeHelper shapeHelper(op, op->getOperands());
+    if (failed(shapeHelper.computeShape()))
+      return rewriter.notifyMatchFailure(
+          addOp, "failed to compute result shape");
+
+    if (!shapeHelper.hasNoBroadcast())
+      return rewriter.notifyMatchFailure(
+          addOp, "broadcasting is not supported yet");
+
+    if (outTy.getShape() != lhsTy.getShape())
+      return rewriter.notifyMatchFailure(addOp, "unexpected result shape");
+
+    if (lhsTy.getElementType() != rhsTy.getElementType() ||
+        lhsTy.getElementType() != outTy.getElementType())
       return rewriter.notifyMatchFailure(addOp, "mismatched element types");
 
-    // only elementwise float/int right now.
     Type elemTy = outTy.getElementType();
-    bool isFloat = isa<FloatType>(elemTy);
-    bool isInt = isa<IntegerType>(elemTy);
-    if (!isFloat && !isInt)
+    if (!isa<FloatType>(elemTy) && !elemTy.isSignlessInteger() &&
+        !elemTy.isUnsignedInteger())
       return rewriter.notifyMatchFailure(addOp, "unsupported element type");
 
     Value empty = tensor::EmptyOp::create(
@@ -80,12 +96,8 @@ struct ONNXAddOpLoweringToLinalg : public OpRewritePattern<ONNXAddOp> {
           Value lhsElem = blockArgs[0];
           Value rhsElem = blockArgs[1];
 
-          Value sum;
-          if (isFloat) {
-            sum = arith::AddFOp::create(b, bodyLoc, lhsElem, rhsElem);
-          } else {
-            sum = arith::AddIOp::create(b, bodyLoc, lhsElem, rhsElem);
-          }
+          MathBuilder createMath(b, bodyLoc);
+          Value sum = createMath.add(lhsElem, rhsElem);
 
           linalg::YieldOp::create(b, bodyLoc, sum);
         });

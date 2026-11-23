@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-onnx-to-linalg --one-shot-bufferize=allow-unknown-ops --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-onnx-to-linalg='linalg-ops=onnx.MatMul' --one-shot-bufferize=allow-unknown-ops --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
 // Test the complete pipeline: MatMul(Linalg) + Add(Krnl) with bufferization
 // This tests: convert-onnx-to-linalg → one-shot-bufferize → convert-onnx-to-krnl
