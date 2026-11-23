@@ -23,7 +23,7 @@
 //
 // Two properties of a level, needed in different places. It is *parallelizable*
 // if it lies in the search window and the site did not exclude it, and
-// *fusable* if it additionally lies in the collapse claim and has a
+// fusable if it additionally lies in the collapse claim and has a
 // literal-zero lower bound, which is what krnl.collapse requires. Fusable
 // implies parallelizable; the converse fails, and conflating the two costs
 // regions.
