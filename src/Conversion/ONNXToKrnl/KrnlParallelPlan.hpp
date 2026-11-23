@@ -13,8 +13,9 @@
 // Every ONNX-to-Krnl site that wants a region asks the same two questions -- is
 // one worth it here, and over which loop level -- so the decision procedure and
 // the two entry points onto it live here. A region may span several adjacent
-// levels fused into one by krnl.collapse, which makes the answer a *group* of
-// levels; KrnlParallelPlan carries that answer to the following krnl.iterate.
+// levels collapsed into one by krnl.collapse, which makes the answer a *group*
+// of levels; KrnlParallelPlan carries that answer to the following
+// krnl.iterate.
 //
 // Included from ONNXToKrnlCommon.hpp, so every lowering site sees it.
 //
@@ -40,10 +41,13 @@ namespace onnx_mlir {
 // there is no decision.
 //
 // Not reused for the other -1s here, which mean different things:
-// `collapseLastExclusiveDim == -1` is "this site makes no collapse-safety
-// claim", and the -1s handed to onnxToKrnlParallelReport are that report's own
-// "unknown at compile time" sentinel.
+// NO_COLLAPSE_CLAIM below, and the -1s handed to onnxToKrnlParallelReport,
+// that report's own "unknown at compile time" sentinel.
 static constexpr int64_t NO_PAR_FOUND = -1;
+
+// A collapseLastExclusiveDim of NO_COLLAPSE_CLAIM: "this site makes no
+// collapse-safety claim", so no levels may be collapsed.
+static constexpr int64_t NO_COLLAPSE_CLAIM = -1;
 
 // The two numbers only the call site knows. Kept apart from the plan's bounds:
 // those say *which loop refs*, these say *how much work*. Neither indexes into
@@ -73,9 +77,10 @@ struct KrnlParallelCost {
   // a bulk copy in cycles needs a bytes-per-cycle or vector-width constant that
   // no target here has measured, and guessing it *low* is the unsafe direction
   // (see below). So a copied element counts as 1 even though vectorization
-  // makes it cheaper than a scalar op, which means the ratio in GroupCandidate
-  // understates the true fraction of runtime for bulk-copy bodies, by roughly
-  // the vector width. minAmortWork is calibrated in these same units.
+  // makes it cheaper than a scalar op, which means the recovery ratio
+  // (CandidateMetrics::recoveryPercentOfWork) understates the true fraction of
+  // runtime for bulk-copy bodies, by roughly the vector width. minAmortWork is
+  // calibrated in these same units.
   //
   // A body that loops or copies over N elements multiplies through: a
   // 128-element memcpy is ~128, an scf loop of N iterations around ten ops is
@@ -89,8 +94,14 @@ struct KrnlParallelCost {
 };
 
 // What the decision procedure concluded: no parallelism, one level, or a group
-// of adjacent levels to be fused into a single region.
+// of adjacent levels to be collapsed into a single region.
 struct KrnlParallelDecision {
+  // No parallel region.
+  KrnlParallelDecision() = default;
+  // Levels [firstDim, firstDim + numDims); a single level by default.
+  explicit KrnlParallelDecision(int64_t firstDim, int64_t numDims = 1)
+      : firstDim(firstDim), numDims(numDims) {}
+
   // NO_PAR_FOUND <=> !hasParallel(); otherwise the level, or a group's
   // outermost level.
   int64_t firstDim = NO_PAR_FOUND;
@@ -112,10 +123,10 @@ class KrnlParallelPlan {
 public:
   // Collapse-eligible when enableCollapse is set; otherwise exactly a
   // noCollapse plan. Everything a site declares arrives here in one statement:
-  // which loop refs, which levels may be searched, which may be fused, which
-  // are excluded, and how much work there is. Only the iteration bounds stay a
-  // call argument, since a site that merely asks may pass bounds for a loop it
-  // never defined.
+  // which loop refs, which levels may be searched, which may be collapsed,
+  // which are excluded, and how much work there is. Only the iteration bounds
+  // stay a call argument, since a site that merely asks may pass bounds for a
+  // loop it never defined.
   //
   // For every constructor, first dim is max-ed with 0 and last dim min-ed with
   // the size of the bounds, so the search window is always valid.
@@ -145,8 +156,9 @@ public:
 
   // For a site that asks the question but emits its own parallelism through
   // forLoopIE/forLoopsIE's useParallel flag, and so has no krnl.iterate
-  // optimized-loop list at all. No refs to fuse, hence never collapse-eligible.
-  // Use with findParallelDim; tryCreateParallel has nothing to emit onto.
+  // optimized-loop list at all. No refs to collapse, hence never
+  // collapse-eligible. Use with findParallelDim; tryCreateParallel has nothing
+  // to emit onto.
   static KrnlParallelPlan noLoopRefs(int64_t parFirstInclusiveDim,
       int64_t parLastExclusiveDim, KrnlParallelCost cost = {},
       mlir::ArrayRef<int64_t> exclusiveDims = {});
@@ -164,14 +176,14 @@ public:
   //
   // Single-level even on a collapse-eligible plan: the sites that ask hand the
   // answer to forLoopIE/forLoopsIE's useParallel, which parallelizes one level
-  // and cannot express a fused iteration space, and several size per-thread
+  // and cannot express a collapsed iteration space, and several size per-thread
   // buffers off it.
   int64_t findParallelDim(mlir::Operation *op, std::string msg,
       mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs) const;
 
   // Decide and emit: a krnl.collapse when the decision is a group, then the
   // krnl.parallel. Returns the level, or NO_PAR_FOUND having emitted nothing.
-  // Substitutes any fused ref into this plan's loop list, so the following
+  // Substitutes any collapsed ref into this plan's loop list, so the following
   // krnl.iterate must be handed optimizedLoopDef().
   //
   // Needs no rank guard at the call site: a rank-0 nest answers NO_PAR_FOUND,
@@ -192,7 +204,7 @@ private:
   // level itself for a single-level decision, or the result of a krnl.collapse
   // replacing the group's entries. A group of one is the identity, emitting
   // nothing.
-  mlir::Value collapseAndSubstitute(
+  mlir::Value collapseIfNeeded(
       const onnx_mlir::KrnlBuilder &createKrnl, KrnlParallelDecision decision);
 
   KrnlParallelPlan(mlir::ValueRange loopDef, int64_t parFirstInclusiveDim,
@@ -202,7 +214,7 @@ private:
   llvm::SmallVector<mlir::Value, 6> optLoopDef;
   int64_t parFirstInclusiveDim;
   int64_t parLastExclusiveDim;
-  int64_t collapseLastExclusiveDim; // -1 when not collapse-eligible.
+  int64_t collapseLastExclusiveDim; // NO_COLLAPSE_CLAIM if not eligible.
   KrnlParallelCost cost;
   llvm::SmallVector<int64_t, 2> exclusiveDims;
   bool collapsed = false;

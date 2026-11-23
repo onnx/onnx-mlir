@@ -8,11 +8,11 @@
 //
 // =============================================================================
 //
-// Target-derived constants for the parallel-region cost model: how wide a fused
-// loop must be to be worth a region, how much work must sit under it, and how
-// much entering a region costs. Sibling of VectorMachineSupport, with the same
-// lifecycle: set once from the driver before the pipeline runs, immutable
-// thereafter, read from anywhere through static accessors.
+// Target-derived constants for the parallel-region cost model: how wide a
+// collapsed loop must be to be worth a region, how much work must sit under it,
+// and how much entering a region costs. Sibling of VectorMachineSupport, with
+// the same lifecycle: set once from the driver before the pipeline runs,
+// immutable thereafter, read from anywhere through static accessors.
 //
 // These are target constants and not pass state. They are derived from the
 // command line, fixed before the first pass runs, and identical for every pass,
@@ -49,8 +49,8 @@ struct ParallelTuning {
   // forkCost) would decide whether a region has enough work more directly, and
   // so would likely subsume this floor. Kept until measured on more models.
   int64_t minParTripCountFloor;
-  // Smallest amount of work one fused iteration must cover for an index
-  // rematerialization chain to stay amortized, in KrnlParallelCost::bodyCost's
+  // Smallest amount of work one collapsed iteration must cover for an index
+  // recovery chain to stay amortized, in KrnlParallelCost::bodyCost's
   // work units -- one scalar op or one copied element per unit -- since that is
   // what it is compared against.
   //
@@ -61,10 +61,10 @@ struct ParallelTuning {
   // LayoutTransform's fast path, raising it past the body's own cost drops the
   // group entirely and lands the region on the innermost level under an unknown
   // entry count, which is worse. Which *start* wins among candidate groups is
-  // decided by the ordering in GroupCandidate, not here.
+  // decided by the ordering in isRankedHigher (KrnlParallelPlan.cpp), not here.
   //
   // Still needed with forkCost: z17 measurements (2026-11-20) put index
-  // recovery at ~1 ns per fused iteration, ~5 work units, against a ~0.2 ns
+  // recovery at ~1 ns per collapsed iteration, ~5 work units, against a ~0.2 ns
   // copy body, so collapsing small bodies does cost time. A candidate for
   // per-target calibration.
   int64_t minAmortWork;
@@ -78,26 +78,27 @@ struct ParallelTuning {
   int64_t maxForkCount;
   // No total price is computed for an unresolved (dynamic) fork count. Earlier
   // drafts summed a flat ~4000 cycles per region entry into the candidate's
-  // cost beside the index-rematerialization estimate; that was removed, since
+  // cost beside the index-recovery estimate; that was removed, since
   // the total depends on the number of entries, which is exactly what is
   // unknown when a dynamic level sits above the group, and the flat penalty
-  // decided every comparison it appeared in. See the "how a candidate is
-  // priced" banner in KrnlParallelPlan.cpp. forkCost below brings the region
+  // decided every comparison it appeared in. See the "Fork overhead" paragraph
+  // in KrnlParallelPlan.cpp's banner. forkCost below brings the region
   // entry cost back as a per-entry test instead, which needs no entry count.
   //
   // Cost of entering one parallel region (fork/join and the static schedule),
   // in bodyCost's work units, for a typical thread count. Not summed into a
   // candidate's cost, for the reason above: it prices *one entry*. A region
-  // under a dynamic level is accepted only if the known work of one entry is at
-  // least a few forkCost, so each entry repays itself however many entries
-  // there are, which needs no guess at the unknown entry count. Must be > 0.
+  // under a dynamic level is accepted only if the known work per thread of one
+  // entry is at least forkCost, so each entry repays itself however many
+  // entries there are, which needs no guess at the unknown entry count. (A
+  // factor above 1 is a candidate for evaluation.) Must be > 0.
   int64_t forkCost;
   // Thread count the compile-time decisions assume (the real count is a
   // run-time setting). Used with forkCost, which is measured at that count, for
   // the work per thread of a region entry, and for the width a region needs to
   // keep every thread busy (balanced trip count, about 4 x this). It only
   // steers how far levels are collapsed and which level gets the region, never
-  // whether the code is correct.
+  // whether the code is correct. Must be > 0.
   int64_t expectedThreads;
 };
 

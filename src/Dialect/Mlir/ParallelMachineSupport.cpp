@@ -59,6 +59,7 @@ namespace onnx_mlir {
     tuning.forkCost = parallelForkCost;
   if (parallelExpectedThreads > 0)
     tuning.expectedThreads = parallelExpectedThreads;
+  assert(tuning.expectedThreads > 0 && "expected a positive thread count");
   globalParallelMachineSupport->tuning = tuning;
 
   LLVM_DEBUG(llvm::dbgs() << "use parallel tuning " << getArchName()
