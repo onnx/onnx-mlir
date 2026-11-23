@@ -70,8 +70,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
-    auto plan = KrnlParallelPlan::noCollapse(
-        outerLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
+    auto plan = KrnlParallelPlan::noCollapse(outerLoopDef, /*first*/ 0,
+        /*last excl*/ 1, {.minTripCountForParallel = 4});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "generic GEMM on outer loop", loopLbs, loopUbs);
@@ -224,8 +224,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
       // Blocked/permuted refs can never collapse. Plan holds the iterate's own
       // list; the window restricts the choice to the outermost ref.
-      auto plan = KrnlParallelPlan::noCollapse(
-          {ii1, jj1}, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4 * iCacheTile});
+      auto plan = KrnlParallelPlan::noCollapse({ii1, jj1}, /*first*/ 0,
+          /*last excl*/ 1, {.minTripCountForParallel = 4 * iCacheTile});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "GEMM tiled copy I parallel", {zeroIE}, {I});
@@ -281,8 +281,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       create.krnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
       // As above: blocked/permuted refs, plan over the iterate's list.
-      auto plan = KrnlParallelPlan::noCollapse(
-          {jj1, kk1}, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4 * jCacheTile});
+      auto plan = KrnlParallelPlan::noCollapse({jj1, kk1}, /*first*/ 0,
+          /*last excl*/ 1, {.minTripCountForParallel = 4 * jCacheTile});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "GEMM tiled no copy J parallel", {zeroIE}, {J});
@@ -335,11 +335,11 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       return;
     }
     ValueRange outerLoops = create.krnl.defineLoops(2);
-    auto plan = KrnlParallelPlan::noCollapse(
-        outerLoops, /*first*/ 0, /*last excl*/ 1, /*cost*/ {16});
+    auto plan = KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0,
+        /*last excl*/ 1, {.minTripCountForParallel = 16});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op,
-          "outer loop on tiled Transposed Gemm", {zeroIE}, {I});
+          "GEMM alpha/beta epilogue outer loop", {zeroIE}, {I});
     create.krnl.iterateIE(outerLoops, plan.optimizedLoopDef(), {zeroIE, zeroIE},
         {I, J}, [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.

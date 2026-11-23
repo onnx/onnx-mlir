@@ -45,8 +45,9 @@
 //
 //   STEP 0   no collapse possible (decideNoCollapsePossible): the outermost
 //            parallelizable level whose trip count is dynamic or at least the
-//            site's minimum; under a dynamic loop, it must repay its fork
-//            cost (no maxForkCount cap, so these sites stay unchanged).
+//            site's minimum; under a dynamic loop (or always, if the site
+//            opts in), it must repay its fork cost (no maxForkCount cap, so
+//            these sites stay unchanged).
 //   STEP 1   a balanced single level (findBalancedSingleLevel): a literal,
 //            balanced level under a small static prefix.
 //   STEP 2a  build candidate groups (buildCandidateGroups, growCandidateGroup):
@@ -68,7 +69,9 @@
 // capped: at most maxForkCount entries, so at most maxForkCount x forkCost,
 // even if one entry does little work. With an unknown one (a dynamic prefix),
 // nothing caps the count, so each entry must repay its own cost: work per
-// thread per entry at least forkCost (repaysForkCost).
+// thread per entry at least forkCost (repaysForkCost). A site may opt in to
+// that test with a static prefix too (KrnlParallelCost::alwaysRepayForkCost),
+// on top of the maxForkCount cap.
 //
 // STEP 0 is chosen by the frame when the site makes no collapse claim or no two
 // adjacent levels are collapsible; otherwise decideWithPossibleCollapse runs
@@ -323,14 +326,29 @@ static bool repaysForkCost(
   return workPerThreadPerEntry(desc, first, end) >= desc.tune.forkCost;
 }
 
+// The per-entry half of the fork-overhead rule, as this site requires it.
+// Under a dynamic loop, each entry must repay its fork cost. With a static
+// prefix, only if the site opts in (alwaysRepayForkCost), and then a dynamic
+// size in or below the region gets the benefit of the doubt: it may be large,
+// as in STEP 0's search, and treating it as 1 would drop every dynamic shape.
+static bool meetsPerEntryForkRule(
+    const ParallelNestDesc &desc, int64_t first, int64_t end) {
+  if (desc.isUnderDynamicLoop(first))
+    return repaysForkCost(desc, first, end);
+  if (!desc.cost.alwaysRepayForkCost)
+    return true;
+  return desc.width(first, desc.rank()).dynSizeCount > 0 ||
+         repaysForkCost(desc, first, end);
+}
+
 // Is the total fork/join overhead of a region over [first, end) bounded? With
 // a known entry count, by capping it at maxForkCount; with an unknown one, by
-// having each entry repay its own fork cost. (See "Fork overhead" at the top.)
+// having each entry repay its own fork cost; with alwaysRepayForkCost, both.
+// (See "Fork overhead" at the top.)
 static bool forkOverheadIsBounded(
     const ParallelNestDesc &desc, int64_t first, int64_t end) {
-  if (!desc.isUnderDynamicLoop(first))
-    return !desc.exceedsMaxForkCount(first);
-  return repaysForkCost(desc, first, end);
+  return !desc.exceedsMaxForkCount(first) &&
+         meetsPerEntryForkRule(desc, first, end);
 }
 
 // STEP 0's search: the outermost parallelizable level whose trip count is
@@ -369,19 +387,23 @@ static KrnlParallelDecision decideNoCollapsePossible(
   int64_t level = findOutermostSuitableLevel(desc);
   if (level == NO_PAR_FOUND)
     return {};
-  if (desc.isUnderDynamicLoop(level) &&
-      !repaysForkCost(desc, level, level + 1)) {
+  if (!meetsPerEntryForkRule(desc, level, level + 1)) {
     LLVM_DEBUG(llvm::dbgs()
                << "STEP 0: reject level " << level
-               << ": does not repay the fork cost under a dynamic loop\n");
+               << ": does not repay the fork cost"
+               << (desc.isUnderDynamicLoop(level) ? " under a dynamic loop"
+                                                  : "")
+               << "\n");
     return {};
   }
   return KrnlParallelDecision(level);
 }
 
 // STEP 1: a balanced single level: parallelizable, with a literal trip count,
-// entered at most maxForkCount times by a static prefix. Dynamic sizes are left
-// to STEP 2. Collapsibility is not needed: nothing is collapsed.
+// under a static prefix and with its fork overhead bounded (at most
+// maxForkCount entries; each repaying its fork cost if the site opts in).
+// Dynamic sizes are left to STEP 2. Collapsibility is not needed: nothing is
+// collapsed.
 static std::optional<KrnlParallelDecision> findBalancedSingleLevel(
     const ParallelNestDesc &desc) {
   for (int64_t level = desc.parFirstInclusiveDim;
@@ -390,7 +412,8 @@ static std::optional<KrnlParallelDecision> findBalancedSingleLevel(
         !isBalanced(desc, desc.width(level, level + 1)))
       continue;
     TripCountProduct entries = desc.entries(level);
-    if (desc.isUnderDynamicLoop(level) || desc.exceedsMaxForkCount(level))
+    if (desc.isUnderDynamicLoop(level) ||
+        !forkOverheadIsBounded(desc, level, level + 1))
       continue;
     LLVM_DEBUG(llvm::dbgs()
                << "STEP 1: level " << level << ", trip count "
@@ -510,12 +533,14 @@ static bool couldMeetTarget(const CandidateMetrics &best) {
 }
 
 #ifndef NDEBUG
-static void printCandidateMetrics(const CandidateMetrics &m, bool kept) {
+static void printCandidateMetrics(
+    const ParallelNestDesc &desc, const CandidateMetrics &m, bool kept) {
   static const char *verdictName[] = {"NO", "MAYBE", "YES"};
   // Which half of the fork-overhead rule dropped it.
   const char *dropped =
-      m.underDynamicLoop ? "  -> dropped: does not repay the fork cost"
-                         : "  -> dropped: entered more than maxForkCount times";
+      desc.exceedsMaxForkCount(m.group.first)
+          ? "  -> dropped: entered more than maxForkCount times"
+          : "  -> dropped: does not repay the fork cost";
   llvm::dbgs() << "  candidate [" << m.group.first << ", " << m.group.end
                << "): verdict " << verdictName[static_cast<int>(m.verdict)]
                << (m.underDynamicLoop ? ", under dynamic loop" : "") << ", w "
@@ -541,7 +566,7 @@ static KrnlParallelDecision decideWithPossibleCollapse(
   for (CandidateGroup group : buildCandidateGroups(desc)) {
     CandidateMetrics m = computeCandidateMetrics(desc, group);
     bool kept = forkOverheadIsBounded(desc, group.first, group.end);
-    LLVM_DEBUG(printCandidateMetrics(m, kept));
+    LLVM_DEBUG(printCandidateMetrics(desc, m, kept));
     if (kept)
       candidates.push_back(m);
   }

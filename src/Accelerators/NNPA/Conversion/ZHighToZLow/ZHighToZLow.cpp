@@ -2280,8 +2280,15 @@ struct ZHighToZLowDataConversionLowering
     DimsExpr lbs = {LitIE(0)};
     bool useParallel = false;
     if (enableParallel) {
-      auto plan = KrnlParallelPlan::noLoopRefs(
-          /*first*/ 0, /*last excl*/ 1, /*cost*/ {1024});
+      // The bound is in elements and one element is ~1 work unit, so with the
+      // fork-cost test always on, a static size needs ceil(elems / T) >=
+      // forkCost, i.e. about 4 x forkCost elements (~10,800 on z17, where
+      // going parallel halves the time on 4 threads). That test, not the 1024
+      // floor, decides for a static size; a dynamic one is still parallel.
+      auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
+          {.minTripCountForParallel = 1024,
+              .bodyCost = 1,
+              .alwaysRepayForkCost = true});
       if (plan.findParallelDim(op, "dlf16-f32 conversion fully parallelized",
               lbs, flattenedOutputDims) != NO_PAR_FOUND)
         useParallel = true;

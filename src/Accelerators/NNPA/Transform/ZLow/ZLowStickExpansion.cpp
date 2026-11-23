@@ -312,8 +312,8 @@ public:
     assert(totVL <= 64 && "bad unroll");
 
     // Parallel...
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDefs, /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    auto plan = KrnlParallelPlan::noCollapse(loopDefs, /*first*/ 0,
+        /*last excl*/ rank, {.minTripCountForParallel = 8});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
       plan.tryCreateParallel(

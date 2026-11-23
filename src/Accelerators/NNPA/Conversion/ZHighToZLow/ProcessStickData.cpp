@@ -77,7 +77,7 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     // The window excludes the innermost level: E1 is iterated as sticks below,
     // so splitting it across threads would cut a stick in two.
     auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank - 1, /*cost*/ {8});
+        /*first*/ 0, /*last excl*/ rank - 1, {.minTripCountForParallel = 8});
     parId =
         plan.findParallelDim(op, "simd min/max for DQL in parallel", lbs, ubs);
     if (parId == NO_PAR_FOUND) {
@@ -237,7 +237,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
     auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+        /*first*/ 0, /*last excl*/ rank, {.minTripCountForParallel = 8});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
     if (parId == NO_PAR_FOUND)

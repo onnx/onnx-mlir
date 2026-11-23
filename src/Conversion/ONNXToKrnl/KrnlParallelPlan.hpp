@@ -68,9 +68,11 @@ struct KrnlParallelCost {
   //     10   a handful of arithmetic ops, an index computation, a compare
   //   1000   a transcendental, an interpolation kernel, a whole tile
   //
-  // One digit is enough: it feeds only how far a group may grow and the
-  // denominator of the index-recovery ratio, and both ask whether the body is
-  // big enough to hide an integer divide.
+  // One digit is enough: it feeds how far a group may grow and the
+  // denominator of the index-recovery ratio, which both ask whether the body
+  // is big enough to hide an integer divide, and the fork-cost test, which asks
+  // whether one region entry under a dynamic loop (or any entry, with
+  // alwaysRepayForkCost) does at least forkCost of work.
   //
   // Work units and not cycles, deliberately. Cycles would be the ideal unit --
   // the recovery chain it is weighed against is measured in them -- but pricing
@@ -91,6 +93,14 @@ struct KrnlParallelCost {
   //
   // Cannot be inferred: when the decision runs the body is not built yet.
   int64_t bodyCost = 1;
+  // Require every region entry to repay its fork cost (work per thread per
+  // entry at least forkCost) even with a known entry count. By default only a
+  // region under a dynamic loop must: a static one is bounded by maxForkCount
+  // instead. Opt in where a single entry may do too little work for a fork to
+  // pay, and set an honest bodyCost with it, since the test is computed from
+  // it. On z17 (forkCost 2,700) a flat loop of bodyCost 1 then needs about
+  // 10,800 iterations, where going parallel halves the time on 4 threads.
+  bool alwaysRepayForkCost = false;
 };
 
 // What the decision procedure concluded: no parallelism, one level, or a group
@@ -131,12 +141,15 @@ public:
   // For every constructor, first dim is max-ed with 0 and last dim min-ed with
   // the size of the bounds, so the search window is always valid.
   //
-  // `cost` has no default here while the factories below keep theirs: bodyCost
-  // is read only when a group is possible, so at a noCollapse or noLoopRefs
-  // site it cannot be read, and at a collapse-eligible one its default can
-  // produce an answer worse than no collapse (see KrnlParallelCost). Write it
-  // with designated initializers, as the collapse sites do; that also makes a
-  // stray `{someInt}` in this slot visible.
+  // `cost` has no default here while the factories below keep theirs. At a
+  // noCollapse or noLoopRefs site, bodyCost is read only by the fork-cost
+  // test: always with alwaysRepayForkCost, otherwise only when the
+  // single-level search lands under a dynamic loop, which needs
+  // parFirstInclusiveDim > 0 or an excluded dynamic level (no current site has
+  // either). At a collapse-eligible site it is always read,
+  // and its default can produce an answer worse than no collapse (see
+  // KrnlParallelCost). Write it with designated initializers, as the collapse
+  // sites do; that also makes a stray `{someInt}` in this slot visible.
   KrnlParallelPlan(mlir::ValueRange loopDef, bool enableCollapse,
       int64_t parFirstInclusiveDim, int64_t parLastExclusiveDim,
       int64_t collapseLastExclusiveDim, KrnlParallelCost cost,

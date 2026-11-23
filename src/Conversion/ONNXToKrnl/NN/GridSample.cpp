@@ -411,8 +411,8 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
 
         // Plan holds the whole nest, not just the channel loop: the window
         // stops at 1, so the same ref is chosen either way.
-        auto plan = KrnlParallelPlan::noCollapse(
-            applyLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
+        auto plan = KrnlParallelPlan::noCollapse(applyLoopDef, /*first*/ 0,
+            /*last excl*/ 1, {.minTripCountForParallel = 4});
         if (enableParallel) {
           plan.tryCreateParallel(create.krnl, op, "gridsample 2d bilinear opt",
               applyLbs, applyUbs);
@@ -542,7 +542,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   // parallelized.
   // Plan holds the whole nest, not the 2-element slice: same ref either way.
   auto plan = KrnlParallelPlan::noCollapse(
-      loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {4});
+      loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCountForParallel = 4});
   if (enableParallel) {
     plan.tryCreateParallel(create.krnl, op, "gridsample 2d", lbs, ubs);
   }
@@ -722,7 +722,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
   // parallelized.
   // Plan holds the whole nest, not the 2-element slice: same ref either way.
   auto plan = KrnlParallelPlan::noCollapse(
-      loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {4});
+      loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCountForParallel = 4});
   if (enableParallel) {
     plan.tryCreateParallel(create.krnl, op, "gridsample 3d", lbs, ubs);
   }

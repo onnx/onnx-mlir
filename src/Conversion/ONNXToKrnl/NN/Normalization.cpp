@@ -947,7 +947,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     if (enableParallel) {
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
       auto plan = KrnlParallelPlan::noLoopRefs(
-          /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
+          /*first*/ 0, /*last excl*/ 1, {.minTripCountForParallel = 4});
       if (plan.findParallelDim(op, "layer-norm", lb, ub) != NO_PAR_FOUND)
         useParallel = true;
     }

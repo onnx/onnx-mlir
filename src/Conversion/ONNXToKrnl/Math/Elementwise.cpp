@@ -1607,7 +1607,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       // SIMD loop's, which forLoopIE defines internally -- no loop ref of ours
       // describes it.
       auto simdPlan = KrnlParallelPlan::noLoopRefs(
-          /*first*/ 0, /*last excl*/ 1, /*cost*/ {VL * 32});
+          /*first*/ 0, /*last excl*/ 1, {.minTripCountForParallel = VL * 32});
       if (simdPlan.findParallelDim(op,
               "inner-loop of elementwise simd partially flattened", {zero},
               {simdUb}) != NO_PAR_FOUND)

@@ -276,8 +276,8 @@ struct ONNXLayoutTransformOpLowering
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
 
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {128});
+    auto plan = KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0,
+        /*last excl*/ 1, {.minTripCountForParallel = 128});
     if (enableParallel) {
       plan.tryCreateParallel(create.krnl, op,
           "LayoutTransform op fully parallelized with perfectly nested loops",

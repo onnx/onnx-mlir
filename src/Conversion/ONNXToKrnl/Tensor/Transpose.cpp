@@ -145,38 +145,6 @@ private:
     return numberOfUnchangedInnerDims;
   }
 
-  // Do transpose by copying elements one-by-one, iterating over the inputs.
-  // This scatter the outputs stores. Not in use anymore as slower than
-  // scalarTransposeOverOutputs.
-  void scalarTransposeOverInputs(Operation *op, Value inputMemRef,
-      Value outputMemRef, std::optional<ArrayAttr> permAttr, MDBuilder *create,
-      bool enableParallel) const {
-
-    uint64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
-    ValueRange loopDef = create->krnl.defineLoops(rank);
-    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
-    SmallVector<IndexExpr, 4> ubs;
-    create->krnlIE.getShapeAsDims(inputMemRef, ubs);
-
-    // Enable parallelism if required.
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
-    if (enableParallel)
-      plan.tryCreateParallel(create->krnl, op, "scalar transpose", lbs, ubs);
-
-    create->krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
-        [&](const KrnlBuilder &createKrnl, ValueRange loadIndices) {
-          // Compute the loadIndices used by the store operation.
-          SmallVector<IndexExpr, 4> storeIndices;
-          for (uint64_t i = 0; i < rank; ++i) {
-            Value index = loadIndices[ArrayAttrIntVal(permAttr, i)];
-            storeIndices.emplace_back(DimIE(index));
-          }
-          Value loadData = createKrnl.load(inputMemRef, loadIndices);
-          createKrnl.storeIE(loadData, outputMemRef, storeIndices);
-        });
-  }
-
   // Scalar transpose where we iterates over the ouput, scatter the loads.
   void scalarTransposeOverOutputs(Operation *op, Value inputMemRef,
       Value outputMemRef, std::optional<ArrayAttr> permAttr, MDBuilder *create,
@@ -190,7 +158,7 @@ private:
     // May block and unroll loopDef[rank-1] below, so it can never collapse; the
     // list handed to the iterate starts from the plan's and is rewritten below.
     auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
+        loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCountForParallel = 8});
     int64_t parId = NO_PAR_FOUND;
     if (enableParallel) {
       // TODO: consider flattening the outer dims, or along inner dims.
