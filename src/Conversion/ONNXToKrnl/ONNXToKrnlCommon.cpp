@@ -710,6 +710,22 @@ bool isOverComputeSafe(Operation *op) {
 }
 
 // New style.
+int64_t estimateWorkPerElement(const GenOpMix &mix, int64_t numLoadsAndStores) {
+  int64_t work = numLoadsAndStores;
+  for (auto [gop, count] : mix) {
+    if (gop >= GenericOps::LastGop)
+      continue; // A metric, not an operation.
+    bool expensive = gop == GenericOps::DivGop || gop == GenericOps::SqrtGop ||
+                     gop == GenericOps::ExpGop || gop == GenericOps::LogGop ||
+                     gop == GenericOps::PowGop || gop == GenericOps::ErfGop ||
+                     gop == GenericOps::TrigGop ||
+                     gop == GenericOps::TrigArcGop ||
+                     gop == GenericOps::TrigHyperbolicGop;
+    work += count * (expensive ? 10 : 1);
+  }
+  return std::max<int64_t>(1, work);
+}
+
 int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {

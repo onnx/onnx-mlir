@@ -1606,8 +1606,16 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       // no parallelism when none qualifies. These bounds are the flattened
       // SIMD loop's, which forLoopIE defines internally -- no loop ref of ours
       // describes it.
-      auto simdPlan = KrnlParallelPlan::noLoopRefs(
-          /*first*/ 0, /*last excl*/ 1, {.minTripCountForParallel = VL * 32});
+      //
+      // The bound is in elements, a whole flattened tensor entered once, so
+      // the region must repay its fork cost: bodyCost is one element's work,
+      // from the op mix plus a load per operand and the store.
+      GenOpMix mix = getGenOpMix<OP_TYPE>(outputElementType, op);
+      auto simdPlan = KrnlParallelPlan::noLoopRefs(/*first*/ 0,
+          /*last excl*/ 1,
+          {.minTripCountForParallel = VL * 32,
+              .bodyCost = estimateWorkPerElement(mix, numArgs + 1),
+              .alwaysRepayForkCost = true});
       if (simdPlan.findParallelDim(op,
               "inner-loop of elementwise simd partially flattened", {zero},
               {simdUb}) != NO_PAR_FOUND)

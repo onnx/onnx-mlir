@@ -92,8 +92,13 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank, {.minTripCountForParallel = 8});
+    // One iteration converts one stick of 64 values: load, dlf16-to-f32
+    // conversion and store, about 2 work units per value. Small tensors are
+    // entered once for little work, so the region must repay its fork cost.
+    auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ rank,
+        {.minTripCountForParallel = 8,
+            .bodyCost = 2 * stickLen,
+            .alwaysRepayForkCost = true});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
     if (parId == NO_PAR_FOUND)

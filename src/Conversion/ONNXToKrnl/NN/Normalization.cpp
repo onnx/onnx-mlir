@@ -946,8 +946,16 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     bool useParallel = false;
     if (enableParallel) {
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
-      auto plan = KrnlParallelPlan::noLoopRefs(
-          /*first*/ 0, /*last excl*/ 1, {.minTripCountForParallel = 4});
+      // One iteration normalizes one row: the mean and variance reductions,
+      // then subtract, scale and shift, about 10 work units per value. With a
+      // literal row length that is a known work per row, so the region must
+      // repay its fork cost; with a dynamic one the work is unknown and only
+      // the trip-count floor applies, as before.
+      IndexExpr rowLen = XFlatDims[1];
+      auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
+          {.minTripCountForParallel = 4,
+              .bodyCost = rowLen.isLiteral() ? 10 * rowLen.getLiteral() : 1,
+              .alwaysRepayForkCost = rowLen.isLiteral()});
       if (plan.findParallelDim(op, "layer-norm", lb, ub) != NO_PAR_FOUND)
         useParallel = true;
     }

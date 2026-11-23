@@ -236,8 +236,14 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank, {.minTripCountForParallel = 8});
+    // One iteration processes one stick of 64 values: unstick each input,
+    // the elementwise ops and stick the result, about 4 work units per value.
+    // Small tensors are entered once for little work, so the region must
+    // repay its fork cost.
+    auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ rank,
+        {.minTripCountForParallel = 8,
+            .bodyCost = 4 * stickLen,
+            .alwaysRepayForkCost = true});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
     if (parId == NO_PAR_FOUND)

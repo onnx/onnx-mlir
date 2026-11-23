@@ -100,6 +100,10 @@ struct ParallelTuning {
   // steers how far levels are collapsed and which level gets the region, never
   // whether the code is correct. Must be > 0.
   int64_t expectedThreads;
+  // Honor KrnlParallelCost::alwaysRepayForkCost at the sites that set it. Not
+  // a target property: an off switch (--parallel-always-repay-fork-cost=false)
+  // to compare against the placement without that test, from the same build.
+  bool honorAlwaysRepayForkCost = true;
 };
 
 //===----------------------------------------------------------------------===//

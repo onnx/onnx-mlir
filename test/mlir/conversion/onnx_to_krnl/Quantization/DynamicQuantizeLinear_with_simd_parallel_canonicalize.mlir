@@ -1,5 +1,8 @@
-// RUN: onnx-mlir-opt -O3 --march=arch14 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
-// above: used --march=arch14 instead of --march=z16 on purpose to make sure either option works
+// RUN: onnx-mlir-opt -O3 --march=arch14 --parallel-always-repay-fork-cost=false --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// above: used --march=arch14 instead of --march=z16 on purpose to make sure either option works.
+// --parallel-always-repay-fork-cost=false keeps these small tensors on the
+// parallel reduction path this test covers; with it on (the default), 4k
+// elements do not repay a fork and the reduction stays sequential.
 
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.

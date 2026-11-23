@@ -335,7 +335,7 @@ static bool meetsPerEntryForkRule(
     const ParallelNestDesc &desc, int64_t first, int64_t end) {
   if (desc.isUnderDynamicLoop(first))
     return repaysForkCost(desc, first, end);
-  if (!desc.cost.alwaysRepayForkCost)
+  if (!desc.cost.alwaysRepayForkCost || !desc.tune.honorAlwaysRepayForkCost)
     return true;
   return desc.width(first, desc.rank()).dynSizeCount > 0 ||
          repaysForkCost(desc, first, end);
