@@ -16,51 +16,53 @@
 //
 // THE ALGORITHM (decideKrnlParallel)
 //
-// Input: the iteration bounds, a profitability window [parFirst, parLast), an
-// optional collapse-safety claim [parFirst, collapseLast), excluded levels, and
-// the site's cost. Output: no region, one level, or a group of adjacent levels
-// to fuse.
+// For one loop nest, decide which level, or group of adjacent levels collapsed
+// into one, gets the parallel region, or that there is none. Input: the
+// iteration bounds, a search window [parFirst, parLast), an optional collapse
+// window [parFirst, collapseLast), excluded levels, and the site's cost.
 //
-// Two properties of a level, needed in different places. It is *parallelizable*
-// if it lies in the search window and the site did not exclude it, and
-// *fusable* if it additionally lies in the collapse claim and has a
-// literal-zero lower bound, which is what krnl.collapse requires. Fusable
-// implies parallelizable; the converse fails, and conflating the two costs
-// regions.
+// A level is *parallelizable* if it lies in the search window and is not
+// excluded, and *fusable* if it also lies in the collapse window and has a
+// literal-zero lower bound (what krnl.collapse requires).
 //
-// The frame (decideKrnlParallel) clamps the windows, finds the longest run of
-// consecutive fusable levels, then either answers directly or defers to a
-// policy:
+// Sizes are only partly known at compile time: every width is a
+// TripCountProduct, a literal part and a count of dynamic sizes, and a dynamic
+// size is never counted toward a threshold. The numbers that drive the steps:
 //
-//   STEP 0  No collapse claim, or no run of two fusable levels -- so no fusion
-//           is possible. Take the plain single-level search
-//           (findSuitableParallelDimension): outermost parallelizable level
-//           whose trip count is dynamic or >= minTripCountForParallel.
+//   target     smallest width worth a region at all (the site's
+//              minTripCountForParallel, raised by minParTripCountFloor)
+//   T          expected thread count (expectedThreads, -parallel=N)
+//   balanced   the width keeps T threads busy: at least the target, and the
+//              slowest thread at most 25% above the average; one dynamic size
+//              is judged by the literal part (BS = 1), two or more count as
+//              balanced
+//   forkCost   cost of entering one region, per target
+//   w          work of one parallel iteration: inner trip counts x bodyCost
 //
-// Otherwise a group is legal and possible, and the policy
-// (decideCollapseByCostModel) runs:
+// The steps, one function each:
 //
-//   STEP 1  A single *parallelizable* level, trip count *literally* >= the
-//           target, under a statically small prefix. No fused space, no index
-//           recovery -- so fusability is not required here.
-//   STEP 2  Fuse a run of adjacent fusable levels. Enumerate one candidate per
-//           (run, start) pair, grow each while its guaranteed trip count falls
-//           short of the target and the recovery chain stays amortized, then
-//           rank them (see GroupCandidate). Taken unless the winner's trip
-//           count is a small literal with no unknown factor.
-//   STEP 3  Nothing qualifies: emit no region.
+//   STEP 0   no collapse possible (decideNoCollapsePossible): the outermost
+//            parallelizable level whose trip count is dynamic or at least the
+//            site's minimum, then the fork test.
+//   STEP 1   one level that's clearly right (findClearlyRightLevel): a literal,
+//            balanced level under a small static prefix.
+//   STEP 2a  build candidate groups (buildCandidateGroups, growCandidateGroup):
+//            from each start, grow while not balanced and the work below stays
+//            at least minAmortWork.
+//   STEP 2b  for each candidate, compute (computeCandidateMetrics): verdict,
+//            under a dynamic loop, work per thread per entry, recovery
+//            overhead, dynamic sizes.
+//   STEP 2c  fork test (passesForkTest): under a dynamic loop, the work per
+//            thread per entry must be at least forkCost.
+//   STEP 2d  rank the remaining candidates (rankCandidates, isRankedHigher):
+//            verdict, not under a dynamic loop, lower recovery overhead, more
+//            dynamic sizes, fewer levels, shallower start.
+//   STEP 3   cutoff (passesCutoff): a best candidate with verdict NO means no
+//            region.
 //
-// Two invariants live in the frame rather than in a policy, which is why the
-// frame is not swappable: flag-off IR is bit-identical because STEP 0 is the
-// frame's own code, and enabling collapse cannot change a site that only asks
-// because the frame never reaches a policy when collapseLast < 0. A second
-// policy implements STEP 1/2/3 and nothing else.
-//
-// Trip counts are only partly known at compile time, and an unknown factor is
-// never counted toward a target -- trusting one as "large enough" is the defect
-// this exists to fix. So every quantity compared here is a TripCountProduct, a
-// product of literal factors plus a count of unknown ones, and comparisons over
-// it are three-valued (AtLeast).
+// STEP 0 is chosen by the frame when the site makes no collapse claim or no two
+// adjacent levels are fusable; otherwise decideWithCollapse runs STEP 1, then
+// 2a-2d, then 3.
 //
 //===----------------------------------------------------------------------===//
 
@@ -74,6 +76,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 #include <string>
 
 #define DEBUG_TYPE "lowering-to-krnl"
@@ -82,15 +85,11 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// The single-level search, used by STEP 0.
-// Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) that
-// is not excluded and for which (ub-lb) > minSize. Runtime dimensions are
-// assumed to satisfy the size requirement by definition. If found one, it is
-// parDim and the function returns true. Otherwise parDim is unchanged.
-//
-// A valid window is a precondition, not something re-established here: the
-// frame clamps it before any caller reaches this.
-static bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
+// STEP 0's search: the outermost level of [firstInclusiveDim,
+// lastExclusiveDim), not excluded, whose trip count is dynamic or at least
+// minSize. Sets parDim and returns true if found. The window must already be
+// clamped (the frame does it).
+static bool findOutermostSuitableParallelDim(ArrayRef<IndexExpr> lb,
     ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
     ArrayRef<int64_t> exclusiveDims, int64_t &parDim, int64_t minSize) {
   assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
@@ -98,19 +97,15 @@ static bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
          lastExclusiveDim <= static_cast<int64_t>(lb.size()) &&
          "expected a window already clamped to the bounds");
   for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
-    // A level the site refuses to parallelize. Keep scanning: an exclusion
-    // costs that level, not the whole region.
     if (llvm::is_contained(exclusiveDims, i))
-      continue;
+      continue; // Excluded: skip this level, keep scanning.
     IndexExpr tripCount = ub[i] - lb[i];
     if (!tripCount.isLiteral()) {
-      // Got a dyn dim, assume will be large enough.
       LLVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
       parDim = i;
       return true;
     }
     if (tripCount.getLiteral() >= minSize) {
-      // Got a literal dim with large enough trip count.
       LLVM_DEBUG(llvm::dbgs()
                  << "Pick dim " << i << " as " << tripCount.getLiteral()
                  << " greater than " << minSize << "\n");
@@ -122,166 +117,45 @@ static bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
 }
 
 //===----------------------------------------------------------------------===//
-// Helpers, shared by the frame and the policy. Per LLVM's coding standard the
-// file-local functions below are `static`, and the anonymous namespaces are
-// kept down to the three types that need internal linkage and cannot be
-// `static`.
+// Helpers.
 
-// Two questions, deliberately separate, because carrying a region alone and
-// being fused with a neighbour have different requirements.
-
-// May level i carry a parallel region by itself? Inside the window the site
-// declared and not one it excluded. Nothing about its bounds matters: a
-// krnl.parallel on a single level is a label on that loop, and the level keeps
-// its own bounds.
-//
-// Note the window passed here is the *profitability* one, parLastExclusiveDim.
-// A site may declare a narrower collapse claim than search window, and levels
-// between the two are still individually parallel -- that is what the search
-// window means -- they merely cannot be fused.
-static bool isSafeForParallel(int64_t i, int64_t parFirstInclusiveDim,
-    int64_t parLastExclusiveDim, ArrayRef<int64_t> exclusiveDims) {
-  return i >= parFirstInclusiveDim && i < parLastExclusiveDim &&
-         !llvm::is_contained(exclusiveDims, i);
-}
-
-// May level i be *fused* with its neighbours? Everything above over the
-// collapse claim, plus krnl.collapse's own requirement: it takes each collapsed
-// dimension's trip count to be its *upper bound*, so the lower bound must be a
-// literal 0. Anything else is rejected when the nest is lowered, which fails
-// the compilation, so screening it here turns that into a narrower group or a
-// fall back to STEP 0.
-//
-// No step check: krnl.iterate has no step, so a step can only appear via
-// krnl.block. Its tile loop may be collapsed, and the lowering normalizes it to
-// a count of tiles; its intra-tile loop is refused by KrnlCollapseOp's
-// verifier. A site holding a tile loop passes that level's bound in tiles, so
-// the trip counts weighed here are those the fused loop iterates.
-static bool isSafeForCollapse(int64_t i, ArrayRef<IndexExpr> lbs,
-    int64_t parFirstInclusiveDim, int64_t collapseLastExclusiveDim,
-    ArrayRef<int64_t> exclusiveDims) {
-  // Checked first: what follows indexes lbs with i.
-  if (!isSafeForParallel(
-          i, parFirstInclusiveDim, collapseLastExclusiveDim, exclusiveDims))
-    return false;
-  return lbs[i].isLiteral() && lbs[i].getLiteral() == 0;
-}
-
-// Nothing bounds the trip counts, so a nest of large literal extents can
-// overflow a product. Saturating is not optional: signed overflow is UB, and
-// even granting wrapping, a `known` of 0 makes the widest nest read as too
-// narrow while a negative one sails through the maxForkCount rejection. A
-// saturated value behaves correctly everywhere -- above any threshold it meets,
-// and as a divisor it drives the quotient to 0.
+// Products of large literal trip counts can overflow; saturate instead (a
+// saturated value is above any threshold and drives a quotient to 0).
 static int64_t saturatingMul(int64_t a, int64_t b) {
   assert(a >= 0 && b >= 0 && "expected non-negative trip counts");
-  // MulOverflow leaves `r` holding the wrapped product on overflow; only the
-  // no-overflow branch may read it.
   int64_t r;
   if (llvm::MulOverflow(a, b, r))
     return std::numeric_limits<int64_t>::max();
   return r;
 }
 
-// A product of trip counts: `known` multiplies the literal factors, `dyn`
-// counts the unknown ones.
-namespace {
-struct TripCountProduct {
-  int64_t known = 1;
-  int64_t dyn = 0;
-};
-} // namespace
-
-// One trip count as a factor. A literal below zero is degenerate IR -- an upper
-// bound under its lower bound -- and reads as an empty loop, a factor of 0.
+// A negative literal trip count (ub < lb) is an empty loop: factor 0.
 static int64_t literalTripCountAsFactor(int64_t literal) {
   return std::max<int64_t>(0, literal);
 }
 
-// The product over levels [firstIncl, lastExcl), clamped to the bounds given.
-static TripCountProduct tripCountProduct(ArrayRef<IndexExpr> lbs,
-    ArrayRef<IndexExpr> ubs, int64_t firstIncl, int64_t lastExcl) {
-  TripCountProduct prod;
-  firstIncl = std::max<int64_t>(firstIncl, 0);
-  lastExcl = std::min<int64_t>(lastExcl, lbs.size());
-  for (int64_t i = firstIncl; i < lastExcl; ++i) {
-    IndexExpr tripCount = ubs[i] - lbs[i];
-    if (tripCount.isLiteral())
-      prod.known = saturatingMul(
-          prod.known, literalTripCountAsFactor(tripCount.getLiteral()));
-    else
-      ++prod.dyn;
-  }
-  return prod;
-}
-
-// Three-valued "is this product at least `target`?". MAYBE stays distinct from
-// NO: a group whose *guaranteed* trip count falls short may still be the best
-// option available.
 namespace {
 enum class AtLeast { NO = 0, MAYBE = 1, YES = 2 };
+
+// A product of trip counts: the product of its literal factors, and the number
+// of dynamic ones.
+struct TripCountProduct {
+  int64_t literalProduct = 1;
+  int64_t dynDimCount = 0;
+
+  // Is the product at least `target`? YES on its literal part alone, MAYBE if
+  // it has a dynamic factor, NO otherwise.
+  AtLeast atLeast(int64_t target) const {
+    if (literalProduct >= target)
+      return AtLeast::YES;
+    return dynDimCount > 0 ? AtLeast::MAYBE : AtLeast::NO;
+  }
+};
 } // namespace
 
-static AtLeast atLeast(TripCountProduct prod, int64_t target) {
-  if (prod.known >= target)
-    return AtLeast::YES;
-  return prod.dyn > 0 ? AtLeast::MAYBE : AtLeast::NO;
-}
-
-// Cost of recovering one collapsed level's original index from the fused one,
-// in cycles. Three tiers, set by what the level's extent lets the compiler emit
-// for the divide:
-//
-//   power-of-two literal   a shift and a mask                        2 cycles
-//   other literal          a multiply-high, a shift and a fixup      6 cycles
-//   unknown                a hardware divide, not strength-reduced  40 cycles
-//
-// Estimates for a modern out-of-order core. Only the shape matters -- ALU
-// cheap, constant divide a few times that, hardware divide an order above again
-// -- so being off by a factor of two throughout changes no decision.
-// A region under a loop with a dynamic trip count is entered an unknown number
-// of times. That is fine only if each entry repays its own fork/join: an entry
-// whose region levels give P parallel iterations of w work each takes about
-// F + ceil(P/T) * w on T threads instead of P * w, so asking the work per
-// thread, ceil(P/T) * w, to be at least F keeps every entry at least ~2x faster
-// at 4 threads, however many entries there are. Below that, entering once per
-// row is the GridFM regression (a region per edge for 8 elements of work).
-// F (forkCost) and T (expectedThreads) come from the target.
-//
-// Is a region over levels [first, last), whose levels [last, rank) run inside
-// each parallel iteration, worth entering when a loop above it has a dynamic
-// trip count? Only known factors count, so an unresolved level never makes an
-// entry look heavier.
-static bool entryRepaysForkUnderDynamicLoop(ArrayRef<IndexExpr> lbs,
-    ArrayRef<IndexExpr> ubs, int64_t first, int64_t last, int64_t bodyCost) {
-  int64_t rank = lbs.size();
-  TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, first);
-  if (forkCount.dyn == 0)
-    return true; // Not under a dynamic loop: nothing to repay per entry.
-  const ParallelTuning &tune = ParallelMachineSupport::getTuning();
-  int64_t threads = std::max<int64_t>(1, tune.expectedThreads);
-  int64_t width = tripCountProduct(lbs, ubs, first, last).known;
-  int64_t iterationsPerThread = (width + threads - 1) / threads;
-  int64_t workPerIteration =
-      saturatingMul(tripCountProduct(lbs, ubs, last, rank).known,
-          literalTripCountAsFactor(bodyCost));
-  int64_t workPerThread = saturatingMul(iterationsPerThread, workPerIteration);
-  LLVM_DEBUG(
-      llvm::dbgs() << "  levels [" << first << ", " << last
-                   << ") are under a dynamic loop: known work per thread "
-                   << workPerThread
-                   << (workPerThread >= tune.forkCost ? " >= " : " < ")
-                   << "forkCost " << tune.forkCost << "\n");
-  return workPerThread >= tune.forkCost;
-}
-
-// Does a region of P parallel iterations keep T threads busy? The slowest
-// thread runs ceil(P/T) iterations against P/T on average; the region counts as
-// balanced when that is at most 25% more (kMaxImbalancePercent). Exact for a
-// literal P, so a multiple of T (12 heads on 4 threads) is balanced whatever
-// its size, and 5 on 4 threads is not. Used only to decide when a single level
-// stops the search (STEP 1) and how far a group grows (STEP 2); whether a
-// region is worth having at all keeps the site's trip-count target.
+// Does a width P keep T threads busy? The slowest thread runs ceil(P/T)
+// iterations; balanced when that is at most 25% above the average P/T. So 12 on
+// 4 threads is balanced and 5 is not.
 static constexpr int64_t kMaxImbalancePercent = 125;
 
 static bool isBalancedWidth(int64_t width, int64_t threads) {
@@ -289,12 +163,15 @@ static bool isBalancedWidth(int64_t width, int64_t threads) {
     return true; // Nothing to balance.
   threads = std::max<int64_t>(1, threads);
   int64_t slowest = (width + threads - 1) / threads;
-  // slowest * threads / width <= kMaxImbalancePercent / 100.
   return saturatingMul(100, saturatingMul(slowest, threads)) <=
          saturatingMul(kMaxImbalancePercent, width);
 }
 
-static int64_t overheadForIndexRematerializationInCycles(IndexExpr tripCount) {
+// Cycles to recover one collapsed level's index from the fused one: 2 for a
+// power-of-two literal (shift and mask), 6 for another literal (multiply-high),
+// 40 for a dynamic size (hardware divide). Rough estimates; only the ratios
+// matter.
+static int64_t cycleOverheadForIndexRematerialization(IndexExpr tripCount) {
   if (!tripCount.isLiteral())
     return 40;
   int64_t t = tripCount.getLiteral();
@@ -303,292 +180,346 @@ static int64_t overheadForIndexRematerializationInCycles(IndexExpr tripCount) {
 }
 
 //===----------------------------------------------------------------------===//
-// One candidate group [firstDim, firstDim + numDims), and the tuple it is
-// ranked by. Lexicographic rather than a weighted sum: the fields are not
-// commensurable, and a guaranteed-adequate trip count beats a possible one at
-// any price.
-//
-// A group carries two overheads, and they are separate fields rather than one
-// summed cost because they are amortized over different things:
-//
-//  - Index recovery is paid per *fused iteration*, and what it is spread over
-//  --
-//    the sequential levels below the group, times bodyCost -- is computable. A
-//    genuine ratio, held here as a percentage. This is the *price*.
-//  - Entering the region is paid per *region entry*, and the entry count is
-//    exactly what is unknown when it matters: the known part of that product is
-//    identical whether a candidate absorbs the dynamic level above it or leaves
-//    it outside. Not priceable, so it is a *gate*: dynamic entry count, yes/no.
-//
-// Reintroducing a price for the second needs the *number* of entries, not a
-// per-entry cost; maxForkCount covers the case where that number is known.
-namespace {
-struct GroupCandidate {
-  int64_t firstDim = NO_PAR_FOUND; // The group's outermost level.
-  int64_t numDims = 0;             // Members, so 1 means no fusion at all.
-  // Is the fused trip count at least the target?
-  AtLeast tripCountVerdict = AtLeast::NO;
-  // The gate: does a dynamic level remain above this group, making the number
-  // of region entries unknown? False is better.
-  bool hasDynamicForkCount = false;
-  // The price: cycles of index recovery per 100 work units of body. Less is
-  // better. Scaled by 100 because the bare quotient integer-divides to 0 for
-  // any body above a few dozen work units.
-  //
-  // Not a share of runtime, though it coincides with one when a work unit costs
-  // about a cycle -- true for the scalar bodies the tiers were calibrated on,
-  // and optimistic by roughly the vector width for a bulk copy. See bodyCost.
-  int64_t rematOverhead = 0;
-  // Unknown trip counts among the fused levels; more is better.
-  int64_t dynTripCounts = 0;
-  bool isValid() const { return numDims > 0; }
+// The decision, step by step (see the banner at the top of this file).
 
-  // Wider verdict, then a known entry count, then cheaper recovery, then more
-  // dynamic members, then fewer members, then a shallower start.
-  //
-  // The fourth field looks backwards and is not: among candidates tied above, a
-  // group covering *more* dynamic levels is the one that stays wide when those
-  // levels turn out to be 1 at run time.
-  //
-  // Not operator<: the early-outs are a "nothing beats nothing" rule, not the
-  // strict weak ordering an operator would advertise to std::sort.
-  bool isBetterThan(const GroupCandidate &other) const {
-    if (!isValid())
-      return false; // An invalid candidate is never better than anything.
-    if (!other.isValid())
-      return true; // ...and anything valid is better than an invalid one.
-    if (tripCountVerdict != other.tripCountVerdict)
-      return tripCountVerdict > other.tripCountVerdict;
-    if (hasDynamicForkCount != other.hasDynamicForkCount)
-      return !hasDynamicForkCount;
-    if (rematOverhead != other.rematOverhead)
-      return rematOverhead < other.rematOverhead;
-    if (dynTripCounts != other.dynTripCounts)
-      return dynTripCounts > other.dynTripCounts;
-    // Fewer members means a shorter recovery chain, the same thing twice.
-    if (numDims != other.numDims)
-      return numDims < other.numDims;
-    return firstDim < other.firstDim;
+namespace {
+// Everything a decision is made from: the nest's bounds, the (clamped) windows
+// and exclusions of the site, its cost, and the target's tuning, named as in
+// decideKrnlParallel; plus the questions every step asks about them. Built once
+// per decision and only read.
+struct ParallelNestDesc {
+  ParallelNestDesc(ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+      int64_t parFirstInclusiveDim, int64_t parLastExclusiveDim,
+      ArrayRef<int64_t> exclusiveDims, int64_t collapseLastExclusiveDim,
+      KrnlParallelCost cost)
+      : lbs(lbs), ubs(ubs), parFirstInclusiveDim(parFirstInclusiveDim),
+        parLastExclusiveDim(parLastExclusiveDim),
+        collapseLastExclusiveDim(collapseLastExclusiveDim),
+        exclusiveDims(exclusiveDims), cost(cost),
+        tune(ParallelMachineSupport::getTuning()) {}
+
+  ArrayRef<IndexExpr> lbs, ubs;
+  int64_t parFirstInclusiveDim, parLastExclusiveDim, collapseLastExclusiveDim;
+  ArrayRef<int64_t> exclusiveDims;
+  KrnlParallelCost cost;
+  const ParallelTuning &tune;
+
+  // The glossary of the algorithm: target and T (forkCost is tune.forkCost).
+  int64_t target() const {
+    return std::max(cost.minTripCountForParallel, tune.minParTripCountFloor);
   }
+  int64_t threads() const { return std::max<int64_t>(1, tune.expectedThreads); }
+
+  int64_t rank() const { return lbs.size(); }
+
+  IndexExpr tripCount(int64_t level) const { return ubs[level] - lbs[level]; }
+  // Width of levels [first, end): literal product and count of dynamic sizes.
+  TripCountProduct width(int64_t first, int64_t end) const {
+    TripCountProduct prod;
+    for (int64_t i = std::max<int64_t>(first, 0),
+                 e = std::min<int64_t>(end, rank());
+         i < e; ++i) {
+      IndexExpr t = tripCount(i);
+      if (t.isLiteral())
+        prod.literalProduct = saturatingMul(
+            prod.literalProduct, literalTripCountAsFactor(t.getLiteral()));
+      else
+        ++prod.dynDimCount;
+    }
+    return prod;
+  }
+  // Times a region starting at `first` is entered: the levels outside it.
+  TripCountProduct entries(int64_t first) const { return width(0, first); }
+  bool isUnderDynamicLoop(int64_t first) const {
+    return entries(first).dynDimCount > 0;
+  }
+  // w: work of one parallel iteration of a region ending at `end` (inner trip
+  // counts x bodyCost).
+  TripCountProduct workPerIteration(int64_t end) const {
+    TripCountProduct w = width(end, rank());
+    w.literalProduct = saturatingMul(
+        w.literalProduct, literalTripCountAsFactor(cost.bodyCost));
+    return w;
+  }
+
+  // May the level carry a region by itself? In the search window and not
+  // excluded. (The collapse window may be narrower: levels in between can be
+  // parallel, just not fused.)
+  bool canParallelize(int64_t level) const {
+    return level >= parFirstInclusiveDim && level < parLastExclusiveDim &&
+           !llvm::is_contained(exclusiveDims, level);
+  }
+  // May the level be fused with its neighbors? In the collapse window, not
+  // excluded, and with a literal-0 lower bound: krnl.collapse takes each
+  // level's upper bound as its trip count. (A krnl.block tile loop qualifies;
+  // its bound is counted in tiles.)
+  bool canFuse(int64_t level) const {
+    return level >= parFirstInclusiveDim && level < collapseLastExclusiveDim &&
+           !llvm::is_contained(exclusiveDims, level) &&
+           lbs[level].isLiteral() && lbs[level].getLiteral() == 0;
+  }
+  // Length of the longest run of consecutive fusable levels.
+  int64_t longestFusableRun() const {
+    int64_t longest = 0;
+    for (int64_t i = parFirstInclusiveDim, run = 0;
+         i < collapseLastExclusiveDim; ++i) {
+      run = canFuse(i) ? run + 1 : 0;
+      longest = std::max(longest, run);
+    }
+    return longest;
+  }
+};
+
+// A candidate group: levels [first, end).
+struct CandidateGroup {
+  int64_t first;
+  int64_t end;
+};
+
+// STEP 2b's metrics, one field per column of the algorithm's candidate table.
+struct CandidateMetrics {
+  CandidateGroup group;
+  AtLeast verdict = AtLeast::NO;     // Width against the target.
+  bool underDynamicLoop = false;     // Entered an unknown number of times.
+  int64_t w = 0;                     // Known work of one parallel iteration.
+  int64_t workPerThreadPerEntry = 0; // ceil(P/T) * w, known factors only.
+  int64_t recoveryCycles = 0;        // Index recovery per fused iteration.
+  int64_t recoveryOverhead = 0;      // recoveryCycles per 100 units of w.
+  int64_t dynamicSizes = 0;          // Dynamic sizes the group covers.
+  int64_t numLevels() const { return group.end - group.first; }
+  int64_t firstLevel() const { return group.first; }
 };
 } // namespace
 
-//===----------------------------------------------------------------------===//
-// The policy: STEP 1, 2 and 3.
-//
-// Called only on the case the frame cannot answer: windows clamped, and at
-// least one run of two adjacent safe levels, so a group is legal and possible.
-// Sole reader of the target tuning, which is what leaves STEP 0 independent of
-// whether a target has been set.
-static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
-    ArrayRef<IndexExpr> ubs, int64_t parFirstInclusiveDim,
-    int64_t parLastExclusiveDim, ArrayRef<int64_t> exclusiveDims,
-    int64_t collapseLastExclusiveDim, KrnlParallelCost cost) {
-  int64_t rank = lbs.size();
-  KrnlParallelDecision decision;
-  const ParallelTuning &tune = ParallelMachineSupport::getTuning();
-  // Below are predicates / values that are used repeatedly in the loops below.
-  // Capture them once, so the code is easier to read and maintain.
-  // STEP 1 asks the first, STEP 2 the second. Keeping them apart is what stops
-  // a level that merely cannot be fused from being dropped as a single-level
-  // candidate too.
-  auto canParallelize = [&](int64_t i) {
-    return isSafeForParallel(
-        i, parFirstInclusiveDim, parLastExclusiveDim, exclusiveDims);
-  };
-  auto canFuse = [&](int64_t i) {
-    return isSafeForCollapse(
-        i, lbs, parFirstInclusiveDim, collapseLastExclusiveDim, exclusiveDims);
-  };
-  // Smallest fused trip count worth a region: the site's own floor, raised by
-  // the target's if it has an opinion. The target's defaults to 0, so a trip
-  // count the plain search accepts still clears the bar.
-  int64_t tripCountTarget =
-      std::max(cost.minTripCountForParallel, tune.minParTripCountFloor);
-  // Separate from tripCountTarget, which answers "is a region worth it at all"
-  // (the verdict and STEP 3): balance answers "does this region keep the
-  // expected threads busy, or should we look for a wider one". With the target
-  // alone, a literal level of 5 stopped the search on 4 threads, leaving most
-  // of a second round idle.
-  int64_t threads = std::max<int64_t>(1, tune.expectedThreads);
-  // The work one iteration of a group ending at `g` does, in bodyCost's work
-  // units: the levels left sequential inside it, times the body. Denominator of
-  // both things bodyCost feeds -- the growth guard and the recovery ratio.
-  auto amortWork = [&](int64_t g) -> TripCountProduct {
-    TripCountProduct prod = tripCountProduct(lbs, ubs, g, rank);
-    prod.known =
-        saturatingMul(prod.known, literalTripCountAsFactor(cost.bodyCost));
-    return prod;
-  };
+// Verdict: is a width at least the target? Two or more dynamic sizes are
+// promoted to YES: unlikely to all be small at once.
+static AtLeast meetsTarget(
+    const ParallelNestDesc &desc, TripCountProduct width) {
+  AtLeast verdict = width.atLeast(desc.target());
+  if (verdict == AtLeast::MAYBE && width.dynDimCount >= 2)
+    return AtLeast::YES;
+  return verdict;
+}
 
-  // STEP 1: a single level, so no fused space and no index recovery. Stricter
-  // than STEP 0 in two ways: the trip count must be a literal that meets the
-  // target and keeps the threads balanced (trusting a dynamic extent is the
-  // defect being fixed, and it breaks on a level swinging between 1 and 4096
-  // across inference phases), and the prefix above it must be statically small
-  // (a wide level entered an unknown number of times is not a good answer).
-  // Being stricter loses nothing because STEP 2 follows: what this refuses,
-  // STEP 2 either rescues as a group or returns as a one-member group.
-  //
-  // Searched over the profitability window, filtered only by what makes a level
-  // parallelizable. Deliberately *not* filtered by fusability: this step emits
-  // no krnl.collapse, so a level that cannot be fused is still a perfectly good
-  // single-level answer and must stay a candidate here.
-  for (int64_t i = parFirstInclusiveDim; i < parLastExclusiveDim; ++i) {
-    if (!canParallelize(i))
+// Balanced: at least the target and isBalancedWidth on its literal part (with
+// one dynamic size, that is the BS = 1 case). Two or more dynamic sizes count
+// as balanced, as in the verdict.
+static bool isBalanced(const ParallelNestDesc &desc, TripCountProduct width) {
+  if (width.dynDimCount >= 2)
+    return true;
+  return width.literalProduct >= desc.target() &&
+         isBalancedWidth(width.literalProduct, desc.threads());
+}
+
+// ceil(P/T) * w for a region over [first, end), known factors only.
+static int64_t workPerThreadPerEntry(
+    const ParallelNestDesc &desc, int64_t first, int64_t end) {
+  int64_t threads = desc.threads();
+  int64_t width = desc.width(first, end).literalProduct;
+  int64_t iterationsPerThread = (width + threads - 1) / threads;
+  return saturatingMul(
+      iterationsPerThread, desc.workPerIteration(end).literalProduct);
+}
+
+// Fork test: a region under a dynamic loop is entered an unknown number of
+// times, so each entry must repay its fork/join F: ceil(P/T) * w >= F keeps
+// every entry ~2x faster than sequential at 4 threads (without it, GridFM had
+// one region per edge for 8 elements of work).
+static bool passesForkTest(const ParallelNestDesc &desc, bool underDynamicLoop,
+    int64_t perThreadWork) {
+  return !underDynamicLoop || perThreadWork >= desc.tune.forkCost;
+}
+
+// STEP 0: no collapse possible. The plain single-level search, then the fork
+// test (e.g. for the level left when a site excludes the outer one).
+static KrnlParallelDecision decideNoCollapsePossible(
+    const ParallelNestDesc &desc) {
+  KrnlParallelDecision decision;
+  int64_t level = NO_PAR_FOUND;
+  if (!findOutermostSuitableParallelDim(desc.lbs, desc.ubs,
+          desc.parFirstInclusiveDim, desc.parLastExclusiveDim,
+          desc.exclusiveDims, level, desc.cost.minTripCountForParallel))
+    return decision;
+  if (!passesForkTest(desc, desc.isUnderDynamicLoop(level),
+          workPerThreadPerEntry(desc, level, level + 1))) {
+    LLVM_DEBUG(llvm::dbgs() << "STEP 0: reject level " << level
+                            << ": fails the fork test under a dynamic loop\n");
+    return decision;
+  }
+  decision.firstDim = level;
+  decision.numDims = 1;
+  return decision;
+}
+
+// STEP 1: one level that's clearly right: a parallelizable level with a
+// balanced literal trip count, entered at most maxForkCount times. Dynamic
+// sizes are left to STEP 2. Fusability is not needed: nothing is collapsed.
+static std::optional<KrnlParallelDecision> findClearlyRightLevel(
+    const ParallelNestDesc &desc) {
+  for (int64_t level = desc.parFirstInclusiveDim;
+       level < desc.parLastExclusiveDim; ++level) {
+    if (!desc.canParallelize(level) || !desc.tripCount(level).isLiteral() ||
+        !isBalanced(desc, desc.width(level, level + 1)))
       continue;
-    IndexExpr tripCount = ubs[i] - lbs[i];
-    if (!tripCount.isLiteral() || tripCount.getLiteral() < tripCountTarget ||
-        !isBalancedWidth(tripCount.getLiteral(), threads))
+    TripCountProduct entries = desc.entries(level);
+    if (entries.dynDimCount > 0 ||
+        entries.literalProduct > desc.tune.maxForkCount)
       continue;
-    // Number of times this region is entered (level i).
-    TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, i);
-    // Called too many times, not an interesting solution.
-    if (forkCount.dyn > 0 || forkCount.known > tune.maxForkCount)
-      continue;
-    LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 1: single dim " << i
-                            << " with literal trip count "
-                            << tripCount.getLiteral() << " balanced on "
-                            << threads << " threads under a static prefix of "
-                            << forkCount.known << "\n");
-    decision.firstDim = i;
+    LLVM_DEBUG(llvm::dbgs()
+               << "STEP 1: level " << level << ", trip count "
+               << desc.tripCount(level).getLiteral() << ", balanced on "
+               << desc.threads() << " threads, entered "
+               << entries.literalProduct << " times\n");
+    KrnlParallelDecision decision;
+    decision.firstDim = level;
     decision.numDims = 1;
     return decision;
   }
+  return std::nullopt;
+}
 
-  // STEP 2: fuse a run of adjacent safe levels, one candidate per (run, start).
-  GroupCandidate best;
-  int64_t runStart = parFirstInclusiveDim;
-  while (runStart < collapseLastExclusiveDim) {
-    if (!canFuse(runStart)) {
+// STEP 2a, growth: from `start`, absorb inner levels of the run ending at
+// `runEnd` while the group is not balanced and the work below it stays at least
+// minAmortWork (keeps collapse off the vectorized innermost loop). Not tied to
+// the recovery cost of the added level: growth only happens when the
+// alternative is less width (at BS = 1, none), and pays off while recovery
+// < (T - 1) x work, which minAmortWork already ensures.
+static int64_t growCandidateGroup(
+    const ParallelNestDesc &desc, int64_t start, int64_t runEnd) {
+  int64_t end = start + 1;
+  while (end < runEnd && !isBalanced(desc, desc.width(start, end)) &&
+         desc.workPerIteration(end + 1).atLeast(desc.tune.minAmortWork) !=
+             AtLeast::NO)
+    ++end;
+  return end;
+}
+
+// STEP 2a: build candidate groups, one per start level in each run of fusable
+// levels, skipping a start of trip count 1 or one entered more than
+// maxForkCount times by a static prefix.
+static SmallVector<CandidateGroup> buildCandidateGroups(
+    const ParallelNestDesc &desc) {
+  SmallVector<CandidateGroup> groups;
+  int64_t runStart = desc.parFirstInclusiveDim;
+  while (runStart < desc.collapseLastExclusiveDim) {
+    if (!desc.canFuse(runStart)) {
       ++runStart;
       continue;
     }
     int64_t runEnd = runStart;
-    while (runEnd < collapseLastExclusiveDim && canFuse(runEnd))
+    while (runEnd < desc.collapseLastExclusiveDim && desc.canFuse(runEnd))
       ++runEnd;
-    // [runStart, runEnd) is a maximal run. Every level in it is a candidate
-    // start, including levels below the run's head: starting deeper is what
-    // turns a dynamic member into the group's *leading* member, where it costs
-    // no divisor at all.
-    for (int64_t d = runStart; d < runEnd; ++d) {
-      IndexExpr firstTripCount = ubs[d] - lbs[d];
-      // Never lead with a trip count of 1: it buys no width and costs a
-      // recovery level, and the sequential wrapper it leaves behind is free.
-      if (firstTripCount.isLiteral() && firstTripCount.getLiteral() == 1)
+    for (int64_t start = runStart; start < runEnd; ++start) {
+      IndexExpr trip = desc.tripCount(start);
+      if (trip.isLiteral() && trip.getLiteral() == 1)
         continue;
-      TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, d);
-      // A statically large prefix enters the region too many times for its
-      // depth to be free. An *unresolved* prefix is gated below instead, since
-      // absorbing it into the group is the alternative and the two must be
-      // compared.
-      if (forkCount.dyn == 0 && forkCount.known > tune.maxForkCount)
+      TripCountProduct entries = desc.entries(start);
+      if (entries.dynDimCount == 0 &&
+          entries.literalProduct > desc.tune.maxForkCount)
         continue;
-      // Grow while the group does not keep the threads balanced (not merely
-      // while it misses the target: a group worth a region can still leave
-      // threads idle), but never past the point where the recovery chain is
-      // known to have lost its amortization. That second guard keeps a group
-      // off the innermost level, preserving both the hoist of the recovery
-      // arithmetic and the innermost dimension for vectorization.
-      // Three-valued so an unknown inner level reads as "unresolved" rather
-      // than "inadequate".
-      //
-      // Two consequences worth knowing. A [batch, 1, seq, seq'] nest cannot
-      // reach the group {2,3}: amort(rank) is bodyCost alone, below
-      // minAmortWork, which stops growth before the innermost level -- and that
-      // group is the worst cell of the model anyway, a per-element dynamic
-      // divide. minAmortWork is the knob that reopens it. Second, this guard is
-      // the only thing between a site and a one-member group, so an
-      // under-declared bodyCost collapses the candidate set to single levels
-      // and can pick a deep level under an unknown entry count.
-      //
-      // The growth guard is deliberately not tied to the recovery tier of the
-      // level being added (e.g. "work >= 10 x recovery"). Growth only happens
-      // while the group is not balanced, so the
-      // alternative to absorbing a level is far less width -- at BS = 1 none at
-      // all. On T threads absorbing pays off while recovery r < (T - 1) x work:
-      // up to ~3x the work at T = 4, i.e. work >= ~13 for a dynamic divisor
-      // (r = 40), which minAmortWork already enforces. A stricter rule lost the
-      // BS = 1 parallelism of embedding-row gathers (rows of 64 or 384 floats).
-      int64_t g = d + 1;
-      // The group's width is K x D: K its literal part, D its dynamic sizes.
-      // With one dynamic size, judge the D = 1 corner (BS = 1): if K alone is
-      // balanced, so is every larger width, and growing would only add index
-      // recovery and split the inner copies; if not, growing protects BS = 1.
-      // A group already fusing two or more dynamic sizes counts as balanced,
-      // as it counts as wide enough in the verdict below: two unknown sizes are
-      // unlikely to be small together.
-      // Growth also continues while the guaranteed width misses the target, as
-      // before balance was considered; on 4 threads that is implied (a width
-      // below 4 is never balanced), with fewer threads it is not.
-      auto isBalanced = [&](int64_t end) {
-        TripCountProduct width = tripCountProduct(lbs, ubs, d, end);
-        if (width.dyn >= 2)
-          return true;
-        return width.known >= tripCountTarget &&
-               isBalancedWidth(width.known, threads);
-      };
-      while (g < runEnd && !isBalanced(g) &&
-             atLeast(amortWork(g + 1), tune.minAmortWork) != AtLeast::NO)
-        ++g;
-      // One index computation per member below the group's head -- the head
-      // needs no divisor -- against the work one fused iteration does.
-      int64_t rematerializationInCycles = 0;
-      for (int64_t k = d + 1; k < g; ++k)
-        rematerializationInCycles +=
-            overheadForIndexRematerializationInCycles(ubs[k] - lbs[k]);
-      TripCountProduct work = tripCountProduct(lbs, ubs, d, g);
-      TripCountProduct amortAtG = amortWork(g);
-      GroupCandidate cand;
-      cand.firstDim = d;
-      cand.numDims = g - d;
-      cand.tripCountVerdict = atLeast(work, tripCountTarget);
-      // One unknown level may well be 1 at run time, but two or more fused
-      // together are unlikely to all be small at once: rate such a group as
-      // wide enough, on par with a literal trip count meeting the target. Ties
-      // with such a literal level are then broken by the entry-count gate,
-      // which favors the group whenever it absorbs the dynamic levels that
-      // would otherwise re-enter the region.
-      if (cand.tripCountVerdict == AtLeast::MAYBE && work.dyn >= 2)
-        cand.tripCountVerdict = AtLeast::YES;
-      cand.dynTripCounts = work.dyn;
-      cand.hasDynamicForkCount = forkCount.dyn > 0;
-      // Entered once per iteration of a dynamic loop: only a candidate whose
-      // every entry repays its fork/join may compete.
-      if (cand.hasDynamicForkCount &&
-          !entryRepaysForkUnderDynamicLoop(lbs, ubs, d, g, cost.bodyCost)) {
-        LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 2: reject group [" << d
-                                << ", " << g << "): too little work per entry"
-                                << " under a dynamic loop\n");
-        continue;
-      }
-      cand.rematOverhead = (100 * rematerializationInCycles) /
-                           std::max<int64_t>(1, amortAtG.known);
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Collapse STEP 2: candidate group [" << d << ", " << g
-                 << ") trip count known " << work.known << " dyn " << work.dyn
-                 << " verdict " << (int)cand.tripCountVerdict
-                 << (cand.hasDynamicForkCount ? " dyn-fork" : " known-fork")
-                 << " remat " << rematerializationInCycles << " cyc / "
-                 << amortAtG.known << " work = " << cand.rematOverhead
-                 << " per 100\n");
-      if (cand.isBetterThan(best))
-        best = cand;
+      groups.push_back({start, growCandidateGroup(desc, start, runEnd)});
     }
     runStart = runEnd;
   }
-  // A small literal trip count with no unknown factor is not worth a region,
-  // whatever it scored on the other fields: fall through to STEP 3.
-  if (best.isValid() && best.tripCountVerdict != AtLeast::NO) {
-    LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 2: pick group [" << best.firstDim
-                            << ", " << best.firstDim + best.numDims << ")\n");
-    decision.firstDim = best.firstDim;
-    decision.numDims = best.numDims;
+  return groups;
+}
+
+// STEP 2b: for each candidate, compute its metrics.
+static CandidateMetrics computeCandidateMetrics(
+    const ParallelNestDesc &desc, CandidateGroup group) {
+  CandidateMetrics m;
+  m.group = group;
+  TripCountProduct width = desc.width(group.first, group.end);
+  m.verdict = meetsTarget(desc, width);
+  m.underDynamicLoop = desc.isUnderDynamicLoop(group.first);
+  m.w = desc.workPerIteration(group.end).literalProduct;
+  m.workPerThreadPerEntry = workPerThreadPerEntry(desc, group.first, group.end);
+  // One index recovery per member below the head.
+  for (int64_t level = group.first + 1; level < group.end; ++level)
+    m.recoveryCycles +=
+        cycleOverheadForIndexRematerialization(desc.tripCount(level));
+  m.recoveryOverhead = (100 * m.recoveryCycles) / std::max<int64_t>(1, m.w);
+  m.dynamicSizes = width.dynDimCount;
+  return m;
+}
+
+// STEP 2d's order, lexicographic:
+//   1. verdict (higher first);
+//   2. not under a dynamic loop;
+//   3. lower recovery overhead;
+//   4. more dynamic sizes (stays wide when some turn out to be 1);
+//   5. fewer levels;
+//   6. shallower start.
+static bool isRankedHigher(
+    const CandidateMetrics &a, const CandidateMetrics &b) {
+  if (a.verdict != b.verdict)
+    return a.verdict > b.verdict;
+  if (a.underDynamicLoop != b.underDynamicLoop)
+    return !a.underDynamicLoop;
+  if (a.recoveryOverhead != b.recoveryOverhead)
+    return a.recoveryOverhead < b.recoveryOverhead;
+  if (a.dynamicSizes != b.dynamicSizes)
+    return a.dynamicSizes > b.dynamicSizes;
+  if (a.numLevels() != b.numLevels())
+    return a.numLevels() < b.numLevels();
+  return a.firstLevel() < b.firstLevel();
+}
+
+// STEP 2d: rank the remaining candidates; the first of equals wins.
+static std::optional<CandidateMetrics> rankCandidates(
+    ArrayRef<CandidateMetrics> candidates) {
+  std::optional<CandidateMetrics> best;
+  for (const CandidateMetrics &c : candidates)
+    if (!best || isRankedHigher(c, *best))
+      best = c;
+  return best;
+}
+
+// STEP 3: cutoff. A verdict of NO (small literal width) means no region.
+static bool passesCutoff(const CandidateMetrics &best) {
+  return best.verdict != AtLeast::NO;
+}
+
+#ifndef NDEBUG
+static void printCandidateMetrics(const CandidateMetrics &m, bool kept) {
+  static const char *verdictName[] = {"NO", "MAYBE", "YES"};
+  llvm::dbgs() << "  candidate [" << m.group.first << ", " << m.group.end
+               << "): verdict " << verdictName[static_cast<int>(m.verdict)]
+               << (m.underDynamicLoop ? ", under dynamic loop" : "") << ", w "
+               << m.w << ", work/thread/entry " << m.workPerThreadPerEntry
+               << ", recovery " << m.recoveryCycles
+               << " cyc = " << m.recoveryOverhead << " per 100, dynamic sizes "
+               << m.dynamicSizes << (kept ? "" : "  -> dropped by fork test")
+               << "\n";
+}
+#endif
+
+// The collapse path: STEP 1, then STEP 2a-2d, then STEP 3.
+static KrnlParallelDecision decideWithCollapse(const ParallelNestDesc &desc) {
+  if (std::optional<KrnlParallelDecision> level = findClearlyRightLevel(desc))
+    return *level;
+
+  LLVM_DEBUG(llvm::dbgs() << "STEP 2: candidates\n");
+  SmallVector<CandidateMetrics> candidates;
+  for (CandidateGroup group : buildCandidateGroups(desc)) {    // STEP 2a
+    CandidateMetrics m = computeCandidateMetrics(desc, group); // STEP 2b
+    bool kept = passesForkTest(                                // STEP 2c
+        desc, m.underDynamicLoop, m.workPerThreadPerEntry);
+    LLVM_DEBUG(printCandidateMetrics(m, kept));
+    if (kept)
+      candidates.push_back(m);
+  }
+  std::optional<CandidateMetrics> best = rankCandidates(candidates); // 2d
+
+  KrnlParallelDecision decision;
+  if (!best || !passesCutoff(*best)) { // STEP 3
+    LLVM_DEBUG(llvm::dbgs() << "STEP 3: nothing worth a region\n");
     return decision;
   }
-
-  // STEP 3: nothing qualifies, so emit no krnl.parallel.
-  LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 3: nothing worth a region\n");
+  LLVM_DEBUG(llvm::dbgs() << "STEP 2d: pick [" << best->group.first << ", "
+                          << best->group.end << ")\n");
+  decision.firstDim = best->group.first;
+  decision.numDims = best->numLevels();
   return decision;
 }
 
@@ -602,60 +533,18 @@ KrnlParallelDecision decideKrnlParallel(ArrayRef<IndexExpr> lbs,
   assert(lbs.size() == ubs.size() && "expected identical ranks for lb/ub");
   int64_t rank = lbs.size();
 
-  // Make every window valid: a site may legitimately declare one wider than the
-  // nest it hands over. Clamping -1 leaves it -1, so "not collapse-eligible"
-  // survives. Done here so every policy is handed windows it can index with.
+  // Clamp the windows to the nest (a collapse window of -1 stays -1: no claim).
   parFirstInclusiveDim = std::max<int64_t>(parFirstInclusiveDim, 0);
   parLastExclusiveDim = std::min(parLastExclusiveDim, rank);
   collapseLastExclusiveDim = std::min(collapseLastExclusiveDim, rank);
 
-  // A group is a run of *consecutive* safe levels, so the longest such run says
-  // whether collapse can produce anything here at all.
-  int64_t longestSafeRun = 0;
-  for (int64_t i = parFirstInclusiveDim, run = 0; i < collapseLastExclusiveDim;
-       ++i) {
-    // If safe, increment the run by one; otherwise, reset the run to zero.
-    run = isSafeForCollapse(i, lbs, parFirstInclusiveDim,
-              collapseLastExclusiveDim, exclusiveDims)
-              ? run + 1
-              : 0;
-    longestSafeRun = std::max(longestSafeRun, run);
-  }
-
-  // STEP 0: the plain single-level search. Taken when the site makes no
-  // collapse claim (which includes every site while the flag is off) and
-  // equally when its claim cannot yield a fusion, since a policy could then
-  // only return a one-member group. Quick-exiting keeps such a site
-  // bit-identical rather than subject to STEP 1's stricter rules with no STEP 2
-  // to make up the difference; LayoutTransform's second site, whose window is
-  // one level, is this case.
-  if (collapseLastExclusiveDim < 0 || longestSafeRun < 2) {
-    KrnlParallelDecision decision;
-    int64_t parId = NO_PAR_FOUND;
-    if (findSuitableParallelDimension(lbs, ubs, parFirstInclusiveDim,
-            parLastExclusiveDim, exclusiveDims, parId,
-            cost.minTripCountForParallel)) {
-      // A level below a dynamic loop (e.g. the one left when a site excludes
-      // the outer level) would enter its region once per outer iteration.
-      if (entryRepaysForkUnderDynamicLoop(
-              lbs, ubs, parId, parId + 1, cost.bodyCost)) {
-        decision.firstDim = parId;
-        decision.numDims = 1;
-      } else {
-        LLVM_DEBUG(llvm::dbgs() << "STEP 0: reject level " << parId
-                                << ": too little work per entry under a "
-                                   "dynamic loop\n");
-      }
-    }
-    return decision;
-  }
-
-  // A group is legal and possible, so this is a matter of judgement: hand it to
-  // the policy. A second policy would be selected here from a cl::opt in
-  // OnnxMlirCommonOptions -- the one category onnx-mlir-opt does not strip, so
-  // a lit test can pick one -- with the target proposing the default.
-  return decideCollapseByCostModel(lbs, ubs, parFirstInclusiveDim,
-      parLastExclusiveDim, exclusiveDims, collapseLastExclusiveDim, cost);
+  ParallelNestDesc desc(lbs, ubs, parFirstInclusiveDim, parLastExclusiveDim,
+      exclusiveDims, collapseLastExclusiveDim, cost);
+  // STEP 0 when no collapse is claimed or possible (collapse needs two adjacent
+  // fusable levels; also keeps such sites unchanged), else the collapse path.
+  if (collapseLastExclusiveDim < 0 || desc.longestFusableRun() < 2)
+    return decideNoCollapsePossible(desc);
+  return decideWithCollapse(desc);
 }
 
 //===----------------------------------------------------------------------===//
@@ -666,8 +555,7 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
     Operation *op, const std::string &msg, ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs) {
   if (!decision.hasParallel()) {
-    // Trip count 0, the report's "no parallel loop" value, rather than -1: -1
-    // is its "runtime only" sentinel and belongs to lines that did parallelize.
+    // Trip count 0 means "no parallel loop" (-1 means "runtime only").
     onnxToKrnlParallelReport(
         op, false, -1, 0, "no par dim with enough work in " + msg);
     return NO_PAR_FOUND;
@@ -677,12 +565,8 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
     onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
     return parId;
   }
-  // A group's region sits at parId but its trip count is the product of the
-  // group's, so reporting the single level's own would understate it. Report
-  // the product when every member is literal, and -1 (the report's "runtime
-  // only" sentinel) as soon as one is not. Deliberately unlike the policy's
-  // `known`, which multiplies the literal factors as a lower bound for
-  // deciding; this describes what was emitted.
+  // Report the group's fused trip count: the product if all members are
+  // literal, else -1 ("runtime only").
   assert(parId >= 0 && parId + decision.numDims <= (int64_t)lbs.size() &&
          "collapsed group must lie inside the bounds it is reported over");
   int64_t fusedTripCount = 1;
@@ -694,10 +578,7 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
     else
       allLiteral = false;
   }
-  // Name both ends of the group: the report's own loop-level column gives only
-  // where the region sits, so a lone "at level 0" leaves the reader to infer
-  // the rest of the group from the count. No comma in the comment: the report
-  // line is comma-separated and impl::onnxToKrnlParallelReport asserts on one.
+  // Name both ends of the group. No comma: the report line is comma-separated.
   onnxToKrnlParallelReport(op, /*successful*/ true, parId,
       allLiteral ? fusedTripCount : -1,
       msg + " with " + std::to_string(decision.numDims) +
@@ -715,8 +596,7 @@ KrnlParallelPlan::KrnlParallelPlan(ValueRange loopDef,
       parLastExclusiveDim(parLastExclusiveDim),
       collapseLastExclusiveDim(collapseLastExclusiveDim), cost(cost),
       exclusiveDims(exclusiveDims.begin(), exclusiveDims.end()) {
-  // A group is a substitution into the loop list, so claiming collapse-safety
-  // without offering refs is a contradiction rather than a no-op.
+  // Collapsing substitutes into the loop refs, so it needs some.
   assert((collapseLastExclusiveDim < 0 || !optLoopDef.empty()) &&
          "a collapse-eligible plan needs loop refs to fuse");
 }
@@ -726,9 +606,7 @@ KrnlParallelPlan::KrnlParallelPlan(ValueRange loopDef, bool enableCollapse,
     int64_t collapseLastExclusiveDim, KrnlParallelCost cost,
     ArrayRef<int64_t> exclusiveDims)
     : KrnlParallelPlan(loopDef, parFirstInclusiveDim, parLastExclusiveDim,
-          // Without the flag this is exactly a noCollapse plan. So is a
-          // rank-0 nest (e.g. a scalar Gather): with no level to fuse, the
-          // claim is vacuous, and the explicit constructor would reject it.
+          // No flag or a rank-0 nest (nothing to fuse): a noCollapse plan.
           enableCollapse && !loopDef.empty() ? collapseLastExclusiveDim : -1,
           cost, exclusiveDims) {}
 
@@ -744,29 +622,23 @@ KrnlParallelPlan::KrnlParallelPlan(ValueRange loopDef, bool enableCollapse,
     KrnlParallelCost cost, ArrayRef<int64_t> exclusiveDims) {
   KrnlParallelPlan plan(/*loopDef=*/{}, parFirstInclusiveDim,
       parLastExclusiveDim, /*collapse last excl*/ -1, cost, exclusiveDims);
-  // Records *why* the ref list is empty, which is what lets tryCreateParallel
-  // reject this kind of plan while tolerating a rank-0 one.
+  // Lets tryCreateParallel tell this plan from a rank-0 one.
   plan.noLoopRefsByDesign = true;
   return plan;
 }
 
 KrnlParallelPlan::~KrnlParallelPlan() {
-  // A collapse no krnl.iterate lists among its optimized loops is never
-  // gathered, so it is silently dropped and its krnl.parallel names a ref with
-  // no loop. Nothing downstream can see that. Plans that never collapsed may go
-  // unread: sites that can never collapse assemble their optimized list
-  // separately.
+  // A collapse no krnl.iterate consumes would be silently dropped, leaving its
+  // krnl.parallel on a ref with no loop. Plans that never collapsed may go
+  // unread.
   assert((!collapsed || consumed) &&
          "a krnl.collapse was emitted into this plan but its "
          "optimizedLoopDef() was never passed to a krnl.iterate");
 }
 
 ValueRange KrnlParallelPlan::optimizedLoopDef() const {
-  // No non-empty assert: a rank-0 output gives a rank-0 nest whose list is
-  // legitimately empty, reading `krnl.iterate() with ()`. Gather reaches this
-  // when outputRank == 0, as do rank-0 Expand and a full Reduction with
-  // keepdims=0. tryCreateParallel reads the same emptiness as "no level to
-  // parallelize", so those sites need no rank guard.
+  // May be empty for a rank-0 nest (e.g. rank-0 Gather or Expand, or a full
+  // Reduction with keepdims=0).
   consumed = true;
   return ValueRange(optLoopDef);
 }
@@ -774,16 +646,13 @@ ValueRange KrnlParallelPlan::optimizedLoopDef() const {
 Value KrnlParallelPlan::collapseAndSubstitute(
     const KrnlBuilder &createKrnl, KrnlParallelDecision decision) {
   assert(decision.hasParallel() && "expected a decision to apply");
-  // Size equality does not hold: several sites legitimately pass fewer loop
-  // refs than bounds, parallelizing only an outer slice of the nest. What must
-  // hold is that the decision lands inside the refs it is about to index.
+  // Sites may pass fewer refs than bounds; the decision must land inside them.
   assert(decision.firstDim >= 0 &&
          decision.firstDim + decision.numDims <= (int64_t)optLoopDef.size() &&
          "decision must land inside the loop refs it indexes");
   if (!decision.isCollapse())
     return optLoopDef[decision.firstDim];
-  // Fuse the group into one ref and substitute it for the group's entries, so
-  // the following krnl.iterate consumes the fused loop.
+  // Fuse the group and substitute the fused ref for its entries.
   ValueRange group(
       ArrayRef<Value>(optLoopDef).slice(decision.firstDim, decision.numDims));
   Value fused = createKrnl.collapse(group);
@@ -796,13 +665,8 @@ Value KrnlParallelPlan::collapseAndSubstitute(
 
 int64_t KrnlParallelPlan::findParallelDim(Operation *op, std::string msg,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs) const {
-  // Passes -1 for the collapse window, so single-level always -- see the
-  // header.
-  //
-  // Not clamped to optLoopDef's size the way tryCreateParallel is: nothing here
-  // indexes the refs, and a site that only asks may pass bounds for a loop it
-  // never defined (a noLoopRefs plan has none), so clamping would narrow the
-  // window to zero and answer "no parallelism" to every such site.
+  // Single level only (collapse window -1). Not clamped to the refs: a
+  // noLoopRefs plan has none.
   KrnlParallelDecision decision =
       decideKrnlParallel(lbs, ubs, parFirstInclusiveDim, parLastExclusiveDim,
           exclusiveDims, /*collapse last excl*/ -1, cost);
@@ -816,17 +680,13 @@ int64_t KrnlParallelPlan::tryCreateParallel(const KrnlBuilder &createKrnl,
   assert(!noLoopRefsByDesign &&
          "emitting needs loop refs; a site that only asks wants "
          "findParallelDim on a noLoopRefs plan");
-  // A rank-0 nest has no level to place a region on, so the answer is "no
-  // parallelism" rather than an error. Reported rather than returned silently,
-  // so the parallel report still accounts for every site it visits.
+  // A rank-0 nest: no parallelism, but still reported.
   if (optLoopDef.empty()) {
     onnxToKrnlParallelReport(op, /*successful*/ false, -1, /*trip count*/ 0,
         "rank-0 nest in " + msg);
     return NO_PAR_FOUND;
   }
-  // Lower an over-wide window to what these refs support, as the search lowers
-  // it to what the bounds support; without this the decision could name a level
-  // outside optLoopDef. Clamping -1 leaves it -1.
+  // Clamp the windows to the refs (-1 stays -1).
   int64_t refCount = optLoopDef.size();
   KrnlParallelDecision decision = decideKrnlParallel(lbs, ubs,
       parFirstInclusiveDim, std::min(parLastExclusiveDim, refCount),
