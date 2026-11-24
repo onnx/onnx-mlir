@@ -100,13 +100,6 @@ struct ParallelTuning {
   // steers how far levels are collapsed and which level gets the region, never
   // whether the code is correct. Must be > 0.
   int64_t expectedThreads;
-  // Most threads the fork-cost test (repaysForkCost) assumes; 0: no cap, use
-  // expectedThreads. Measured on z17 (2026-11-23): with more threads a fork
-  // costs more, but the spinning workers also slow down the sequential code it
-  // is weighed against (an op kept sequential ran 0.1 to 0.2 us slower than in
-  // a sequential build at 4 threads, 0.3 to 0.7 us at 6, 1 to 2 us at 8). The
-  // two cancel: the break-even stays near the 4-thread one, so z17 caps at 4.
-  int64_t maxRepayThreads = 0;
   // Honor KrnlParallelCost::mustRepayFork at the sites that set it. Not
   // a target property: an off switch (--parallel-must-repay-fork=false)
   // to compare against the placement without that test, from the same build.
@@ -185,7 +178,7 @@ inline constexpr ParallelTuning kGenericParallelTuning = {
 // 4 * forkCost on 4 threads.
 inline constexpr ParallelTuning kZ17ParallelTuning = {
     /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
-    /*forkCost=*/2700, /*expectedThreads=*/4, /*maxRepayThreads=*/4};
+    /*forkCost=*/2700, /*expectedThreads=*/4};
 
 // Apple silicon Macs, selected by -march=apple-m* (what -march=native gives).
 // Measured 2026-11-20 on an M4 Max, threads not pinned: an empty region costs

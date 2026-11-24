@@ -321,18 +321,9 @@ static int64_t workPerThreadPerEntry(
 // Does each entry into a region over [first, end) repay its fork/join F?
 // ceil(P/T) * w >= F keeps every entry ~2x faster than sequential at 4 threads
 // (without it, GridFM had one region per edge for 8 elements of work).
-// The thread count is capped at tune.maxRepayThreads where the target sets
-// one: beyond it, the spinning workers slow the sequential alternative about
-// as much as the fork grows (see ParallelTuning::maxRepayThreads).
 static bool repaysForkCost(
     const ParallelNestDesc &desc, int64_t first, int64_t end) {
-  int64_t threads = desc.threads();
-  if (desc.tune.maxRepayThreads > 0)
-    threads = std::min(threads, desc.tune.maxRepayThreads);
-  int64_t width = desc.width(first, end).literalProduct;
-  int64_t perThreadWork = saturatingMul(llvm::divideCeil(width, threads),
-      desc.workPerIteration(end).literalProduct);
-  return perThreadWork >= desc.tune.forkCost;
+  return workPerThreadPerEntry(desc, first, end) >= desc.tune.forkCost;
 }
 
 // The per-entry half of the fork-overhead rule, as this site requires it.
