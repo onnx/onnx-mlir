@@ -313,7 +313,7 @@ static size_t getEnvSize(const char *name, size_t defaultSize) {
   const char *s = getenv(name);
   if (!s)
     return defaultSize;
-  while (*s == ' ' || *s == '\t')
+  while (*s == '\t' || *s == ' ')
     s++;
   // strtoull accepts a sign and negates the value: reject both.
   if (*s < '0' || *s > '9')
