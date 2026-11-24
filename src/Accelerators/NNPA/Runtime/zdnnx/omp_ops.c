@@ -673,6 +673,9 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   // When the mask is broadcast, it has BM entries along E4 and each of them is
   // shared by H = BH / BM consecutive batch elements.
   uint32_t BM = zdnnx_get_num_tiles(&si_mask, E4);
+  if (broadcasting_mask && BM != 0 && BM != BH) {
+    assert(BH % BM == 0 && "BH must be divisible by BM for broadcasting");
+  }
   uint32_t H = (broadcasting_mask && BM != 0 && BM != BH) ? BH / BM : 1;
   uint32_t num_threads = zdnnx_get_num_zaiu_threads();
 
