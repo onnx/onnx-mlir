@@ -2,7 +2,15 @@
 
 # TODO: statically link to libcruntime.a
 
+# The memory cache, or its pass-through (option in the parent directory).
+if (ONNX_MLIR_NNPA_MEMORY_CACHE)
+  set(NNPA_MEMORY_CACHE_SRC OMMemoryCache.c)
+else()
+  set(NNPA_MEMORY_CACHE_SRC OMMemoryCachePassThrough.c)
+endif()
+
 add_onnx_mlir_library(RuntimeNNPA STATIC
+  ${NNPA_MEMORY_CACHE_SRC}
   OMRuntimeNNPA.c
   zdnnx/zdnnx.c
   zdnnx/zdnnx_ops.c

@@ -4,7 +4,7 @@
 
 //===------------------------- NNPACompilerOptions.cpp --------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -141,6 +141,13 @@ llvm::cl::opt<bool> nnpaDisableShapeRestriction(
 llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
     llvm::cl::desc("Disable replacement of malloc with OMHugePageMalloc. "
                    "Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaDisableMemoryCache("nnpa-disable-memory-cache",
+    llvm::cl::desc("Disable the runtime memory cache (OMCacheAlloc) for the "
+                   "temporary buffers that the model frees itself. Also "
+                   "disabled by -nnpa-disable-hugepage-malloc, and at runtime "
+                   "by OM_MEMORY_CACHE_MAX=0. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> nnpaDisableExpandAttentionMask(
