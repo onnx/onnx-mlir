@@ -8,11 +8,22 @@ decomposed into MatMul/Softmax.
 Requirements:
     pip install torch onnx onnxscript transformers onnxruntime
 
-Examples:
-    # Decoders with a fixed-size cache updated by ONNX TensorScatter (opset 24)
-    python export_attention_onnx.py --model ibm-granite/granite-4.1-3b --static-cache \
-        --max-cache-len 4096 --no-optimize
+On my Mac with python@3.14:
+torch                2.12.1
+onnx                 1.22.0
+onnxruntime          1.29.0
+onnxscript           0.7.1
+transformers         5.14.1
 
+Examples:
+    # Most important one
+    # Decoders with KV cache as graph inputs/outputs (prefill + decode)
+    # with a fixed-size cache updated by ONNX TensorScatter (opset 24)
+    # the max cache size is dynamic
+    python export_attention_onnx.py --model ibm-granite/granite-4.1-3b --static-cache \
+        --dynamic-cache-len 4096 --no-optimize
+    
+    
     # Encoders
     python export_attention_onnx.py --model bert-base-uncased
     python export_attention_onnx.py --model ibm-granite/granite-embedding-311m-multilingual-r2 \
@@ -31,6 +42,9 @@ Examples:
     # Offline: tiny randomly initialised model (no download)
     python export_attention_onnx.py --random bert
     python export_attention_onnx.py --random granite --kv-cache --no-optimize
+
+    # Compact: replace weights with ConstantOfShape to shrink the .onnx file
+    python export_attention_onnx.py --random granite --static-cache --compact --no-check
 
     # Compare against the decomposed form
     python export_attention_onnx.py --random bert --opset 18
@@ -67,13 +81,21 @@ Static-cache graph signature (--static-cache, opset 24):
     Prefill: zero buffers, write_indices = 0. Decode: write_indices = tokens
     already in the cache (per sample, may differ). Requires
     write_indices[b] + seq <= max_cache_len.
+
+Sliding window (--static-cache --sliding-window W): explicit attn_mask with
+    slots j <= pos and j > pos - W. Add --circular-cache for a ring buffer
+    (TensorScatter mode="circular", max_cache_len >= W + seq - 1): write_indices
+    is then the absolute position and may exceed max_cache_len; the mask is
+    computed from absolute positions, since slot order != position order.
 """
 
 import argparse
 import collections
+import random
 
 import torch
 import onnx
+import numpy as np
 
 
 # --------------------------------------------------------------------------
@@ -95,7 +117,7 @@ def tiny_config(arch: str):
             False,
         )
     if arch == "gpt2":
-        return GPT2Config(n_embd=64, n_layer=2, n_head=4, vocab_size=1000), True
+        return GPT2Config(n_embd=1024, n_layer=1, n_head=16, vocab_size=1000), True
     if arch == "llama":
         return (
             LlamaConfig(
@@ -116,7 +138,7 @@ def tiny_config(arch: str):
         return (
             GraniteConfig(
                 hidden_size=64,
-                num_hidden_layers=2,
+                num_hidden_layers=1,
                 num_attention_heads=4,
                 num_key_value_heads=2,
                 intermediate_size=128,
@@ -228,17 +250,33 @@ class KVWrapper(torch.nn.Module):
 # --------------------------------------------------------------------------
 # Static (fixed-size) KV cache updated with ONNX TensorScatter (opset 24)
 # --------------------------------------------------------------------------
+def _scatter_eager(past, update, write_indices, circular):
+    out = past.clone()
+    M, s = past.shape[-2], update.shape[-2]
+    for b in range(past.shape[0]):
+        pos = int(write_indices[b]) + torch.arange(s)
+        if circular:
+            pos = pos % M
+        out[b].index_copy_(-2, pos, update[b])
+    return out
+
+
+# One custom op per TensorScatter mode, so the mode is encoded in the op
+# identity rather than in a non-tensor argument.
 @torch.library.custom_op("onnx_kv::tensor_scatter", mutates_args=())
 def tensor_scatter(
     past: torch.Tensor, update: torch.Tensor, write_indices: torch.Tensor
 ) -> torch.Tensor:
-    """Eager reference of ONNX TensorScatter (mode="linear", axis=-2)."""
-    out = past.clone()
-    s = update.shape[-2]
-    for b in range(past.shape[0]):
-        i = int(write_indices[b])
-        out[b, ..., i : i + s, :] = update[b]
-    return out
+    """Eager reference of ONNX TensorScatter (axis=-2, mode="linear")."""
+    return _scatter_eager(past, update, write_indices, False)
+
+
+@torch.library.custom_op("onnx_kv::tensor_scatter_circular", mutates_args=())
+def tensor_scatter_circular(
+    past: torch.Tensor, update: torch.Tensor, write_indices: torch.Tensor
+) -> torch.Tensor:
+    """Eager reference of ONNX TensorScatter (axis=-2, mode="circular")."""
+    return _scatter_eager(past, update, write_indices, True)
 
 
 @tensor_scatter.register_fake
@@ -246,8 +284,12 @@ def _tensor_scatter_fake(past, update, write_indices):
     return torch.empty_like(past)
 
 
+@tensor_scatter_circular.register_fake
+def _tensor_scatter_circular_fake(past, update, write_indices):
+    return torch.empty_like(past)
+
+
 def tensor_scatter_onnx(past, update, write_indices):
-    """Translation of onnx_kv::tensor_scatter into ai.onnx::TensorScatter-24."""
     from onnxscript.values import Opset
 
     return Opset("", 24).TensorScatter(
@@ -255,7 +297,15 @@ def tensor_scatter_onnx(past, update, write_indices):
     )
 
 
-def _make_scatter_cache(config, past, write_indices):
+def tensor_scatter_circular_onnx(past, update, write_indices):
+    from onnxscript.values import Opset
+
+    return Opset("", 24).TensorScatter(
+        past, update, write_indices, axis=-2, mode="circular"
+    )
+
+
+def _make_scatter_cache(config, past, write_indices, circular=False):
     from transformers import DynamicCache
 
     class ScatterCache(DynamicCache):
@@ -267,8 +317,9 @@ def _make_scatter_cache(config, past, write_indices):
             self.presents = {}
 
         def update(self, key_states, value_states, layer_idx, *args, **kwargs):
-            k = tensor_scatter(past[2 * layer_idx], key_states, write_indices)
-            v = tensor_scatter(past[2 * layer_idx + 1], value_states, write_indices)
+            scatter = tensor_scatter_circular if circular else tensor_scatter
+            k = scatter(past[2 * layer_idx], key_states, write_indices)
+            v = scatter(past[2 * layer_idx + 1], value_states, write_indices)
             self.presents[layer_idx] = (k, v)
             return k, v
 
@@ -279,9 +330,11 @@ class StaticKVWrapper(torch.nn.Module):
     """Fixed-size cache: past_key/value.{i} [B, kv_heads, max_cache_len, D] in,
     present_key/value.{i} (same shape) out, written at write_indices[b]."""
 
-    def __init__(self, model):
+    def __init__(self, model, window=None, circular=False):
         super().__init__()
         self.model = model
+        self.window = window
+        self.circular = circular
         self.n_layers = kv_shape_info(model.config)[0]
 
     def forward(self, input_ids, position_ids, write_indices, *past):
@@ -292,8 +345,25 @@ class StaticKVWrapper(torch.nn.Module):
         # query q of sample b (absolute slot write_indices[b] + q) may attend to
         # slots 0..write_indices[b] + q: causal, and hides unwritten slots.
         limit = write_indices[:, None] + q[None, :]  # [B, S]
-        mask = (j[None, None, :] <= limit[:, :, None])[:, None]  # [B, 1, S, M]
-        cache = _make_scatter_cache(self.model.config, past, write_indices)
+        if self.circular:
+            # Slot s holds absolute position a(s): the newest position <= last
+            # written with a % M == s. Negative a = never written. Needs
+            # M >= window + seq - 1 so a chunk never evicts keys it still needs.
+            last = write_indices[:, None] + (input_ids.shape[1] - 1)  # [B, 1]
+            # modulus as a tensor (j[-1] + 1 == M): a symbolic-int scalar has no
+            # aten.remainder.Scalar translation when max_cache_len is dynamic
+            m = j[-1] + 1
+            a = (last - torch.remainder(last - j[None, :], m))[:, None, :]  # [B,1,M]
+            t = limit[:, :, None]  # [B, S, 1]
+            mask = (a >= 0) & (a <= t) & (a > t - self.window)  # [B, S, M]
+        else:
+            mask = j[None, None, :] <= limit[:, :, None]  # [B, S, M]
+            if self.window:  # sliding window: the last `window` slots incl. itself
+                mask = mask & (j[None, None, :] > limit[:, :, None] - self.window)
+        mask = mask[:, None]  # [B, 1, S, M]
+        cache = _make_scatter_cache(
+            self.model.config, past, write_indices, self.circular
+        )
         out = self.model(
             input_ids=input_ids,
             attention_mask=mask,
@@ -306,6 +376,136 @@ class StaticKVWrapper(torch.nn.Module):
         for i in range(self.n_layers):
             presents += list(cache.presents[i])
         return (out.logits, *presents)
+
+
+# --------------------------------------------------------------------------
+# Compact: replace large constants with ConstantOfShape
+# --------------------------------------------------------------------------
+def compact_constants(path, min_elements=32):
+    """Replace large Constant initializers with ConstantOfShape(random value).
+
+    Each constant tensor with >= min_elements is replaced by a Shape ->
+    ConstantOfShape pair, where the fill value is a single random float in
+    [-1, 1]. This dramatically reduces model file size for --random models
+    whose weight values don't matter.
+    """
+    from onnx import helper, TensorProto, numpy_helper
+
+    m = onnx.load(path)
+    g = m.graph
+
+    replaced = 0
+    # Process graph initializers
+    new_initializers = []
+    init_names = set()
+    for init in g.initializer:
+        total = 1
+        for d in init.dims:
+            total *= d
+        if total < min_elements:
+            new_initializers.append(init)
+            continue
+        init_names.add(init.name)
+        replaced += 1
+        val = random.uniform(-1.0, 1.0)
+        dtype = init.data_type
+        shape_name = f"{init.name}__shape"
+        cos_name = init.name
+        shape_const = numpy_helper.from_array(
+            np.array(list(init.dims), dtype=np.int64), name=shape_name
+        )
+        new_initializers.append(shape_const)
+        if dtype == TensorProto.FLOAT:
+            value_tensor = helper.make_tensor("", TensorProto.FLOAT, [1], [float(val)])
+        elif dtype == TensorProto.FLOAT16:
+            value_tensor = helper.make_tensor(
+                "", TensorProto.FLOAT16, [1], [float(val)]
+            )
+        elif dtype == TensorProto.INT64:
+            value_tensor = helper.make_tensor("", TensorProto.INT64, [1], [int(val)])
+        elif dtype == TensorProto.INT32:
+            value_tensor = helper.make_tensor("", TensorProto.INT32, [1], [int(val)])
+        else:
+            # Unsupported dtype, keep original
+            new_initializers.pop()  # remove the shape we just added
+            new_initializers.append(init)
+            init_names.discard(init.name)
+            replaced -= 1
+            continue
+        cos_node = helper.make_node(
+            "ConstantOfShape",
+            [shape_name],
+            [cos_name],
+            name=f"{cos_name}__cos",
+            value=value_tensor,
+        )
+        g.node.insert(0, cos_node)
+
+    del g.initializer[:]
+    g.initializer.extend(new_initializers)
+
+    # Also handle Constant nodes in the graph
+    nodes_to_remove = []
+    nodes_to_add = []
+    for i, n in enumerate(g.node):
+        if n.op_type != "Constant":
+            continue
+        value_attr = None
+        for a in n.attribute:
+            if a.name == "value" and a.t.ByteSize() > 0:
+                value_attr = a.t
+                break
+        if value_attr is None:
+            continue
+        total = 1
+        for d in value_attr.dims:
+            total *= d
+        if total < min_elements:
+            continue
+        out_name = n.output[0]
+        val = random.uniform(-1.0, 1.0)
+        dtype = value_attr.data_type
+        shape_name = f"{out_name}__shape"
+        shape_const = numpy_helper.from_array(
+            np.array(list(value_attr.dims), dtype=np.int64), name=shape_name
+        )
+        g.initializer.append(shape_const)
+        if dtype == TensorProto.FLOAT:
+            vt = helper.make_tensor("", TensorProto.FLOAT, [1], [float(val)])
+        elif dtype == TensorProto.FLOAT16:
+            vt = helper.make_tensor("", TensorProto.FLOAT16, [1], [float(val)])
+        elif dtype == TensorProto.INT64:
+            vt = helper.make_tensor("", TensorProto.INT64, [1], [int(val)])
+        elif dtype == TensorProto.INT32:
+            vt = helper.make_tensor("", TensorProto.INT32, [1], [int(val)])
+        else:
+            continue
+        cos_node = helper.make_node(
+            "ConstantOfShape",
+            [shape_name],
+            [out_name],
+            name=f"{out_name}__cos",
+            value=vt,
+        )
+        nodes_to_remove.append(i)
+        nodes_to_add.append(cos_node)
+        replaced += 1
+
+    for i in reversed(nodes_to_remove):
+        del g.node[i]
+    for n in nodes_to_add:
+        g.node.insert(0, n)
+
+    # Remove external data file if it exists
+    import os
+
+    ext_path = path + ".data"
+    if os.path.exists(ext_path):
+        os.remove(ext_path)
+        print(f"compact: removed external data file {ext_path}")
+
+    onnx.save(m, path)
+    print(f"compact: replaced {replaced} constant(s) with ConstantOfShape")
 
 
 # --------------------------------------------------------------------------
@@ -332,6 +532,13 @@ def report_ops(path):
     print("op histogram:")
     for k, v in sorted(ops.items(), key=lambda kv: -kv[1]):
         print(f"  {v:4d}  {k}")
+    modes = collections.Counter(
+        next((a.s.decode() for a in n.attribute if a.name == "mode"), "linear")
+        for n in m.graph.node
+        if n.op_type == "TensorScatter"
+    )
+    if modes:
+        print("TensorScatter modes:", dict(modes))
     n_attn = ops.get("ai.onnx::Attention", 0)
     if n_attn:
         print(f"OK: {n_attn} native ONNX Attention op(s)")
@@ -591,10 +798,16 @@ def export_static_kv(args, model, out):
     n_layers, kv_heads, head_dim = kv_shape_info(cfg)
     M = args.max_cache_len
     print(f"static KV cache: {n_layers} layers x [batch, {kv_heads}, {M}, {head_dim}]")
-    wrapped = StaticKVWrapper(model).eval()
+    wrapped = StaticKVWrapper(model, args.sliding_window, args.circular_cache).eval()
 
     B, S, P = args.batch, args.seq, args.past_seq
-    if P + S > M:
+    if args.circular_cache:
+        if M < args.sliding_window + S - 1:
+            raise SystemExit(
+                f"--circular-cache needs --max-cache-len ({M}) >= "
+                f"--sliding-window + --seq - 1 ({args.sliding_window + S - 1})"
+            )
+    elif P + S > M:
         raise SystemExit(
             f"--past-seq + --seq ({P + S}) must be <= --max-cache-len ({M})"
         )
@@ -617,12 +830,17 @@ def export_static_kv(args, model, out):
         output_names += [f"present_key.{i}", f"present_value.{i}"]
 
     dbatch = torch.export.Dim("batch", min=1, max=64)
-    dseq = torch.export.Dim("seq", min=1, max=M)
+    dseq = torch.export.Dim("seq", min=1, max=args.max_seq)
+    if args.dynamic_cache_len:
+        dcache = torch.export.Dim("max_cache_len", min=2, max=args.cache_len_bound)
+        past_shape = {0: dbatch, 2: dcache}
+    else:
+        past_shape = {0: dbatch}  # max_cache_len stays static
     dynamic_shapes = (
         {0: dbatch, 1: dseq},
         {0: dbatch, 1: dseq},
         {0: dbatch},
-        tuple({0: dbatch} for _ in past),  # max_cache_len stays static
+        tuple(dict(past_shape) for _ in past),
     )
 
     with torch.no_grad():
@@ -636,12 +854,13 @@ def export_static_kv(args, model, out):
             dynamic_shapes=dynamic_shapes,
             optimize=not args.no_optimize,
             custom_translation_table={
-                torch.ops.onnx_kv.tensor_scatter.default: tensor_scatter_onnx
+                torch.ops.onnx_kv.tensor_scatter.default: tensor_scatter_onnx,
+                torch.ops.onnx_kv.tensor_scatter_circular.default: tensor_scatter_circular_onnx,
             },
         )
     prog.save(out)
     print(f"saved {out}")
-    if not args.attn_mask:
+    if not args.attn_mask and not args.sliding_window:
         rewrite_attention_nonpad(out, native_gqa=not args.keep_repeat_kv)
     report_ops(out)
 
@@ -652,14 +871,23 @@ def export_static_kv(args, model, out):
     # Prefill t0 tokens into an all-zero buffer at slot 0, then decode 3 tokens
     # one at a time at write_indices = current length, feeding present -> past.
     # Sample 1 uses a shorter prompt (t0 - 2) so write_indices differ per batch.
-    b, t0, steps = 2, 7, 3
+    # Circular: decode long enough to wrap around the (small) buffer.
+    b, t0, steps = 2, 7, (12 if args.circular_cache else 3)
     lens = [t0, t0 - 2]
     ids = torch.randint(0, vocab, (b, t0 + steps), dtype=torch.long)
     refs = []
     with torch.no_grad():
         for k in range(b):
             seq_k = torch.cat([ids[k, : lens[k]], ids[k, t0:]])[None]
-            refs.append(model(input_ids=seq_k, use_cache=False).logits[0].numpy())
+            kw = {}
+            if args.sliding_window:
+                T = seq_k.shape[1]
+                ii = torch.arange(T)
+                kw["attention_mask"] = (
+                    (ii[None, :] <= ii[:, None])
+                    & (ii[None, :] > ii[:, None] - args.sliding_window)
+                )[None, None]
+            refs.append(model(input_ids=seq_k, use_cache=False, **kw).logits[0].numpy())
 
     def run(step_ids, pos, pkv):
         s = step_ids.shape[1]
@@ -672,25 +900,39 @@ def export_static_kv(args, model, out):
             f[f"past_key.{i}"], f[f"past_value.{i}"] = pkv[2 * i], pkv[2 * i + 1]
         return sess.run(None, f)
 
-    zero = np.zeros((b, kv_heads, M, head_dim), np.float32)
-    # prefill: right-pad sample 1's prompt; its pad positions get overwritten
-    # by the first decode step because write_indices[1] = lens[1].
-    outs = run(ids[:, :t0], [0, 0], [zero] * (2 * n_layers))
-    d = max(np.abs(outs[0][k, : lens[k]] - refs[k][: lens[k]]).max() for k in range(b))
-    print(
-        f"prefill  (prompt lens {lens}, write_indices [0, 0]): logits max diff {d:.3e}, "
-        f"present_key.0 {outs[1].shape}"
-    )
-    pos = list(lens)
-    for step in range(steps):
-        tok = torch.stack([ids[0, t0 + step], ids[1, t0 + step]])[:, None]
-        outs = run(tok, pos, outs[1:])
-        d = max(np.abs(outs[0][k, 0] - refs[k][lens[k] + step]).max() for k in range(b))
+    if args.circular_cache:  # smallest legal buffer wraps; M and 2M may not
+        sizes = (
+            sorted({M, args.sliding_window + t0 - 1, 2 * M})
+            if args.dynamic_cache_len
+            else [M]
+        )
+    else:
+        sizes = [M, t0 + steps + 3, 2 * M] if args.dynamic_cache_len else [M]
+    for Mrun in sizes:
+        print(f"-- cache buffer length {Mrun}")
+        zero = np.zeros((b, kv_heads, Mrun, head_dim), np.float32)
+        # prefill: right-pad sample 1's prompt; its pad positions get overwritten
+        # by the first decode step because write_indices[1] = lens[1].
+        outs = run(ids[:, :t0], [0, 0], [zero] * (2 * n_layers))
+        d = max(
+            np.abs(outs[0][k, : lens[k]] - refs[k][: lens[k]]).max() for k in range(b)
+        )
         print(
-            f"decode   (1 tok, write_indices {pos}): logits max diff {d:.3e}, "
+            f"prefill  (prompt lens {lens}, write_indices [0, 0]): logits max diff {d:.3e}, "
             f"present_key.0 {outs[1].shape}"
         )
-        pos = [p + 1 for p in pos]
+        pos = list(lens)
+        for step in range(steps):
+            tok = torch.stack([ids[0, t0 + step], ids[1, t0 + step]])[:, None]
+            outs = run(tok, pos, outs[1:])
+            d = max(
+                np.abs(outs[0][k, 0] - refs[k][lens[k] + step]).max() for k in range(b)
+            )
+            print(
+                f"decode   (1 tok, write_indices {pos}): logits max diff {d:.3e}, "
+                f"present_key.0 {outs[1].shape}"
+            )
+            pos = [p + 1 for p in pos]
 
 
 def main():
@@ -721,6 +963,20 @@ def main():
         "rewriting to nonpad_kv_seqlen + is_causal=1",
     )
     p.add_argument(
+        "--sliding-window",
+        type=int,
+        default=None,
+        help="--static-cache: restrict every layer to the last W tokens "
+        "(explicit attn_mask; implies --attn-mask)",
+    )
+    p.add_argument(
+        "--circular-cache",
+        action="store_true",
+        help="--static-cache: TensorScatter mode=circular; the buffer is a ring "
+        "of --max-cache-len slots (>= --sliding-window + seq - 1). "
+        "Requires --sliding-window; mask is computed from absolute positions",
+    )
+    p.add_argument(
         "--keep-repeat-kv",
         action="store_true",
         help="--static-cache: keep the exported repeat_kv (no native GQA)",
@@ -728,8 +984,21 @@ def main():
     p.add_argument(
         "--max-cache-len",
         type=int,
-        default=256,
-        help="cache buffer length for --static-cache (static dim)",
+        default=None,
+        help="cache buffer length for --static-cache (example size if "
+        "--dynamic-cache-len). Default 256; with --circular-cache "
+        "the minimum, --sliding-window + --seq - 1",
+    )
+    p.add_argument(
+        "--dynamic-cache-len",
+        action="store_true",
+        help="--static-cache: make the cache buffer length a symbolic dim",
+    )
+    p.add_argument(
+        "--cache-len-bound",
+        type=int,
+        default=131072,
+        help="upper bound of the dynamic cache length dim",
     )
     p.add_argument(
         "--opset",
@@ -758,8 +1027,23 @@ def main():
     p.add_argument(
         "--no-check", action="store_true", help="skip onnxruntime comparison"
     )
+    p.add_argument(
+        "--compact",
+        action="store_true",
+        help="replace large constants with ConstantOfShape (random "
+        "values in [-1, 1]) to reduce .onnx file size; useful "
+        "with --random where exact weights don't matter",
+    )
     args = p.parse_args()
 
+    if args.circular_cache:
+        args.static_cache = True
+        if not args.sliding_window:
+            raise SystemExit("--circular-cache requires --sliding-window W")
+    if args.max_cache_len is None:
+        args.max_cache_len = (
+            args.sliding_window + args.seq - 1 if args.circular_cache else 256
+        )
     if args.static_cache:
         args.kv_cache = True
     if args.opset is None:
@@ -776,7 +1060,11 @@ def main():
         print("WARNING: model is not using SDPA; there will be no Attention op to map.")
 
     tag = (args.random or args.model).replace("/", "_")
-    kind = "_static_kv" if args.static_cache else ("_kv" if args.kv_cache else "")
+    kind = (
+        "_sliding"
+        if args.sliding_window
+        else ("_static_kv" if args.static_cache else ("_kv" if args.kv_cache else ""))
+    )
     out = args.out or f"{tag}{kind}_opset{args.opset}.onnx"
 
     if args.kv_cache:
@@ -790,6 +1078,9 @@ def main():
             export_kv(args, model, out)
     else:
         export_plain(args, model, causal, out)
+
+    if args.compact:
+        compact_constants(out)
 
 
 if __name__ == "__main__":
