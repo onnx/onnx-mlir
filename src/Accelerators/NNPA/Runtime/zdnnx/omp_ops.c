@@ -15,6 +15,7 @@
 
 #ifdef ZDNNX_WITH_OMP
 
+#include <assert.h>
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
