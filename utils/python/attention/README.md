@@ -1,9 +1,10 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
 # Overview
-The script, export_attention_onnx.py, is intended to export transformer models in Hugging Face to onnx model with AttentionOp. The exporting could use the pre-trained weights, or just random weight for development. Both way will keep the basic feature of the model, such as attention heads and is causal or not.
+The script, export_attention_onnx.py, is intended to export transformer models in Hugging Face to onnx model with AttentionOp. The exporting could use the pre-trained weights, or just random weight for development. Both way will keep the basic
+feature of each layer, such as attention heads, and number of states.
 
--- Use pre-trained weight. Use the name card of the Hugging Face model to the `--model` parameter. The script will download the model from Hugging Face and export to onnx.
+-- Use pre-trained weight. Use the name card of the Hugging Face model to the `--model` parameter. The script will download the model from Hugging Face and export to onnx. For example, granite 4.1 decoder with static cache with dynamic size: `python export_attention_onnx.py --model ibm-granite/granite-4.1-3b --static-cache --dynamic-cache-len --no-optimize`
 -- Use random weigth. The script support several models, such as "bert", "gpt2", "llama", "granite", and "modernbert". The script will use the configure class of these model to create onnx model. The weights are random values. If option "--compact" is used, each weight will have one scalar value and the size of the onnx model will be very small.
 
 The script also provides the driver to run the model. It compares the execution output from PyTorch and onnxruntime to verify the correctness. So far the execution driver is NOT used independently because it needs to know how the model is exported, not just the onnx file. 
