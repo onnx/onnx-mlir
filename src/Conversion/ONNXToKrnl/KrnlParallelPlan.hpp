@@ -60,46 +60,40 @@ static constexpr int64_t NO_COLLAPSE_CLAIM = -1;
 struct KrnlParallelCost {
   // This site's floor on the trip count worth a parallel region.
   int64_t minTripCount = 4;
-  // Roughly how much work one iteration of this nest's innermost loop does, in
-  // *work units*: one scalar operation, or one element copied, counts as 1. An
-  // order of magnitude read off the body:
+
+  // Work of one iteration of the innermost level of the bounds handed to the
+  // decision, including everything the body hides there (inner krnl or scf
+  // loops, SIMD spans, memcpy). In work units: 1 = one simple vectorized
+  // element op on z17 (~0.2 ns). One digit of precision is enough. Per
+  // element (z17-measured, 2026-11-23):
   //
-  //      1   a copy: a load and a store
-  //     10   a handful of arithmetic ops, an index computation, a compare
-  //   1000   a transcendental, an interpolation kernel, a whole tile
+  //      1   streamed SIMD copy, conversion or simple op; loads and stores
+  //          overlap with the ops and are not counted (Abs 0.8, ReduceSum
+  //          0.5, stick or unstick ~0.7)
+  //      2   strided or scalar copy (Slice ~1.7)
+  //     10   exp, log, divide, sqrt, erf (Erf 14); a scalar body of a handful
+  //          of ops (a gather or scatter with its index math)
+  //     50   pow, trigonometry (Sin 48, Pow 62)
   //
-  // One digit is enough: it feeds how far a group may grow and the
-  // denominator of the index-recovery ratio, which both ask whether the body
-  // is big enough to hide an integer divide, and the fork-cost test, which asks
-  // whether one region entry under a dynamic loop (or any entry, with
-  // mustRepayFork) does at least forkCost of work.
+  // Add ~10 to 20 per iteration for a call or offset computation that does
+  // not scale with the elements (a memcpy of a small block). For a SIMD op
+  // mix, use estimateWorkPerElement (ONNXToKrnlCommon.hpp).
   //
-  // Work units and not cycles, deliberately. Cycles would be the ideal unit --
-  // the recovery chain it is weighed against is measured in them -- but pricing
-  // a bulk copy in cycles needs a bytes-per-cycle or vector-width constant that
-  // no target here has measured, and guessing it *low* is the unsafe direction
-  // (see below). So a copied element counts as 1 even though vectorization
-  // makes it cheaper than a scalar op, which means the recovery ratio
-  // (CandidateMetrics::recoveryPercentOfWork) understates the true fraction of
-  // runtime for bulk-copy bodies, by roughly the vector width. minAmortWork is
-  // calibrated in these same units.
-  //
-  // A body that loops or copies over N elements multiplies through: a
-  // 128-element memcpy is ~128, an scf loop of N iterations around ten ops is
-  // ~10N. Any site whose innermost krnl iteration hides a memcpy, an scf loop
-  // or a SIMD span **must** set this -- under-declaring it stops a group from
-  // growing, which changes the candidate set rather than merely narrowing the
-  // winner, and can pick an answer worse than no collapse at all.
-  //
-  // Cannot be inferred: when the decision runs the body is not built yet.
+  // Read by the collapse growth guard and the index-recovery ratio (is the
+  // body big enough to hide an integer divide?) and by the fork-cost test
+  // (does one entry do at least forkCost of work?). Under-declaring is the
+  // unsafe direction: it stops a group from growing, which can pick an answer
+  // worse than no collapse, and with mustRepayFork it drops regions that
+  // would pay. Any site whose iteration hides a loop, a memcpy or a SIMD span
+  // must set it. It cannot be inferred: the body is not built yet.
   int64_t bodyCost = 1;
+
   // Require every region entry to repay its fork cost (work per thread per
-  // entry at least forkCost) even with a known entry count. By default only a
-  // region under a dynamic loop must: a static one is bounded by maxForkCount
-  // instead. Opt in where a single entry may do too little work for a fork to
-  // pay, and set an honest bodyCost with it, since the test is computed from
-  // it. On z17 (forkCost 2,700) a flat loop of bodyCost 1 then needs about
-  // 10,800 iterations, where going parallel halves the time on 4 threads.
+  // entry >= forkCost), even with a known entry count. By default only a
+  // region under a dynamic loop must; a static one is capped by maxForkCount
+  // instead. Opt in where one entry may do less work than a fork costs, with
+  // an honest bodyCost. On z17 at 4 threads, a loop of bodyCost 1 then needs
+  // ~10,800 iterations, the measured break-even of a streamed copy.
   bool mustRepayFork = false;
 };
 

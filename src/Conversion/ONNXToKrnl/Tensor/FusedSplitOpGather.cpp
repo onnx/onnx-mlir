@@ -200,13 +200,13 @@ struct ONNXFusedSplitOpGatherLowering
       // other collapse sites, so index recovery is a single divide.
       //
       // bodyCost: one outer iteration runs both halves' SIMD loops, D elements
-      // in all, each a load, the op and a store (a fourth unit with an
-      // external operand): ~3 x D.
+      // in all, ~1 work unit each (streamed SIMD load, op and store; z17
+      // measured 0.6 to 0.8 for such elementwise ops).
       int64_t parLevels = std::min(rank - 1, (int64_t)2);
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
           /*collapseLastExclusiveDim=*/parLevels,
-          {.minTripCount = 4, .bodyCost = 3 * D, .mustRepayFork = true});
+          {.minTripCount = 4, .bodyCost = D, .mustRepayFork = true});
       if (enableParallel) {
         plan.tryCreateParallel(create.krnl, fusedOp.getOperation(),
             "simd-split-op-gather fused outer loop", lbs, ubs);

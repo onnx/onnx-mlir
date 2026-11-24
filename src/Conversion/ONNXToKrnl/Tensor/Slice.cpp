@@ -62,10 +62,11 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
-    // bodyCost 1: one innermost iteration is a strided load and a store.
+    // bodyCost 2: one innermost iteration is a strided scalar load and a
+    // store, not vectorized (z17: ~1.7 per element measured).
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2,
-        {.minTripCount = 4, .bodyCost = 1, .mustRepayFork = true});
+        {.minTripCount = 4, .bodyCost = 2, .mustRepayFork = true});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "slice", lbs, ubs);
 

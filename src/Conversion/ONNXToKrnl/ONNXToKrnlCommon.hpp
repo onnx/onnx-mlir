@@ -849,13 +849,16 @@ int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount);
 
-// Rough work of one element of a loop with this op mix, in
-// KrnlParallelCost::bodyCost's work units: one per load or store
-// (numLoadsAndStores), 1 per simple op, 10 per divide, square root, exp, log,
-// pow or erf, and 50 per trigonometric op. An order of magnitude, as bodyCost
-// asks for. z17, 2026-11-23: Sin ~48 and Erf ~16 units per value, all loads
-// and stores included.
-int64_t estimateWorkPerElement(const GenOpMix &mix, int64_t numLoadsAndStores);
+// Rough work of one element of a SIMD loop with this op mix, in
+// KrnlParallelCost::bodyCost's work units: 1 per simple op, 10 per divide,
+// square root, exp, log or erf, 50 per pow or trigonometric op, plus
+// extraWorkPerElement (e.g. dlf16 conversions, about 1 each); at least 1.
+// Loads and stores are not counted: streamed through SIMD code they overlap
+// with the ops. An order of magnitude, as bodyCost asks for. Measured on z17
+// (2026-11-23, sequential, per value): Abs 0.8, Relu 0.6, ReduceSum 0.5, Erf
+// 14, Sin on sticks 48, Pow 62.
+int64_t estimateWorkPerElement(
+    const GenOpMix &mix, int64_t extraWorkPerElement = 0);
 
 // Compute a suitable SIMD Vector Length (totVL). If no SIMD is suitable,
 // return totVL = 1. Type determine the archVL for the given memRefType. Then

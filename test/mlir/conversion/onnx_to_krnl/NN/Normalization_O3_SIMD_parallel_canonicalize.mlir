@@ -1,4 +1,6 @@
-// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --march=z16 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --mtriple=s390x-ibm-loz --march=z16 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel code; by default most no longer repay a fork and stay sequential.
 
 // use --mtriple=s390x-ibm-loz --march=z16 to enable SIMD as we now need a machine
 // can also use --march=x86-64 instead.

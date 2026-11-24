@@ -545,12 +545,11 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
         };
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
     int64_t unrollFactor = 8;
-    // Work per value, for the parallel decision: the op itself, plus a load
-    // and a dlf16 conversion per input and a conversion, saturation and store
-    // for the output.
+    // Work per value, for the parallel decision: the op itself, plus a dlf16
+    // conversion per input and one for the output.
     GenOpMix mix = getGenOpMix<ElementwiseOp>(rewriter.getF32Type(), op);
     int64_t workPerValue =
-        estimateWorkPerElement(mix, 2 * (int64_t)op->getNumOperands() + 3);
+        estimateWorkPerElement(mix, (int64_t)op->getNumOperands() + 1);
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
         shapeHelper->getOutputDims(), unrollFactor, enableParallel,
         disableSaturation, true /*prefetch*/, workPerValue, fct);
@@ -681,17 +680,17 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     //
     // The plan is handed E2's bound in tiles, ceil(E2 / B): that is the tile
     // loop's trip count, and what a collapsed E2 iterates. bodyCost: one
-    // iteration normalizes B rows of E1 values, ~20 work units per value: the
-    // statistics pass (load, conversion, square, sums through the reduction
-    // buffers) and the normalize pass (loads and conversions of x, scale and
-    // bias, four ops, saturation, conversion, store).
+    // iteration normalizes B rows of E1 values, ~10 work units per value, as
+    // for the CPU LayerNorm (Normalization.cpp, where 10 matched the z17
+    // break-even): the statistics pass and the normalize pass, with their
+    // dlf16 conversions.
     int64_t outerRank = ubs.size();
     int64_t parRank = std::min(outerRank, static_cast<int64_t>(2));
     KrnlParallelPlan plan(outerOptLoops, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parRank,
         /*collapseLastExclusiveDim=*/outerRank,
         {.minTripCount = 4,
-            .bodyCost = 20 * B * E1.getLiteral(),
+            .bodyCost = 10 * B * E1.getLiteral(),
             .mustRepayFork = true});
     if (enableParallel) {
       // LBs and UBs are here only used to determine when/where parallelism is

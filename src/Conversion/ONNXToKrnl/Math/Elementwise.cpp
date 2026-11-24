@@ -1609,12 +1609,12 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       //
       // The bound is in elements, a whole flattened tensor entered once, so
       // the region must repay its fork cost: bodyCost is one element's work,
-      // from the op mix plus a load per operand and the store.
+      // from the op mix.
       GenOpMix mix = getGenOpMix<OP_TYPE>(outputElementType, op);
       auto simdPlan = KrnlParallelPlan::noLoopRefs(/*first*/ 0,
           /*last excl*/ 1,
           {.minTripCount = VL * 32,
-              .bodyCost = estimateWorkPerElement(mix, numArgs + 1),
+              .bodyCost = estimateWorkPerElement(mix),
               .mustRepayFork = true});
       if (simdPlan.findParallelDim(op,
               "inner-loop of elementwise simd partially flattened", {zero},

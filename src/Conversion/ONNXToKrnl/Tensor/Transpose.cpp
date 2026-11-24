@@ -265,15 +265,15 @@ private:
     //
     // bodyCost is the block length plus the call: one innermost iteration
     // here copies elemsToCopy elements, so that many work units, not the one a
-    // scalar body would cost, plus ~20 for the two offsets and the memcpy
-    // call, which dominate small blocks. Declaring it is what lets a group be
-    // judged against the work it is amortized over, and a region against its
-    // fork cost.
+    // scalar body would cost, plus ~8 for the two offsets and the memcpy
+    // call (z17: blocks of 8 measured ~2 per element). Declaring it is what
+    // lets a group be judged against the work it is amortized over, and a
+    // region against its fork cost.
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2,
         {.minTripCount = 8,
             .bodyCost =
-                elemsToCopy.isLiteral() ? elemsToCopy.getLiteral() + 20 : 1,
+                elemsToCopy.isLiteral() ? elemsToCopy.getLiteral() + 8 : 1,
             // Only with a known block length: at 1 a dynamic block would be
             // taken for almost no work.
             .mustRepayFork = elemsToCopy.isLiteral()});

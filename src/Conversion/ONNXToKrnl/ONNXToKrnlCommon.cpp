@@ -710,17 +710,19 @@ bool isOverComputeSafe(Operation *op) {
 }
 
 // New style.
-int64_t estimateWorkPerElement(const GenOpMix &mix, int64_t numLoadsAndStores) {
-  int64_t work = numLoadsAndStores;
+int64_t estimateWorkPerElement(
+    const GenOpMix &mix, int64_t extraWorkPerElement) {
+  int64_t work = extraWorkPerElement;
   for (auto [gop, count] : mix) {
     if (gop >= GenericOps::LastGop)
       continue; // A metric, not an operation.
-    bool trig = gop == GenericOps::TrigGop || gop == GenericOps::TrigArcGop ||
-                gop == GenericOps::TrigHyperbolicGop;
+    bool veryExpensive =
+        gop == GenericOps::PowGop || gop == GenericOps::TrigGop ||
+        gop == GenericOps::TrigArcGop || gop == GenericOps::TrigHyperbolicGop;
     bool expensive = gop == GenericOps::DivGop || gop == GenericOps::SqrtGop ||
                      gop == GenericOps::ExpGop || gop == GenericOps::LogGop ||
-                     gop == GenericOps::PowGop || gop == GenericOps::ErfGop;
-    work += count * (trig ? 50 : (expensive ? 10 : 1));
+                     gop == GenericOps::ErfGop;
+    work += count * (veryExpensive ? 50 : (expensive ? 10 : 1));
   }
   return std::max<int64_t>(1, work);
 }

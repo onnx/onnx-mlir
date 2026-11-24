@@ -437,11 +437,11 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   // Test if loop trip count is long enough for a parallel execution.
   if (enableParallel) {
     // The bound is in elements, the whole flattened input entered once, so the
-    // region must repay its fork cost: bodyCost is one element's work, its
-    // load and the reduction ops (accumulated in registers, no store).
+    // region must repay its fork cost: bodyCost is one element's work, the
+    // reduction ops (accumulated in registers).
     auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
         {.minTripCount = 32 * totVL,
-            .bodyCost = estimateWorkPerElement(mix, /*numLoadsAndStores=*/1),
+            .bodyCost = estimateWorkPerElement(mix),
             .mustRepayFork = true});
     if (plan.findParallelDim(op, "simd reduction to one element", {lb}, {ub}) ==
         NO_PAR_FOUND)

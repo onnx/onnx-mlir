@@ -51,7 +51,7 @@ struct ParallelTuning {
   int64_t minParTripCountFloor;
   // Smallest amount of work one collapsed iteration must cover for an index
   // recovery chain to stay amortized, in KrnlParallelCost::bodyCost's
-  // work units -- one scalar op or one copied element per unit -- since that is
+  // work units -- one simple vectorized element op per unit -- since that is
   // what it is compared against.
   //
   // A *depth* guard, not a worth-it guard: it stops a collapsed group from
