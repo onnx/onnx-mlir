@@ -713,6 +713,7 @@ bool isOverComputeSafe(Operation *op) {
 int64_t estimateWorkPerElement(
     const GenOpMix &mix, int64_t extraWorkPerElement) {
   int64_t work = extraWorkPerElement;
+  int64_t simpleOps = 0;
   for (auto [gop, count] : mix) {
     if (gop >= GenericOps::LastGop)
       continue; // A metric, not an operation.
@@ -721,13 +722,18 @@ int64_t estimateWorkPerElement(
         gop == GenericOps::TrigArcGop || gop == GenericOps::TrigHyperbolicGop;
     bool expensive = gop == GenericOps::DivGop || gop == GenericOps::SqrtGop ||
                      gop == GenericOps::ExpGop || gop == GenericOps::LogGop;
-    int64_t weight =
-        veryExpensive ? 50
-        : gop == GenericOps::ErfGop
-            ? 20 // Measured 14: round up, under-declaring is unsafe.
-            : (expensive ? 10 : 1);
-    work += count * weight;
+    if (veryExpensive)
+      work += 50 * count;
+    else if (gop == GenericOps::ErfGop)
+      work += 30 * count; // Measured 14, but compute-bound: pays off sooner.
+    else if (expensive)
+      work += 10 * count;
+    else
+      simpleOps += count;
   }
+  // Up to three simple ops issue together: z17 measured ~1 per value for one
+  // to three of them (Abs, Relu, PRelu, Greater with a Cast).
+  work += (simpleOps + 2) / 3;
   return std::max<int64_t>(1, work);
 }
 

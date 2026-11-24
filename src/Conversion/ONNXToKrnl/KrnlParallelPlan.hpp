@@ -67,13 +67,13 @@ struct KrnlParallelCost {
   // element op on z17 (~0.2 ns). One digit of precision is enough. Per
   // element (z17-measured, 2026-11-23):
   //
-  //      1   streamed SIMD copy, conversion or simple op; loads and stores
-  //          overlap with the ops and are not counted (Abs 0.8, ReduceSum
-  //          0.5, stick or unstick ~0.7)
+  //      1   streamed copy or conversion, or up to three simple ops; loads
+  //          and stores overlap with the ops and are not counted (Abs 0.8,
+  //          ReduceSum 0.5, PRelu 1.0, stick or unstick ~0.7)
   //      2   strided or scalar copy (Slice ~1.7)
   //     10   exp, log, divide, sqrt; a scalar body of a handful of ops (a
   //          gather or scatter with its index math)
-  //     20   erf (Erf 14; 10 kept it sequential where parallel was 2x faster)
+  //     30   erf (Erf 14, but compute-bound ops gain from threads sooner)
   //     50   pow, trigonometry (Sin 48, Pow 62)
   //
   // Add ~10 to 20 per iteration for a call or offset computation that does

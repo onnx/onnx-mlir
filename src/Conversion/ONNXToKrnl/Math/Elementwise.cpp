@@ -1761,7 +1761,7 @@ public:
   bool isFusibleListEmpty() { return fusibleOps.size() == 0; }
 
   // Work per element of the fused ops, in KrnlParallelCost::bodyCost's units:
-  // each op's mix, plus a scalar load per operand beyond the fused value.
+  // each op's mix (estimateWorkPerElement).
   int64_t fusedOpsWork() const;
 
   // The final output type after fusion.
@@ -1791,8 +1791,7 @@ int64_t OpFusionHelper::fusedOpsWork() const {
   for (Operation *fusedOp : fusibleOps) {
     Type elementType = getElementTypeOrSelf(fusedOp->getResult(0).getType());
     work += estimateWorkPerElement(
-        getGenOpMixForElementwiseOp(elementType, fusedOp),
-        (int64_t)fusedOp->getNumOperands() - 1);
+        getGenOpMixForElementwiseOp(elementType, fusedOp));
   }
   return work;
 }
@@ -2252,12 +2251,11 @@ struct ONNXElementwiseUnaryOpLowering
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
       //
-      // bodyCost: one scalar element, the op's mix plus its loads and store
-      // (scalar code does not overlap them), plus the fused consumers.
+      // bodyCost: one element, the op's mix plus the fused consumers (loads
+      // and stores overlap with them; LLVM vectorizes these loops).
       int64_t scalarWork =
           estimateWorkPerElement(
-              getGenOpMix<ElementwiseUnaryOp>(outputElementType, op),
-              /*extraWorkPerElement=*/(int64_t)op->getNumOperands() + 1) +
+              getGenOpMix<ElementwiseUnaryOp>(outputElementType, op)) +
           opFusionHelper.fusedOpsWork();
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
@@ -2449,12 +2447,11 @@ struct ONNXElementwiseBinaryOpLowering
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
       //
-      // bodyCost: one scalar element, the op's mix plus its loads and store
-      // (scalar code does not overlap them), plus the fused consumers.
+      // bodyCost: one element, the op's mix plus the fused consumers (loads
+      // and stores overlap with them; LLVM vectorizes these loops).
       int64_t scalarWork =
           estimateWorkPerElement(
-              getGenOpMix<ElementwiseBinaryOp>(outputElementType, op),
-              /*extraWorkPerElement=*/(int64_t)op->getNumOperands() + 1) +
+              getGenOpMix<ElementwiseBinaryOp>(outputElementType, op)) +
           opFusionHelper.fusedOpsWork();
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
@@ -2637,15 +2634,14 @@ struct ONNXElementwiseVariadicOpLowering
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
       //
-      // bodyCost: one scalar element, the op's mix once per pair of inputs
-      // plus a load per input and the store (scalar code does not overlap
-      // them), plus the fused consumers.
+      // bodyCost: one element, the op's mix once per pair of inputs, plus the
+      // fused consumers (loads and stores overlap with them).
       int64_t numInputs = op->getNumOperands();
       int64_t scalarWork =
           estimateWorkPerElement(
               getGenOpMix<ElementwiseVariadicOp>(outputElementType, op)) *
               std::max<int64_t>(1, numInputs - 1) +
-          numInputs + 1 + opFusionHelper.fusedOpsWork();
+          opFusionHelper.fusedOpsWork();
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
@@ -2773,11 +2769,11 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
       //
-      // bodyCost 5: one scalar element, three loads, a select and a store.
+      // bodyCost 1: one element, a select (loads and stores overlap with it).
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCount = 4, .bodyCost = 5, .mustRepayFork = true});
+          {.minTripCount = 4, .bodyCost = 1, .mustRepayFork = true});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "where op not simdized", lbs, ubs);
