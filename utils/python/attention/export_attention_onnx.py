@@ -117,13 +117,6 @@ def tiny_config(arch: str):
             False,
         )
     if arch == "gpt2":
-        """
-        size  n_layer n_head n_embd
-        small      12   12    768
-        medium     24   16    1024
-        large      36   20    1280
-        XL         48   25    1600
-        """
         return GPT2Config(n_embd=1024, n_layer=1, n_head=16, vocab_size=1000), True
     if arch == "llama":
         return (
@@ -1067,9 +1060,12 @@ def main():
         print("WARNING: model is not using SDPA; there will be no Attention op to map.")
 
     tag = (args.random or args.model).replace("/", "_")
-    kind = "_static_kv" if args.static_cache else ("_kv" if args.kv_cache else "")
-    mask_tag = "_mask" if args.attn_mask else ""
-    out = args.out or f"{tag}{kind}{mask_tag}_opset{args.opset}.onnx"
+    kind = (
+        "_sliding"
+        if args.sliding_window
+        else ("_static_kv" if args.static_cache else ("_kv" if args.kv_cache else ""))
+    )
+    out = args.out or f"{tag}{kind}_opset{args.opset}.onnx"
 
     if args.kv_cache:
         if not causal:
