@@ -98,6 +98,7 @@ int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
 int64_t parallelForkCost;                              // common for both
 bool parallelMustRepayFork;                            // common for both
+bool disableGemmSmallN;                                // common for both
 int64_t parallelExpectedThreads = -1; // set by --parallel=<N>; onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
@@ -837,6 +838,14 @@ static llvm::cl::opt<bool, true> parallelMustRepayForkOpt(
         "its fork cost even with a known entry count (default=true). Set to\n"
         "false to compare against the placement without that test."),
     llvm::cl::location(parallelMustRepayFork), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableGemmSmallNOpt("disable-gemm-small-n",
+    llvm::cl::desc(
+        "Lower Gemm with a small static N (number of output columns) and a\n"
+        "static K with the generic tiled kernel instead of the small-N kernel\n"
+        "(default=false)."),
+    llvm::cl::location(disableGemmSmallN), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 

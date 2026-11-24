@@ -4,7 +4,7 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,6 +17,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
@@ -125,6 +126,243 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           }
           create.krnl.store(res, R, outerIndices);
         });
+  }
+
+  //===--------------------------------------------------------------------===//
+  // Small-N Gemm.
+  //
+  // Y[M,N] = alpha * A[M,K] x op(B) + beta * C, for a small static number of
+  // output columns N and a static K; M may be dynamic. This is the shape of
+  // the small linear heads of GNNs (e.g. [M,96] x [96,12] and [M,12] x [12,2]).
+  // The tiled kernel below vectorizes along N in 16-wide register tiles, so
+  // with N < 16 it runs scalar, and it parallelizes over N, a single tile.
+  //
+  // Here every output is a dot product of a row of A with a row of B taken as
+  // [N,K]: B itself with transB, a transposed copy of B otherwise (N x K
+  // elements, against M x N x K multiply-adds). Both rows are contiguous along
+  // K, so the kernel vectorizes along K. It processes R rows at a time, keeping
+  // their R x N vector accumulators in registers (each loaded vector of B then
+  // serves R rows), reduces them once per row, applies alpha and the bias in
+  // registers, and stores each row. Row blocks are split across threads.
+
+  // Largest N handled by the small-N path.
+  static constexpr int64_t smallNMaxN = 16;
+
+  // Rows per block: R x N accumulators, plus R vectors of A and one of B,
+  // must fit in the vector registers, with a few to spare.
+  static int64_t smallNRowsPerBlock(int64_t N) {
+    int64_t regs = VectorMachineSupport::getArchVectorRegisterNum();
+    return std::clamp<int64_t>((regs - 4) / (N + 1), 1, 8);
+  }
+
+  bool isSmallNGemm(ONNXGemmOpAdaptor &adaptor, Type elementType,
+      ONNXGemmOpShapeHelper &shapeHelper) const {
+    if (disableGemmSmallN || !enableSIMD || DEBUG_SIMD_OFF)
+      return false;
+    // SIMD along K needs a vector length larger than one.
+    if (!elementType.isF32() ||
+        VectorMachineSupport::getArchVectorLength(elementType) <= 1)
+      return false;
+    // Rows of A must be contiguous along K.
+    if (adaptor.getTransA())
+      return false;
+    IndexExpr N = shapeHelper.getOutputDims()[1];
+    IndexExpr K = shapeHelper.aDims[1];
+    if (!N.isLiteral() || !K.isLiteral())
+      return false;
+    // One row's N accumulators, plus a vector of A and one of B, must fit in
+    // the vector registers (16 of them on some targets).
+    int64_t maxN = std::min(
+        smallNMaxN, VectorMachineSupport::getArchVectorRegisterNum() - 3);
+    return N.getLiteral() >= 1 && N.getLiteral() <= maxN && K.getLiteral() >= 1;
+  }
+
+  void smallNGemm(Operation *op, ONNXGemmOpAdaptor &adaptor, Type elementType,
+      ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
+      Location loc, bool enableParallel) const {
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
+        create(rewriter, loc);
+    Value A(adaptor.getA()), B(adaptor.getB()), C(adaptor.getC()), Y(alloc);
+    IndexExpr M = shapeHelper.getOutputDims()[0];
+    int64_t N = shapeHelper.getOutputDims()[1].getLiteral();
+    int64_t K = shapeHelper.aDims[1].getLiteral();
+    int64_t VL = create.vec.getArchVectorLength(elementType);
+    int64_t kVecs = K / VL;          // Full vectors along K.
+    int64_t kTailStart = kVecs * VL; // Scalar tail [kTailStart, K).
+    int64_t R = smallNRowsPerBlock(N);
+    float alphaLit = adaptor.getAlpha().convertToFloat();
+    float betaLit = adaptor.getBeta().convertToFloat();
+    bool hasBias = shapeHelper.hasBias && betaLit != 0.0;
+    VectorType vecType = VectorType::get({VL}, elementType);
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL, K,
+        "small-N gemm (N=" + std::to_string(N) + "), simd along K");
+
+    // A bias that is the same for every row and contiguous along N can be
+    // loaded as vectors; any other one (including a rank-0 scalar) is loaded
+    // element by element.
+    bool biasIsRowVector = false;
+    if (hasBias && shapeHelper.cRank >= 1) {
+      const DimsExpr &cDims = shapeHelper.cDims;
+      int64_t cRank = shapeHelper.cRank;
+      biasIsRowVector =
+          cDims[cRank - 1].isLiteral() && cDims[cRank - 1].getLiteral() == N &&
+          (cRank == 1 || (cDims[0].isLiteral() && cDims[0].getLiteral() == 1));
+    }
+
+    // B as [N,K]: as stored with transB, else a transposed copy.
+    Value BT = B;
+    if (!adaptor.getTransB()) {
+      BT = create.mem.alignedAlloc(
+          MemRefType::get({N, K}, elementType), BUFFER_ALIGN);
+      ValueRange loops = create.krnl.defineLoops(2);
+      create.krnl.iterateIE(loops, loops, {LitIE(0), LitIE(0)},
+          {LitIE(N), LitIE(K)},
+          [&](const KrnlBuilder &createKrnl, ValueRange jk) {
+            Value val = createKrnl.load(B, {jk[1], jk[0]});
+            createKrnl.store(val, BT, {jk[0], jk[1]});
+          });
+    }
+
+    // Compute rows [row0, row0 + numRows), numRows <= R a literal.
+    auto genRows = [&](const KrnlBuilder &createKrnl, Value row0,
+                       int64_t numRows) {
+      MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(
+          createKrnl);
+      IndexExprScope scope(create.krnl, shapeHelper.getScope());
+      auto cst = [&](int64_t v) { return create.math.constantIndex(v); };
+      SmallVector<Value, 8> rows;
+      for (int64_t r = 0; r < numRows; ++r)
+        rows.emplace_back(create.math.add(row0, cst(r)));
+      Value zeroVec = create.vec.broadcast(vecType, zeroVal);
+
+      // Accumulate the numRows x N dot products, VL elements of K at a time.
+      // acc[r * N + j] holds VL partial sums of Y[row r, j].
+      SmallVector<Value, 32> acc;
+      if (kVecs > 0) {
+        SmallVector<Value, 32> inits(numRows * N, zeroVec);
+        ValueRange kLoop = create.krnl.defineLoops(1);
+        KrnlIterateOp kIterate = create.krnl.iterate(kLoop, kLoop, {cst(0)},
+            {cst(kVecs)}, inits,
+            [&](const KrnlBuilder &createKrnl, ValueRange kInd,
+                ValueRange iterArgs) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder>
+                  create(createKrnl);
+              Value k = create.math.mul(kInd[0], cst(VL));
+              SmallVector<Value, 8> aVecs;
+              for (int64_t r = 0; r < numRows; ++r)
+                aVecs.emplace_back(create.vec.load(vecType, A, {rows[r], k}));
+              SmallVector<Value, 32> next(iterArgs.begin(), iterArgs.end());
+              for (int64_t j = 0; j < N; ++j) {
+                Value bVec = create.vec.load(vecType, BT, {cst(j), k});
+                for (int64_t r = 0; r < numRows; ++r)
+                  next[r * N + j] =
+                      create.vec.fma(aVecs[r], bVec, next[r * N + j]);
+              }
+              create.krnl.yield(next);
+            });
+        acc.append(kIterate.getResults().begin(), kIterate.getResults().end());
+      }
+
+      // Bias of Y[row, j], broadcasting C as ONNX allows.
+      auto loadBias = [&](Value row, int64_t j) -> Value {
+        SmallVector<Value, 2> cAccess;
+        for (int64_t x = 2 - shapeHelper.cRank; x < 2; ++x) {
+          DimIndexExpr dim(shapeHelper.cDims[x]);
+          Value ind = (x == 0) ? row : cst(j);
+          cAccess.emplace_back(
+              IndexExpr::select(dim > 1, DimIE(ind), 0).getValue());
+        }
+        return create.krnl.load(C, cAccess);
+      };
+
+      for (int64_t r = 0; r < numRows; ++r) {
+        Value row = rows[r];
+        int64_t j = 0;
+        // Groups of VL outputs: VL horizontal sums at once, one vector store.
+        for (; kVecs > 0 && j + VL <= N; j += VL) {
+          SmallVector<Value, 8> sums;
+          create.vec.multiReduction(
+              ArrayRef<Value>(acc).slice(r * N + j, VL),
+              [&](Value a, Value b) { return create.math.add(a, b); }, sums);
+          Value sum = sums[0];
+          for (int64_t t = kTailStart; t < K; ++t) {
+            Value aT = create.vec.broadcast(
+                vecType, create.krnl.load(A, {row, cst(t)}));
+            Value bT = zeroVec;
+            for (int64_t l = 0; l < VL; ++l)
+              bT = create.vec.insertElement(
+                  bT, create.krnl.load(BT, {cst(j + l), cst(t)}), l);
+            sum = create.vec.fma(aT, bT, sum);
+          }
+          if (alphaLit != 1.0)
+            sum = create.math.mul(sum, create.vec.broadcast(vecType, alphaVal));
+          if (hasBias) {
+            Value cVec;
+            if (biasIsRowVector) {
+              SmallVector<Value, 2> cAccess(shapeHelper.cRank - 1, cst(0));
+              cAccess.emplace_back(cst(j));
+              cVec = create.vec.load(vecType, C, cAccess);
+            } else {
+              cVec = zeroVec;
+              for (int64_t l = 0; l < VL; ++l)
+                cVec = create.vec.insertElement(cVec, loadBias(row, j + l), l);
+            }
+            if (betaLit != 1.0)
+              cVec =
+                  create.math.mul(cVec, create.vec.broadcast(vecType, betaVal));
+            sum = create.math.add(sum, cVec);
+          }
+          create.vec.store(sum, Y, {row, cst(j)});
+        }
+        // Remaining outputs one at a time.
+        for (; j < N; ++j) {
+          Value sum = (kVecs > 0) ? create.vec.reduction(
+                                        VectorBuilder::CombiningKind::ADD,
+                                        acc[r * N + j])
+                                  : zeroVal;
+          for (int64_t t = kTailStart; t < K; ++t) {
+            Value aT = create.krnl.load(A, {row, cst(t)});
+            Value bT = create.krnl.load(BT, {cst(j), cst(t)});
+            sum = create.math.add(sum, create.math.mul(aT, bT));
+          }
+          if (alphaLit != 1.0)
+            sum = create.math.mul(sum, alphaVal);
+          if (hasBias) {
+            Value c = loadBias(row, j);
+            if (betaLit != 1.0)
+              c = create.math.mul(c, betaVal);
+            sum = create.math.add(sum, c);
+          }
+          create.krnl.store(sum, Y, {row, cst(j)});
+        }
+      }
+    };
+
+    // Blocks of R rows, split across threads: whole rows per thread, so each
+    // writes a contiguous range of Y. One iteration does R x N dot products
+    // of K elements, plus their reductions and epilogue.
+    IndexExpr numBlocks = M.floorDiv(R);
+    ValueRange blockLoop = create.krnl.defineLoops(1);
+    auto plan = KrnlParallelPlan::noCollapse(blockLoop, /*first*/ 0,
+        /*last excl*/ 1, {.minTripCount = 4, .bodyCost = R * N * (K + 4)});
+    if (enableParallel)
+      plan.tryCreateParallel(
+          create.krnl, op, "GEMM small N row blocks", {LitIE(0)}, {numBlocks});
+    create.krnl.iterateIE(blockLoop, plan.optimizedLoopDef(), {LitIE(0)},
+        {numBlocks}, [&](const KrnlBuilder &createKrnl, ValueRange ind) {
+          MathBuilder createMath(createKrnl);
+          genRows(createKrnl,
+              createMath.mul(ind[0], createMath.constantIndex(R)), R);
+        });
+    // The last M % R rows, one at a time.
+    if (R > 1 && !(M.isLiteral() && M.getLiteral() % R == 0)) {
+      ValueRange tailLoop = create.krnl.defineLoops(1);
+      create.krnl.iterateIE(tailLoop, tailLoop, {numBlocks * R}, {M},
+          [&](const KrnlBuilder &createKrnl, ValueRange ind) {
+            genRows(createKrnl, ind[0], 1);
+          });
+    }
   }
 
   void tiledTransposedGemm(Operation *op, ONNXGemmOpAdaptor &adaptor,
@@ -432,7 +670,11 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       }
     });
 
-    if (enableTiling && !DEBUG_OPTIMIZED_OFF) {
+    if (enableTiling && !DEBUG_OPTIMIZED_OFF &&
+        isSmallNGemm(adaptor, elementType, shapeHelper)) {
+      smallNGemm(op, adaptor, elementType, shapeHelper, alloc, zero, alpha,
+          beta, rewriter, loc, enableParallel);
+    } else if (enableTiling && !DEBUG_OPTIMIZED_OFF) {
       tiledTransposedGemm(op, adaptor, elementType, shapeHelper, alloc, zero,
           alpha, beta, rewriter, loc, enableParallel);
     } else {
