@@ -100,6 +100,13 @@ struct ParallelTuning {
   // steers how far levels are collapsed and which level gets the region, never
   // whether the code is correct. Must be > 0.
   int64_t expectedThreads;
+  // Most threads the fork-cost test (repaysForkCost) assumes; 0: no cap, use
+  // expectedThreads. Measured on z17 (2026-11-23): with more threads a fork
+  // costs more, but the spinning workers also slow down the sequential code it
+  // is weighed against (an op kept sequential ran 0.1 to 0.2 us slower than in
+  // a sequential build at 4 threads, 0.3 to 0.7 us at 6, 1 to 2 us at 8). The
+  // two cancel: the break-even stays near the 4-thread one, so z17 caps at 4.
+  int64_t maxRepayThreads = 0;
   // Honor KrnlParallelCost::mustRepayFork at the sites that set it. Not
   // a target property: an off switch (--parallel-must-repay-fork=false)
   // to compare against the placement without that test, from the same build.
@@ -158,21 +165,17 @@ private:
 // subclass overriding computeTuning, selected in
 // setGlobalParallelMachineSupport.
 
+// Per-target tuning values, named so that code outside this library (the
+// --parallel help text in CompilerOptions.cpp) can show them without linking
+// it.
+
 // Unknown targets, and any build without -march. forkCost is the ~4000-cycle
 // region entry of an earlier draft, a middle value between the measured
 // targets. Regions are placed as before, except that none is placed under a
 // dynamic loop for little work per entry.
-class GenericParallelMachineSupport : public ParallelMachineSupport {
-public:
-  GenericParallelMachineSupport() = default;
-  virtual ~GenericParallelMachineSupport() = default;
-
-  std::string computeArchName() override { return "generic"; }
-  ParallelTuning computeTuning() override {
-    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
-        /*maxForkCount=*/2, /*forkCost=*/4000, /*expectedThreads=*/4};
-  }
-};
+inline constexpr ParallelTuning kGenericParallelTuning = {
+    /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
+    /*forkCost=*/4000, /*expectedThreads=*/4};
 
 // IBM z17 (arch15). Measured 2026-11-20 on Linux on Z, one thread per core,
 // default wait policy: an empty region costs 86 / 530 / 925 ns at 1 / 4 / 8
@@ -180,33 +183,47 @@ public:
 // ~0.2 ns. forkCost is the 4-thread value (530 ns). Going parallel breaks even
 // at about forkCost * T / (T - 1) of work and halves the time at about
 // 4 * forkCost on 4 threads.
-class ZArch15ParallelMachineSupport : public ParallelMachineSupport {
-public:
-  ZArch15ParallelMachineSupport() = default;
-  virtual ~ZArch15ParallelMachineSupport() = default;
-
-  std::string computeArchName() override { return "z17"; }
-  ParallelTuning computeTuning() override {
-    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
-        /*maxForkCount=*/2, /*forkCost=*/2700, /*expectedThreads=*/4};
-  }
-};
+inline constexpr ParallelTuning kZ17ParallelTuning = {
+    /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
+    /*forkCost=*/2700, /*expectedThreads=*/4, /*maxRepayThreads=*/4};
 
 // Apple silicon Macs, selected by -march=apple-m* (what -march=native gives).
 // Measured 2026-11-20 on an M4 Max, threads not pinned: an empty region costs
 // ~8.3 us at 4 threads and a simple element op ~0.075 ns, so forkCost is
 // ~110,000 work units. A development target: these mostly keep Mac runs from
 // being dominated by fork/join.
+inline constexpr ParallelTuning kAppleArmParallelTuning = {
+    /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
+    /*forkCost=*/110000, /*expectedThreads=*/4};
+
+// Unknown targets, and any build without -march (kGenericParallelTuning).
+class GenericParallelMachineSupport : public ParallelMachineSupport {
+public:
+  GenericParallelMachineSupport() = default;
+  virtual ~GenericParallelMachineSupport() = default;
+
+  std::string computeArchName() override { return "generic"; }
+  ParallelTuning computeTuning() override { return kGenericParallelTuning; }
+};
+
+// IBM z17 (arch15) (kZ17ParallelTuning).
+class ZArch15ParallelMachineSupport : public ParallelMachineSupport {
+public:
+  ZArch15ParallelMachineSupport() = default;
+  virtual ~ZArch15ParallelMachineSupport() = default;
+
+  std::string computeArchName() override { return "z17"; }
+  ParallelTuning computeTuning() override { return kZ17ParallelTuning; }
+};
+
+// Apple silicon Macs, -march=apple-m* (kAppleArmParallelTuning).
 class AppleArmParallelMachineSupport : public ParallelMachineSupport {
 public:
   AppleArmParallelMachineSupport() = default;
   virtual ~AppleArmParallelMachineSupport() = default;
 
   std::string computeArchName() override { return "apple-arm"; }
-  ParallelTuning computeTuning() override {
-    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16,
-        /*maxForkCount=*/2, /*forkCost=*/110000, /*expectedThreads=*/4};
-  }
+  ParallelTuning computeTuning() override { return kAppleArmParallelTuning; }
 };
 
 } // namespace onnx_mlir

@@ -24,6 +24,7 @@
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/JsonConfigObject.hpp"
+#include "src/Dialect/Mlir/ParallelMachineSupport.hpp"
 
 #define DEBUG_TYPE "compiler_options"
 
@@ -97,6 +98,7 @@ int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
 int64_t parallelForkCost;                              // common for both
 bool parallelMustRepayFork;                            // common for both
+int64_t parallelMaxRepayThreads;                       // common for both
 int64_t parallelExpectedThreads = -1; // set by --parallel=<N>; onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
@@ -740,15 +742,25 @@ static llvm::cl::opt<bool, true> onnxOpTransformReportOpt(
 // enables it and has the compile-time parallel decisions assume N threads;
 // --parallel=0 disables it, as when the option is absent. A string option
 // parsed in the callback, because llvm::cl::parser<long> is final on Linux.
+//
+// The help text lists each target's default thread count from the tuning
+// constants of ParallelMachineSupport.hpp (header only: that library links
+// this one), so it follows them when a target is retuned. Built before the
+// option, in this translation unit, so it outlives it.
+static const std::string parallelOptHelp =
+    "Enable parallelization (default: off).\n"
+    "--parallel enables it; --parallel=<N> (N > 0) also has the\n"
+    "compile-time parallel decisions assume N threads instead of the\n"
+    "target's default (z17: " +
+    std::to_string(kZ17ParallelTuning.expectedThreads) +
+    ", apple-arm: " + std::to_string(kAppleArmParallelTuning.expectedThreads) +
+    ", other targets: " +
+    std::to_string(kGenericParallelTuning.expectedThreads) +
+    ";\nthe target comes from -march, not the host). The run-time thread\n"
+    "count is still set by OMP_NUM_THREADS; --parallel=0 disables it.";
 static llvm::cl::opt<std::string> enableParallelOpt("parallel",
-    llvm::cl::desc(
-        "Enable parallelization (default: off).\n"
-        "--parallel enables it; --parallel=<N> (N > 0) also has the\n"
-        "compile-time parallel decisions assume N threads instead of the\n"
-        "target's default (the run-time thread count is still set by\n"
-        "OMP_NUM_THREADS); --parallel=0 disables it."),
-    llvm::cl::value_desc("N"), llvm::cl::ValueOptional,
-    llvm::cl::callback([](const std::string &arg) {
+    llvm::cl::desc(parallelOptHelp), llvm::cl::value_desc("N"),
+    llvm::cl::ValueOptional, llvm::cl::callback([](const std::string &arg) {
       int64_t threads = 0;
       if (!arg.empty() &&
           (llvm::StringRef(arg).getAsInteger(10, threads) || threads < 0)) {
@@ -826,6 +838,14 @@ static llvm::cl::opt<bool, true> parallelMustRepayForkOpt(
         "its fork cost even with a known entry count (default=true). Set to\n"
         "false to compare against the placement without that test."),
     llvm::cl::location(parallelMustRepayFork), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> parallelMaxRepayThreadsOpt(
+    "parallel-max-repay-threads",
+    llvm::cl::desc(
+        "Most threads the per-entry fork-cost test assumes; 0 means no cap\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(parallelMaxRepayThreads), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",

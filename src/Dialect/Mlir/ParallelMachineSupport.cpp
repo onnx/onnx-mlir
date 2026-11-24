@@ -59,6 +59,8 @@ namespace onnx_mlir {
     tuning.forkCost = parallelForkCost;
   if (parallelExpectedThreads > 0)
     tuning.expectedThreads = parallelExpectedThreads;
+  if (parallelMaxRepayThreads >= 0)
+    tuning.maxRepayThreads = parallelMaxRepayThreads;
   tuning.honorMustRepayFork = parallelMustRepayFork;
   assert(tuning.expectedThreads > 0 && "expected a positive thread count");
   globalParallelMachineSupport->tuning = tuning;
@@ -70,7 +72,8 @@ namespace onnx_mlir {
                           << tuning.minAmortWork << ", maxForkCount "
                           << tuning.maxForkCount << ", forkCost "
                           << tuning.forkCost << ", expectedThreads "
-                          << tuning.expectedThreads << ", mustRepayFork "
+                          << tuning.expectedThreads << ", maxRepayThreads "
+                          << tuning.maxRepayThreads << ", mustRepayFork "
                           << (tuning.honorMustRepayFork ? "on" : "off")
                           << "\n");
 }
