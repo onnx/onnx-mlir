@@ -4,7 +4,7 @@
 
 //===------------------ Concat.cpp - ONNX Operations ----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -111,11 +111,16 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
 LogicalResult ONNXConcatOp::verify() {
   // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
+  ValueRange operands = operandAdaptor.getOperands();
+  if (operands.empty())
+    return emitOpError("requires at least one input");
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  ShapedType commonType;
-  for (Value operand : operandAdaptor.getOperands()) {
+  // Use the first input as the common type when every input is an empty
+  // tensor<0xT>. Otherwise, use the first non-empty input.
+  ShapedType commonType = mlir::cast<ShapedType>(operands.front().getType());
+  for (Value operand : operands) {
     ArrayRef<int64_t> operandShape =
         mlir::cast<ShapedType>(operand.getType()).getShape();
     if (operandShape.size() == 1 && operandShape[0] == 0) {
@@ -141,7 +146,7 @@ LogicalResult ONNXConcatOp::verify() {
 
   // All input tensors must have the same shape, except for the dimension size
   // of the axis to concatenate on.
-  for (Value operand : operandAdaptor.getOperands()) {
+  for (Value operand : operands) {
     ArrayRef<int64_t> operandShape =
         mlir::cast<ShapedType>(operand.getType()).getShape();
     int64_t operandRank = operandShape.size();
