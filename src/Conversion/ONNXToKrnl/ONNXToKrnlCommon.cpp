@@ -720,9 +720,13 @@ int64_t estimateWorkPerElement(
         gop == GenericOps::PowGop || gop == GenericOps::TrigGop ||
         gop == GenericOps::TrigArcGop || gop == GenericOps::TrigHyperbolicGop;
     bool expensive = gop == GenericOps::DivGop || gop == GenericOps::SqrtGop ||
-                     gop == GenericOps::ExpGop || gop == GenericOps::LogGop ||
-                     gop == GenericOps::ErfGop;
-    work += count * (veryExpensive ? 50 : (expensive ? 10 : 1));
+                     gop == GenericOps::ExpGop || gop == GenericOps::LogGop;
+    int64_t weight =
+        veryExpensive ? 50
+        : gop == GenericOps::ErfGop
+            ? 20 // Measured 14: round up, under-declaring is unsafe.
+            : (expensive ? 10 : 1);
+    work += count * weight;
   }
   return std::max<int64_t>(1, work);
 }

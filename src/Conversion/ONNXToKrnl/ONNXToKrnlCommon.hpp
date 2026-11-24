@@ -851,7 +851,7 @@ int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
 
 // Rough work of one element of a SIMD loop with this op mix, in
 // KrnlParallelCost::bodyCost's work units: 1 per simple op, 10 per divide,
-// square root, exp, log or erf, 50 per pow or trigonometric op, plus
+// square root, exp or log, 20 per erf, 50 per pow or trigonometric op, plus
 // extraWorkPerElement (e.g. dlf16 conversions, about 1 each); at least 1.
 // Loads and stores are not counted: streamed through SIMD code they overlap
 // with the ops. An order of magnitude, as bodyCost asks for. Measured on z17
