@@ -98,7 +98,8 @@ int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
 int64_t parallelForkCost;                              // common for both
 bool parallelMustRepayFork;                            // common for both
-int64_t parallelExpectedThreads = -1; // set by --parallel=<N>; onnx-mlir only
+int64_t parallelExpectedThreads = -1;                  // onnx-mlir only;
+                                                       // set by --parallel=<N>
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -838,7 +839,6 @@ static llvm::cl::opt<bool, true> parallelMustRepayForkOpt(
         "false to compare against the placement without that test."),
     llvm::cl::location(parallelMustRepayFork), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
-
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
