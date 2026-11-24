@@ -19,6 +19,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 // Used to trace which op are used, good for profiling apps.
 #define DEBUG_TYPE "gemm"
@@ -195,9 +196,6 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     float betaLit = adaptor.getBeta().convertToFloat();
     bool hasBias = shapeHelper.hasBias && betaLit != 0.0;
     VectorType vecType = VectorType::get({VL}, elementType);
-    onnxToKrnlSimdReport(op, /*successful*/ true, VL, K,
-        "small-N gemm with N=" + std::to_string(N) + " and simd along K");
-
     // A bias that is the same for every row and contiguous along N can be
     // loaded as vectors; any other one (including a rank-0 scalar) is loaded
     // element by element.
@@ -210,19 +208,40 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           (cRank == 1 || (cDims[0].isLiteral() && cDims[0].getLiteral() == 1));
     }
 
-    // B as [N,K]: as stored with transB, else a transposed copy.
+    // B as [N,K]: B itself with transB. Otherwise B transposed: at compile
+    // time into a new constant when B is an ONNX constant (the usual case for
+    // weights), else copied transposed into a buffer once per call.
     Value BT = B;
+    std::string bReport;
     if (!adaptor.getTransB()) {
-      BT = create.mem.alignedAlloc(
-          MemRefType::get({N, K}, elementType), BUFFER_ALIGN);
-      ValueRange loops = create.krnl.defineLoops(2);
-      create.krnl.iterateIE(loops, loops, {LitIE(0), LitIE(0)},
-          {LitIE(N), LitIE(K)},
-          [&](const KrnlBuilder &createKrnl, ValueRange jk) {
-            Value val = createKrnl.load(B, {jk[1], jk[0]});
-            createKrnl.store(val, BT, {jk[0], jk[1]});
-          });
+      MemRefType btType = MemRefType::get({N, K}, elementType);
+      auto bConstOp =
+          mlir::cast<ONNXGemmOp>(op).getB().getDefiningOp<ONNXConstantOp>();
+      std::optional<Attribute> bVal;
+      if (bConstOp)
+        bVal = bConstOp.getValue();
+      if (bVal && mlir::isa<ElementsAttr>(*bVal)) {
+        OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+        ElementsAttr transposed =
+            elementsBuilder.transpose(mlir::cast<ElementsAttr>(*bVal), {1, 0});
+        BT = create.krnl.constant(btType, "constant_",
+            ElementsAttrBuilder::toDenseElementsAttr(transposed));
+        bReport = " and B transposed at compile time";
+      } else {
+        BT = create.mem.alignedAlloc(btType, BUFFER_ALIGN);
+        ValueRange loops = create.krnl.defineLoops(2);
+        create.krnl.iterateIE(loops, loops, {LitIE(0), LitIE(0)},
+            {LitIE(N), LitIE(K)},
+            [&](const KrnlBuilder &createKrnl, ValueRange jk) {
+              Value val = createKrnl.load(B, {jk[1], jk[0]});
+              createKrnl.store(val, BT, {jk[0], jk[1]});
+            });
+        bReport = " and B transposed at runtime";
+      }
     }
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL, K,
+        "small-N gemm with N=" + std::to_string(N) + " and simd along K" +
+            bReport);
 
     // Compute rows [row0, row0 + numRows), numRows <= R a literal.
     auto genRows = [&](const KrnlBuilder &createKrnl, Value row0,
@@ -342,19 +361,22 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     // Blocks of R rows, split across threads: whole rows per thread, so each
     // writes a contiguous range of Y. One iteration does R x N dot products
     // of K elements, plus their reductions and epilogue.
+    // No full block when M is a literal smaller than R.
     IndexExpr numBlocks = M.floorDiv(R);
-    ValueRange blockLoop = create.krnl.defineLoops(1);
-    auto plan = KrnlParallelPlan::noCollapse(blockLoop, /*first*/ 0,
-        /*last excl*/ 1, {.minTripCount = 4, .bodyCost = R * N * (K + 4)});
-    if (enableParallel)
-      plan.tryCreateParallel(
-          create.krnl, op, "GEMM small N row blocks", {LitIE(0)}, {numBlocks});
-    create.krnl.iterateIE(blockLoop, plan.optimizedLoopDef(), {LitIE(0)},
-        {numBlocks}, [&](const KrnlBuilder &createKrnl, ValueRange ind) {
-          MathBuilder createMath(createKrnl);
-          genRows(createKrnl,
-              createMath.mul(ind[0], createMath.constantIndex(R)), R);
-        });
+    if (!(M.isLiteral() && M.getLiteral() < R)) {
+      ValueRange blockLoop = create.krnl.defineLoops(1);
+      auto plan = KrnlParallelPlan::noCollapse(blockLoop, /*first*/ 0,
+          /*last excl*/ 1, {.minTripCount = 4, .bodyCost = R * N * (K + 4)});
+      if (enableParallel)
+        plan.tryCreateParallel(create.krnl, op, "GEMM small N row blocks",
+            {LitIE(0)}, {numBlocks});
+      create.krnl.iterateIE(blockLoop, plan.optimizedLoopDef(), {LitIE(0)},
+          {numBlocks}, [&](const KrnlBuilder &createKrnl, ValueRange ind) {
+            MathBuilder createMath(createKrnl);
+            genRows(createKrnl,
+                createMath.mul(ind[0], createMath.constantIndex(R)), R);
+          });
+    }
     // The last M % R rows, one at a time.
     if (R > 1 && !(M.isLiteral() && M.getLiteral() % R == 0)) {
       ValueRange tailLoop = create.krnl.defineLoops(1);

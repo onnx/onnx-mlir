@@ -99,7 +99,8 @@ int64_t collapseMaxForkCount;                          // common for both
 int64_t parallelForkCost;                              // common for both
 bool parallelMustRepayFork;                            // common for both
 bool disableGemmSmallN;                                // common for both
-int64_t parallelExpectedThreads = -1; // set by --parallel=<N>; onnx-mlir only
+int64_t parallelExpectedThreads = -1;                  // onnx-mlir only;
+                                                       // set by --parallel=<N>
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
