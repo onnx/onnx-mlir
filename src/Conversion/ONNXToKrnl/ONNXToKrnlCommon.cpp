@@ -22,6 +22,7 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/ParallelMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
@@ -1120,12 +1121,6 @@ bool canWriteInPlace(ConversionPatternRewriter &rewriter, Operation *op,
 // Copy of a whole buffer, possibly in parallel.
 //===----------------------------------------------------------------------===//
 
-// A parallel copy is split into chunks of this many bytes, one memcpy each.
-static constexpr int64_t memcpyChunkBytes = 1 << 20;
-// Smallest copy, in bytes, worth a parallel region. Measured on an 18-thread
-// CPU: a parallel copy was slower at 1 MB and faster at 17 MB.
-static constexpr int64_t minParallelMemcpyBytes = 8 << 20;
-
 void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
     Value dest, Value src, DimsExprRef srcDims, bool enableParallel,
     const std::string &msg) {
@@ -1144,13 +1139,10 @@ void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
     numElems = numElems * dim;
   int64_t eltBytes =
       getMemRefEltSizeInBytes(mlir::cast<MemRefType>(src.getType()));
-  // Experiment (Debug builds, --test-compiler-opt): a 64 KB gate and 64 KB
-  // chunks instead of the x86-measured 8 MB and 1 MB, for a z17 sweep (see
-  // notes/onnx-mlir/ops/scatter/parallel-memcpy-gate).
-  int64_t chunkBytes = debugTestCompilerOpt ? (64 << 10) : memcpyChunkBytes;
-  int64_t minParallelBytes =
-      debugTestCompilerOpt ? (64 << 10) : minParallelMemcpyBytes;
-  int64_t chunkElems = std::max<int64_t>(1, chunkBytes / eltBytes);
+  // A parallel copy is split into chunks, one memcpy each; the gate and the
+  // chunk size are per target (ParallelTuning).
+  const ParallelTuning &tune = ParallelMachineSupport::getTuning();
+  int64_t chunkElems = std::max<int64_t>(1, tune.memcpyChunkBytes / eltBytes);
   IndexExpr numChunks = numElems.ceilDiv(chunkElems);
   auto emitParallelCopy = [&](const KrnlBuilder &createKrnl) {
     ValueRange loopDef = createKrnl.defineLoops(1);
@@ -1173,7 +1165,7 @@ void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
         });
   };
 
-  int64_t minParallelElems = minParallelBytes / eltBytes;
+  int64_t minParallelElems = tune.memcpyMinParallelBytes / eltBytes;
   if (numElems.isLiteral()) {
     if (numElems.getLiteral() >= minParallelElems)
       emitParallelCopy(create.krnl);

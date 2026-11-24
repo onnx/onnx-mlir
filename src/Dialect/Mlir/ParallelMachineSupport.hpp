@@ -100,6 +100,12 @@ struct ParallelTuning {
   // steers how far levels are collapsed and which level gets the region, never
   // whether the code is correct. Must be > 0.
   int64_t expectedThreads;
+  // Whole-buffer copies (emitMemcpy, used by ScatterND and ScatterElements):
+  // the smallest copy worth a parallel region, and the chunk each parallel
+  // iteration copies, in bytes. Bound by memory bandwidth rather than by work,
+  // so measured per target, not derived from forkCost.
+  int64_t memcpyMinParallelBytes;
+  int64_t memcpyChunkBytes;
   // Honor KrnlParallelCost::mustRepayFork at the sites that set it. Not
   // a target property: an off switch (--parallel-must-repay-fork=false)
   // to compare against the placement without that test, from the same build.
@@ -168,7 +174,10 @@ private:
 // dynamic loop for little work per entry.
 inline constexpr ParallelTuning kGenericParallelTuning = {
     /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
-    /*forkCost=*/4000, /*expectedThreads=*/4};
+    /*forkCost=*/4000, /*expectedThreads=*/4,
+    // Measured on an 18-thread x86 CPU: a parallel copy was slower at 1 MB
+    // and faster at 17 MB.
+    /*memcpyMinParallelBytes=*/8 << 20, /*memcpyChunkBytes=*/1 << 20};
 
 // IBM z17 (arch15). Measured 2026-11-20 on Linux on Z, one thread per core,
 // default wait policy: an empty region costs 86 / 530 / 925 ns at 1 / 4 / 8
@@ -178,7 +187,12 @@ inline constexpr ParallelTuning kGenericParallelTuning = {
 // 4 * forkCost on 4 threads.
 inline constexpr ParallelTuning kZ17ParallelTuning = {
     /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
-    /*forkCost=*/2700, /*expectedThreads=*/4};
+    /*forkCost=*/2700, /*expectedThreads=*/4,
+    // z17, 2026-11-24 (ScatterElements copy, 4 and 8 threads): with 64 KB
+    // chunks a parallel copy is 1.9 to 2.1x faster than sequential at 256 KB,
+    // 1.5x at 1 MB (4 threads) and 3.3x at 4 MB; the chunk size makes no
+    // difference at 16 MB.
+    /*memcpyMinParallelBytes=*/256 << 10, /*memcpyChunkBytes=*/64 << 10};
 
 // Apple silicon Macs, selected by -march=apple-m* (what -march=native gives).
 // Measured 2026-11-20 on an M4 Max, threads not pinned: an empty region costs
@@ -187,7 +201,8 @@ inline constexpr ParallelTuning kZ17ParallelTuning = {
 // being dominated by fork/join.
 inline constexpr ParallelTuning kAppleArmParallelTuning = {
     /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
-    /*forkCost=*/110000, /*expectedThreads=*/4};
+    /*forkCost=*/110000, /*expectedThreads=*/4,
+    /*memcpyMinParallelBytes=*/8 << 20, /*memcpyChunkBytes=*/1 << 20};
 
 // Unknown targets, and any build without -march (kGenericParallelTuning).
 class GenericParallelMachineSupport : public ParallelMachineSupport {
