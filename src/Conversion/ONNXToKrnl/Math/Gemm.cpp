@@ -196,7 +196,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     bool hasBias = shapeHelper.hasBias && betaLit != 0.0;
     VectorType vecType = VectorType::get({VL}, elementType);
     onnxToKrnlSimdReport(op, /*successful*/ true, VL, K,
-        "small-N gemm (N=" + std::to_string(N) + "), simd along K");
+        "small-N gemm with N=" + std::to_string(N) + " and simd along K");
 
     // A bias that is the same for every row and contiguous along N can be
     // loaded as vectors; any other one (including a rank-0 scalar) is loaded
