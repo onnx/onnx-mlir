@@ -1301,6 +1301,116 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 // This corresponds to the unscaled/scaled variants of
 // `softmax(Q @ K^T [/ sqrt(d) | * c] [+ attn_mask]) @ V`, commonly emitted
 // when a model implements attention manually instead of using a fused op.
+// ScatterElements with one index per row, written out as ScatterND.
+//
+//   %x = ...                                   : [E, 1, ..., 1]  i64
+//   %i = Expand(%x, shape)                     : [E, d1, ..., dk]
+//   %y = ScatterElements(%data, %i, %upd) {axis = 0, reduction}
+//        with %data : [N, d1, ..., dk] and %upd : [E, d1, ..., dk]
+//
+// becomes
+//
+//   %r = Reshape(%x, [-1, 1])                  : [E, 1]
+//   %y = ScatterND(%data, %r, %upd) {reduction}
+//
+// GNN exports (PyG scatter_add / scatter_reduce through dynamo) produce the
+// first form: each edge's destination index is copied along every feature
+// dimension, so ScatterElements can read one index per element. ScatterND
+// says the same thing with one index per row, out[r[e], :] op= upd[e, :],
+// without materializing the expanded index tensor.
+//
+// Exact: with axis 0, ScatterElements stores element (e, j...) at
+// out[i[e, j...], j...] = out[x[e], j...], which is ScatterND's update of row
+// e. Each output element receives the same updates in the same order of e, so
+// duplicate rows (several edges into one node) give the same result, with or
+// without a reduction.
+//
+// Conditions: axis 0; %i defined by Expand of %x, of the same rank, with
+// literal 1 on every non-axis dim of %x; %data and %upd with equal static
+// non-axis dims (ScatterElements allows narrower updates, ScatterND needs whole
+// rows); i64 indices (ScatterND only takes i64). Recompose has no DimAnalysis,
+// so dims are compared statically. When dim 0 of %x is not statically equal to
+// dim 0 of %upd, %x may be broadcast along it by the Expand, so the [E, 1]
+// index is expanded to dim 0 of %upd.
+//
+// In development, enabled with --test-compiler-opt (Debug builds only).
+struct ScatterElementsToScatterNDPattern
+    : public OpRewritePattern<ONNXScatterElementsOp> {
+  using OpRewritePattern<ONNXScatterElementsOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXScatterElementsOp scatterOp, PatternRewriter &rewriter) const final {
+    Value data = scatterOp.getData();
+    Value indices = scatterOp.getIndices();
+    Value updates = scatterOp.getUpdates();
+    if (!onnx_mlir::hasShapeAndRank(data) ||
+        !onnx_mlir::hasShapeAndRank(indices) ||
+        !onnx_mlir::hasShapeAndRank(updates))
+      return rewriter.notifyMatchFailure(scatterOp, "operands not ranked");
+    auto dataType = mlir::cast<ShapedType>(data.getType());
+    auto indicesType = mlir::cast<ShapedType>(indices.getType());
+    auto updatesType = mlir::cast<ShapedType>(updates.getType());
+    int64_t rank = dataType.getRank();
+    if (rank < 1 || indicesType.getRank() != rank ||
+        updatesType.getRank() != rank)
+      return rewriter.notifyMatchFailure(scatterOp, "rank mismatch");
+    int64_t axis = scatterOp.getAxis();
+    if (axis < 0)
+      axis += rank;
+    if (axis != 0)
+      return rewriter.notifyMatchFailure(scatterOp, "axis is not 0");
+    if (!indicesType.getElementType().isInteger(64))
+      return rewriter.notifyMatchFailure(scatterOp, "indices are not i64");
+
+    // The index must be an Expand of a value constant along every row.
+    auto expandOp = indices.getDefiningOp<ONNXExpandOp>();
+    if (!expandOp)
+      return rewriter.notifyMatchFailure(scatterOp, "indices not an Expand");
+    Value rowIndex = expandOp.getInput();
+    if (!onnx_mlir::hasShapeAndRank(rowIndex))
+      return rewriter.notifyMatchFailure(scatterOp, "Expand input not ranked");
+    auto rowIndexType = mlir::cast<ShapedType>(rowIndex.getType());
+    if (rowIndexType.getRank() != rank)
+      return rewriter.notifyMatchFailure(scatterOp, "Expand changes the rank");
+    for (int64_t d = 1; d < rank; ++d)
+      if (rowIndexType.getDimSize(d) != 1)
+        return rewriter.notifyMatchFailure(
+            scatterOp, "index not constant along a row");
+
+    // ScatterND updates whole rows: the non-axis dims of updates must be
+    // those of data.
+    for (int64_t d = 1; d < rank; ++d)
+      if (dataType.isDynamicDim(d) ||
+          updatesType.getDimSize(d) != dataType.getDimSize(d))
+        return rewriter.notifyMatchFailure(
+            scatterOp, "updates are not whole rows of data");
+
+    Location loc = scatterOp.getLoc();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+    Type i64Type = rewriter.getI64Type();
+    // [E, 1, ..., 1] -> [E, 1].
+    int64_t rows = rowIndexType.getDimSize(0);
+    Value ndIndex =
+        create.onnx.reshape(RankedTensorType::get({rows, 1}, i64Type), rowIndex,
+            create.onnx.constantInt64({-1, 1}));
+    // If the Expand may also broadcast along dim 0, do it on the [E, 1] index.
+    int64_t updateRows = updatesType.getDimSize(0);
+    if (ShapedType::isDynamic(rows) || rows != updateRows) {
+      Value shape = create.onnx.concat(RankedTensorType::get({2}, i64Type),
+          {create.onnx.dim(updates, 0), create.onnx.constantInt64({1})},
+          /*axis=*/0);
+      ndIndex = create.onnx.expand(
+          RankedTensorType::get({updateRows, 1}, i64Type), ndIndex, shape);
+    }
+    Value result =
+        ONNXScatterNDOp::create(rewriter, loc, scatterOp.getResult().getType(),
+            data, ndIndex, updates, scatterOp.getReductionAttr());
+    rewriter.replaceOp(scatterOp, result);
+    return success();
+  }
+};
+
 struct RecomposeAttentionFromMatMulPattern
     : public OpRewritePattern<ONNXMatMulOp> {
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
@@ -1536,6 +1646,9 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
   if (!disableSplitMatMulBySlice)
     patterns.insert<SplitMatMulBySlicePattern>(context);
+  // In development: enabled with --test-compiler-opt (Debug builds only).
+  if (debugTestCompilerOpt)
+    patterns.insert<ScatterElementsToScatterNDPattern>(context);
 }
 
 /*!

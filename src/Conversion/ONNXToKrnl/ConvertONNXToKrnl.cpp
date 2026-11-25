@@ -337,7 +337,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCol2ImOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
-  populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
+  populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel, enableCollapse);
   populateLoweringONNXTensorScatterOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);

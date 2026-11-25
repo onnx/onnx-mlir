@@ -541,8 +541,8 @@ void populateLoweringONNXScatterElementsOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
     bool enableCollapse);
 void populateLoweringONNXScatterNDOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
-    bool enableCollapse);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel, bool enableCollapse);
 void populateLoweringONNXTensorScatterOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXShapeOpPattern(

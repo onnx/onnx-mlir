@@ -4,7 +4,7 @@
 
 //===--------------- ScatterND.cpp - Lowering ScatterND Op ----------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -21,8 +23,8 @@ namespace onnx_mlir {
 
 struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
   ONNXScatterNDOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel, bool enableCollapse)
-      : OpConversionPattern(typeConverter, ctx) {
+      bool enableSIMD, bool enableParallel, bool enableCollapse)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -31,8 +33,129 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     // stay independent.
     this->enableCollapse = enableCollapse;
   }
+  bool enableSIMD;
   bool enableParallel;
   bool enableCollapse = false;
+
+  // When `data` is Expand(scalar constant), e.g. a zero tensor shared by many
+  // scatters, return that scalar as a value of the element type; null
+  // otherwise. Looks at the original ONNX operand, not the converted one.
+  static Value getFillValue(
+      ONNXScatterNDOp scatterNDOp, Type elementType, MathBuilder &createMath) {
+    auto expandOp = scatterNDOp.getData().getDefiningOp<ONNXExpandOp>();
+    if (!expandOp || !isScalarConstantTensor(expandOp.getInput()))
+      return nullptr;
+    auto constOp = expandOp.getInput().getDefiningOp<ONNXConstantOp>();
+    if (!constOp || !mlir::isa<FloatType, IntegerType>(elementType))
+      return nullptr;
+    return createMath.constant(elementType, getScalarValue<double>(constOp));
+  }
+
+  // Row form of the scatter: for each of the indices.shape[:-1] updates, load
+  // its k index values once (normalized if they may be negative), then
+  // combine its slice of S contiguous elements with the output, VL elements at
+  // a time. Fails (emitting nothing) when the slice size is not static, k is
+  // the rank of data (one element per update), or there is no SIMD.
+  LogicalResult emitRows(ONNXScatterNDOp scatterNDOp, Operation *op,
+      ONNXScatterNDOpAdaptor adaptor, Value output, DimsExpr &dataDims,
+      MemRefType outputMemRefType, StringRef reduction,
+      bool indicesMayBeNegative, ConversionPatternRewriter &rewriter,
+      Location loc) const {
+    Value updates = adaptor.getUpdates();
+    Value indices = adaptor.getIndices();
+    auto indicesType = mlir::cast<ShapedType>(indices.getType());
+    int64_t dataRank = outputMemRefType.getRank();
+    int64_t indicesRank = indicesType.getRank();
+    int64_t k = indicesType.getShape()[indicesRank - 1];
+    if (!enableSIMD || ShapedType::isDynamic(k) || k >= dataRank)
+      return failure();
+    Type elementType = outputMemRefType.getElementType();
+    int64_t VL = VectorMachineSupport::getArchVectorLength(elementType);
+    if (VL <= 1)
+      return failure();
+    int64_t S = 1;
+    for (int64_t d = k; d < dataRank; ++d) {
+      if (!dataDims[d].isLiteral())
+        return failure();
+      S *= dataDims[d].getLiteral();
+    }
+    if (S < 1)
+      return failure();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
+    // Views with the slice flattened: output [data.shape[:k], S], updates
+    // [indices.shape[:-1], S].
+    int64_t sliceRank = dataRank - k;
+    DimsExpr outFlatDims, updDims, updFlatDims;
+    Value outFlat = create.mem.reshapeToFlatInnermost(
+        output, dataDims, outFlatDims, sliceRank);
+    create.krnlIE.getShapeAsDims(updates, updDims);
+    Value updFlat = create.mem.reshapeToFlatInnermost(
+        updates, updDims, updFlatDims, sliceRank);
+
+    // One iteration per update slice. Parallel for reduction none only: with
+    // a reduction, duplicate indices are allowed and two slices may combine
+    // into the same output row, so rows stay in their original order.
+    int64_t rowRank = indicesRank - 1;
+    ValueRange loopDef = create.krnl.defineLoops(rowRank);
+    DimsExpr lbs(rowRank, LitIE(0)), ubs;
+    for (int64_t d = 0; d < rowRank; ++d)
+      ubs.emplace_back(create.krnlIE.getShapeAsDim(indices, d));
+    KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/rowRank, /*collapseLastExclusiveDim=*/rowRank,
+        {.minTripCount = 4,
+            .bodyCost = std::max<int64_t>(10, S + 3 * k),
+            .mustRepayFork = true});
+    // No reduction: guaranteed to have distinct output rows. If actual
+    // reduction, we may have duplicate output rows, so the nest stays
+    // sequential.
+    if (enableParallel && reduction == "none")
+      plan.tryCreateParallel(create.krnl, op, "scatterND rows", lbs, ubs);
+    bool fullySimd = (S % VL == 0);
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL, S,
+        "scatterND rows with one index load per row");
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange rowInd) {
+          IndexExprScope innerScope(createKrnl);
+          DimsExpr rowAF;
+          getIndexExprList<DimIndexExpr>(rowInd, rowAF);
+          // Output access: the k index values, then offset 0 in the slice.
+          DimsExpr outAF;
+          for (int64_t i = 0; i < k; ++i) {
+            DimsExpr indicesAF(rowAF);
+            indicesAF.emplace_back(LitIE(i));
+            Value indexVal = createKrnl.loadIE(indices, indicesAF);
+            IndexExpr index = NonAffineIndexExpr(indexVal);
+            if (indicesMayBeNegative)
+              index = index.selectOrSelf(
+                  index < LitIE(0), index + SymIE(dataDims[i]));
+            outAF.emplace_back(index);
+          }
+          outAF.emplace_back(LitIE(0));
+          DimsExpr updAF(rowAF);
+          updAF.emplace_back(LitIE(0));
+          createKrnl.simdIterateIE(LitIE(0), LitIE(S), VL, fullySimd,
+              /*useParallel=*/false, {updFlat, outFlat}, {updAF, outAF},
+              {outFlat}, {outAF},
+              {[&](const KrnlBuilder &b, ArrayRef<Value> vals,
+                   int64_t) -> Value {
+                MathBuilder createMath(b);
+                Value upd = vals[0], cur = vals[1];
+                if (reduction == "add")
+                  return createMath.add(cur, upd);
+                if (reduction == "mul")
+                  return createMath.mul(cur, upd);
+                if (reduction == "max")
+                  return createMath.max(cur, upd);
+                if (reduction == "min")
+                  return createMath.min(cur, upd);
+                assert(reduction == "none" && "Unknown reduction type");
+                return upd;
+              }});
+        });
+    return success();
+  }
 
   LogicalResult matchAndRewrite(ONNXScatterNDOp scatterNDOp,
       ONNXScatterNDOpAdaptor adaptor,
@@ -80,8 +203,32 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
       output = data;
     } else {
       output = create.mem.alignedAlloc(outputMemRefType, dataDims);
-      emitMemcpy(rewriter, loc, op, output, data, dataDims, enableParallel,
-          "scatterND copy");
+      // In development (--test-compiler-opt): when `data` is a broadcast
+      // scalar, fill the output with it instead of copying the shared buffer.
+      // The fill only writes; the shared buffer, if no one else reads it, is
+      // then removed as write-only after lowering.
+      Value fillVal = debugTestCompilerOpt
+                          ? getFillValue(scatterNDOp,
+                                outputMemRefType.getElementType(), create.math)
+                          : nullptr;
+      if (fillVal)
+        create.krnl.memset(output, fillVal);
+      else
+        emitMemcpy(rewriter, loc, op, output, data, dataDims, enableParallel,
+            "scatterND copy");
+    }
+
+    // In development (--test-compiler-opt): the row form. With k =
+    // indices.shape[-1] < rank(data), each update is a whole slice of S =
+    // prod(data.shape[k:]) contiguous elements, in both `updates` and the
+    // output. Load the k index values once per slice, then combine the slice
+    // with SIMD.
+    if (debugTestCompilerOpt &&
+        succeeded(emitRows(scatterNDOp, op, adaptor, output, dataDims,
+            outputMemRefType, reduction, indicesMayBeNegative, rewriter,
+            loc))) {
+      rewriter.replaceOp(op, output);
+      return success();
     }
 
     // Step2: scatter the updates values into the output.
@@ -187,10 +334,10 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
 };
 
 void populateLoweringONNXScatterNDOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
-    bool enableCollapse) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
+    bool enableParallel, bool enableCollapse) {
   patterns.insert<ONNXScatterNDOpLowering>(
-      typeConverter, ctx, enableParallel, enableCollapse);
+      typeConverter, ctx, enableSIMD, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir
