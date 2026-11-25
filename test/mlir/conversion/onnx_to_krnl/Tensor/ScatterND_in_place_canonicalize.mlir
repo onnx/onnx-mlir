@@ -141,28 +141,29 @@ func.func @test_scatter_nd_no_in_place_two_uses(%a: tensor<64x32xf32> {onnx.name
 
 // -----
 
-// `data` is a constant, in read-only memory: copy.
+// `data` is a constant, in read-only memory: not in place. Being a splat, it
+// is not copied either: the output is filled with its value.
 func.func @test_scatter_nd_no_in_place_constant(%u: tensor<2x32xf32> {onnx.name = "updates"}) -> (tensor<64x32xf32> {onnx.name = "output"}) {
   %d = onnx.Constant dense<1.0> : tensor<64x32xf32>
   %i = onnx.Constant dense<[[3], [5]]> : tensor<2x1xi64>
   %0 = "onnx.ScatterND"(%d, %i, %u) : (tensor<64x32xf32>, tensor<2x1xi64>, tensor<2x32xf32>) -> tensor<64x32xf32>
   return %0 : tensor<64x32xf32>
 
+
 // CHECK-LABEL:  func.func @test_scatter_nd_no_in_place_constant
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x32xf32> {onnx.name = "updates"}) -> (memref<64x32xf32> {onnx.name = "output"}) {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[CST_2048_:%.+]] = arith.constant 2048 : i64
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [64, 32], value = dense<1.000000e+00> : tensor<64x32xf32>}> : () -> memref<64x32xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [2, 1], value = dense<{{.}}[3], [5]{{.}}> : tensor<2x1xi64>}> : () -> memref<2x1xi64>
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [2, 1], value = dense<{{.}}[3], [5]{{.}}> : tensor<2x1xi64>}> : () -> memref<2x1xi64>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() alignment = 16 : memref<64x32xf32>
-// CHECK:           "krnl.memcpy"([[RES_]], [[VAR_0_]], [[CST_2048_]], [[CST_0_]], [[CST_0_]]) : (memref<64x32xf32>, memref<64x32xf32>, i64, index, index) -> ()
+// CHECK:           krnl.memset [[RES_]], [[CST_1_dot_000000_]] : memref<64x32xf32>
 // CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 32){
-// CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             [[LOAD_VAR_1_MEM_:%.+]] = krnl.load [[VAR_1_]]{{.}}[[VAR_3_]]#0, [[CST_0_]]{{.}} : memref<2x1xi64>
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.index_cast [[LOAD_VAR_1_MEM_]] : i64 to index
-// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<2x32xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_5_]], [[VAR_3_]]#1] : memref<64x32xf32>
+// CHECK:             [[VAR_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]]{{.}}[[VAR_2_]]#0, [[CST_0_]]{{.}} : memref<2x1xi64>
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_]] : i64 to index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1] : memref<2x32xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_4_]], [[VAR_2_]]#1] : memref<64x32xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<64x32xf32>
 // CHECK:         }

@@ -546,6 +546,15 @@ func.func @test_scatterND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor
 
 // -----
 
+// COM: With a dynamic indices.shape[-1], the ranks fix it: rank(data) + rank(indices) - 1 - rank(updates) must be in [0, rank(data)].
+func.func @test_scatterND_verifier_6(%arg0 : tensor<2x3xf32>, %arg1 : tensor<?x?xi64>, %arg2 : tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{the ranks of 'data' (2), 'indices' (2) and 'updates' (4) give indices.shape[-1] = -1, outside [0, 2]}}
+  %1 = "onnx.ScatterND"(%arg0, %arg1, %arg2) : (tensor<2x3xf32>, tensor<?x?xi64>, tensor<1x2x3x4xf32>)  -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 // COM: Let r = rank(data), q = rank(indices), and k = indices.shape[-1] --> updates.shape[q:] must match data.shape[k:r-1].
 func.func @test_scatterND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<2x2xi64>, %arg2 : tensor<2x3x3xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.ScatterND: operand '<block argument> of type 'tensor<2x3x3xf32>' at index: 2' has dimension at index 2 with value 3, value should be 4}}

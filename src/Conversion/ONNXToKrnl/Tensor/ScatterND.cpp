@@ -37,11 +37,40 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
   bool enableParallel;
   bool enableCollapse = false;
 
+  // The index depth k = indices.shape[-1]. When that dim is dynamic, k is
+  // still fixed by the ranks: updates.shape = indices.shape[:-1] ++
+  // data.shape[k:], so rank(updates) = rank(indices) - 1 + rank(data) - k.
+  // (The verifier rejects ranks that give a k outside [0, rank(data)].)
+  static int64_t getIndexDepth(
+      ShapedType indicesType, int64_t dataRank, int64_t updatesRank) {
+    int64_t indicesRank = indicesType.getRank();
+    int64_t k = indicesType.getShape()[indicesRank - 1];
+    if (!ShapedType::isDynamic(k))
+      return k;
+    return dataRank + indicesRank - 1 - updatesRank;
+  }
+
   // When `data` is Expand(scalar constant), e.g. a zero tensor shared by many
   // scatters, return that scalar as a value of the element type; null
   // otherwise. Looks at the original ONNX operand, not the converted one.
   static Value getFillValue(
       ONNXScatterNDOp scatterNDOp, Type elementType, MathBuilder &createMath) {
+    if (!mlir::isa<FloatType, IntegerType>(elementType))
+      return nullptr;
+    // A splat constant: with static shapes, constant propagation turns
+    // Expand(scalar constant) into one before lowering.
+    if (auto dataConstOp =
+            scatterNDOp.getData().getDefiningOp<ONNXConstantOp>()) {
+      auto dense = mlir::dyn_cast_or_null<DenseElementsAttr>(
+          dataConstOp.getValue().value_or(nullptr));
+      if (!dense || !dense.isSplat())
+        return nullptr;
+      if (mlir::isa<FloatType>(elementType))
+        return createMath.constant(
+            elementType, dense.getSplatValue<APFloat>().convertToDouble());
+      return createMath.constant(elementType,
+          static_cast<double>(dense.getSplatValue<APInt>().getSExtValue()));
+    }
     auto expandOp = scatterNDOp.getData().getDefiningOp<ONNXExpandOp>();
     if (!expandOp || !isScalarConstantTensor(expandOp.getInput()))
       return nullptr;
@@ -66,8 +95,9 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     auto indicesType = mlir::cast<ShapedType>(indices.getType());
     int64_t dataRank = outputMemRefType.getRank();
     int64_t indicesRank = indicesType.getRank();
-    int64_t k = indicesType.getShape()[indicesRank - 1];
-    if (!enableSIMD || ShapedType::isDynamic(k) || k >= dataRank)
+    int64_t k = getIndexDepth(indicesType, dataRank,
+        mlir::cast<ShapedType>(updates.getType()).getRank());
+    if (!enableSIMD || k >= dataRank)
       return failure();
     Type elementType = outputMemRefType.getElementType();
     int64_t VL = VectorMachineSupport::getArchVectorLength(elementType);
@@ -245,12 +275,11 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     // bodyCost 2 + 3 k (at least 10): one innermost iteration loads k index
     // values and normalizes each with a compare and a select, loads the
     // update, and stores through a non-affine access function. k, the index
-    // depth, is the static last dimension of 'indices' (asserted below).
+    // depth, is indices.shape[-1], derived from the ranks when that dim is
+    // dynamic (getIndexDepth).
     bool parallelizable = (reduction == "none");
-    int64_t indexDepthForCost = indicesType.getShape()[indicesRank - 1];
-    int64_t bodyCost = ShapedType::isDynamic(indexDepthForCost)
-                           ? 10
-                           : std::max<int64_t>(10, 2 + 3 * indexDepthForCost);
+    int64_t indexDepth = getIndexDepth(indicesType, dataRank, updatesRank);
+    int64_t bodyCost = std::max<int64_t>(10, 2 + 3 * indexDepth);
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/updatesRank,
         /*collapseLastExclusiveDim=*/updatesRank,
@@ -276,9 +305,6 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
           // the trailing (r-k) induction variables of the loop iteration
           // space, i.e. those past the first (q-1) that were consumed above
           // by the 'indices' access function.
-          int64_t indexDepth = indicesType.getShape()[indicesRank - 1];
-          assert(indexDepth != ShapedType::kDynamic &&
-                 "indices tensor's last dimension must be static");
           DimsExpr outputAccessFct;
           for (int64_t i = 0; i < dataRank; ++i) {
             if (i < indexDepth) {
