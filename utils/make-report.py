@@ -4,7 +4,7 @@
 
 ##################### make-report.py ########################################
 #
-# Copyright 2023 The IBM Research Authors.
+# Copyright 2023-2026 The IBM Research Authors.
 #
 #############################################################################
 #
@@ -41,7 +41,7 @@ def print_usage(msg=""):
 Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
 make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
       [-p <plot_file_name][-s <stats>] [--sort <val>] [--supported] [-u <val>]
-      [-f <op regexp>] [-w <num>]
+      [-f <op regexp>] [-w <num>] [--compare <run_log> [-t <pct>]]
           
 Compile-time statistics are collected from a `onnx-mlir` compiler output
 with the `--opt-report` option equal to `Simd` or other supported sub-options.
@@ -62,6 +62,15 @@ Parameters on inputs:
                            or runtime signature statistics. Default is same
                            as runtime file.
   -r/--runtime <file_log>: File name containing the runtime time statistics.
+  --compare <file_log>:    Compare the runtime statistics of `-r` (base) with
+                           the ones of this file (new), op by op. Lists all
+                           ops, or with `-t`, only the ops whose time changed by
+                           at least the threshold or whose number of
+                           occurrences changed. Use `-l 3` to
+                           also compare individual nodes. `-w`, `-f`, `-m`,
+                           `-u`, `--reporting`, and `--sort` apply to both runs.
+  -t/--threshold <pct>:    Compare mode: list only ops whose time changed by
+                           at least <pct>% (default 0: list all ops).
 
 Parameters to focus analysis:
   -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
@@ -117,6 +126,7 @@ op_detail_time_dict = {}  # op -> {dictionary of detailed pattern -> cumulative 
 # For timing info
 node_time_dict = {}  # op + node_name -> time statistic
 node_time_used = {}  # op + node_name -> 1 if used; not present if unused.
+node_count_dict = {}  # op + node_name -> number of occurrences in a run.
 tot_time = 0  # total time.
 
 focus_on_op_with_pattern = r".*"
@@ -129,6 +139,7 @@ report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names.
 reporting = "QUARTILE"
 time_unit = 1  # seconds.
 min_percent_reporting = 0.0  # percentage.
+compare_threshold = 0.0  # percentage, for --compare (0: all ops).
 
 # For plot info
 plot_names = np.array([])
@@ -276,6 +287,7 @@ def record_pattern(op, node_name, detail_key):
         )
     # Record timing key as used.
     node_time_used[timing_key] = 1
+    node_count_dict[timing_key] = add_to_dict_entry(node_count_dict, timing_key, 1)
 
 
 ################################################################################
@@ -513,6 +525,33 @@ def get_sorting_key(count, name, time):
     return -time
 
 
+# Split time between CPU (onnx + zhigh Stick/Unstick) and Zhigh ops.
+# Returns (cpu time, zhigh time, has at least one zhigh op).
+def get_cpu_zhigh_time(op_time_dict):
+    cpu_time = 0.0
+    zhigh_time = 0.0
+    has_zhigh = False
+    for op in op_time_dict:
+        op_time = np.sum(op_time_dict[op])
+        if re.match(r"zhigh\.", op):
+            has_zhigh = True
+            if re.search(r".*Stick.*|.*Unstick.*", op):
+                cpu_time += op_time
+            else:
+                zhigh_time += op_time
+        elif re.match(r"onnx\.", op):
+            cpu_time += op_time
+    return (cpu_time, zhigh_time, has_zhigh)
+
+
+def get_unit_str():
+    if time_unit == 1000:
+        return "ms"
+    if time_unit == 1000 * 1000:
+        return "us"
+    return "s"
+
+
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
@@ -633,19 +672,7 @@ def make_report(stat_message):
     # Summarize CPU (onnx + zhigh Stick/Unstick) vs Zhigh time, only when
     # there is at least one zhigh op in the report.
     if has_timing:
-        cpu_time = 0.0
-        zhigh_time = 0.0
-        has_zhigh = False
-        for op in op_time_dict:
-            op_time = np.sum(op_time_dict[op])
-            if re.match(r"zhigh\.", op):
-                has_zhigh = True
-                if re.search(r".*Stick.*|.*Unstick.*", op):
-                    cpu_time += op_time
-                else:
-                    zhigh_time += op_time
-            elif re.match(r"onnx\.", op):
-                cpu_time += op_time
+        cpu_time, zhigh_time, has_zhigh = get_cpu_zhigh_time(op_time_dict)
         if has_zhigh:
             print(
                 "Statistics summary: CPU time {:.7f}{} ({:.1f}% of tot), "
@@ -680,6 +707,258 @@ def print_compile_info():
             print("  accelerator", name + ":", accel_info)
     except json.JSONDecodeError:
         print("Compile info:", compile_info_str)
+
+
+################################################################################
+# Compare two runtime logs.
+
+
+def reset_state():
+    global op_count_dict, op_detail_count_dict, op_time_dict, op_detail_time_dict
+    global node_time_dict, node_time_used, node_count_dict, tot_time
+    global has_timing, error_missing_time, compile_info_str
+
+    # Assign new objects (not clear) so that snapshots of a previous run stay.
+    op_count_dict = {}
+    op_detail_count_dict = {}
+    op_time_dict = {}
+    op_detail_time_dict = {}
+    node_time_dict = {}
+    node_time_used = {}
+    node_count_dict = {}
+    tot_time = 0
+    has_timing = False
+    error_missing_time = 0
+    compile_info_str = ""
+
+
+# Parse one runtime log and return a snapshot of its per-op and per-node data.
+def collect_run(file_name, warmup_num):
+    reset_state()
+    parse_file_for_perf(file_name, "PERF", warmup_num)
+    if not has_timing:
+        print_usage("No runtime statistics found in `" + file_name + "`")
+    parse_file_for_stat(file_name, "PERF")
+    if not op_count_dict:
+        print_usage("No op found in the runtime statistics of `" + file_name + "`")
+    ops = {}  # op -> (count, cumulative time)
+    for op in op_count_dict:
+        time = np.sum(op_time_dict[op]) if op in op_time_dict else 0.0
+        ops[op] = (op_count_dict[op], float(time))
+    nodes = {}  # op + node_name -> (count, cumulative time)
+    for key in node_time_dict:
+        count = node_count_dict.get(key, 1)
+        nodes[key] = (count, float(node_time_dict[key]) * count)
+    cpu_time, zhigh_time, has_zhigh = get_cpu_zhigh_time(op_time_dict)
+    info = {}
+    if compile_info_str:
+        try:
+            info = json.loads(compile_info_str)
+        except json.JSONDecodeError:
+            info = {"compile_info": compile_info_str}
+    return {
+        "name": file_name,
+        "ops": ops,
+        "nodes": nodes,
+        "tot": float(tot_time),
+        "cpu": cpu_time,
+        "zhigh": zhigh_time,
+        "has_zhigh": has_zhigh,
+        "info": info,
+        "missing": error_missing_time,
+    }
+
+
+def get_change(new, base):
+    if base == 0:
+        return None
+    return (new - base) * 100 / base
+
+
+def fmt_change(change):
+    return "-" if change is None else "{:+.1f}%".format(change)
+
+
+def fmt_time(t):
+    return "{:.7f}".format(t * time_unit)
+
+
+def print_compile_info_diff(base, new):
+    fields = []
+    for info in (base["info"], new["info"]):
+        for f in info:
+            if f not in fields:
+                fields.append(f)
+    # Same fields as print_compile_info; other fields (e.g. op_stats) are only
+    # flagged when they differ.
+    shown_fields = ("compiler_version", "compile_options", "accelerators")
+    for f in fields:
+        b = base["info"].get(f, "-")
+        n = new["info"].get(f, "-")
+        if f not in shown_fields:
+            if b != n:
+                print("  {}: differs between the runs".format(f))
+        elif b == n:
+            print("  {}: {}".format(f, b))
+        else:
+            print("  {} (base): {}".format(f, b))
+            print("  {} (new):  {}   <- differs".format(f, n))
+
+
+# Compare entries of two runs, each a dict: key -> (count, cumulative time).
+# Return (shown rows, count changes hidden by the min percent filter).
+def compare_entries(base, new, base_tot, new_tot):
+    shown = []
+    hidden = []
+    for key in list(base) + [k for k in new if k not in base]:
+        bc, bt = base.get(key, (0, 0.0))
+        nc, nt = new.get(key, (0, 0.0))
+        status = "new" if bc == 0 else ("gone" if nc == 0 else "")
+        change = None if status else get_change(nt, bt)
+        avg_change = None
+        if bc != nc and not status:
+            avg_change = get_change(nt / nc, bt / bc)
+        row = (key, bc, bt, nc, nt, status, change, avg_change)
+        significant = (
+            compare_threshold <= 0
+            or status
+            or bc != nc
+            or (change is not None and abs(change) >= compare_threshold)
+        )
+        if not significant:
+            continue
+        share = max(get_percent(bt, base_tot), get_percent(nt, new_tot))
+        if share >= min_percent_reporting:
+            shown.append(row)
+        elif bc != nc:
+            hidden.append(row)
+
+    def sort_key(row):
+        key, bc, bt, nc, nt = row[:5]
+        if sorting_preference == "name":
+            return (key, 0)
+        if sorting_preference == "num":
+            return (-max(bc, nc), key)
+        # Most time saved first, most time added (regressions) last.
+        return (nt - bt, key)
+
+    return (sorted(shown, key=sort_key), sorted(hidden, key=sort_key))
+
+
+def fmt_compare_row(name, row):
+    _, bc, bt, nc, nt, status, change, avg_change = row
+    num = str(bc) if bc == nc else "{}/{}".format(bc, nc)
+    out = "  {}, {}, {}, {}".format(
+        name, num, fmt_time(bt) if bc else "-", fmt_time(nt) if nc else "-"
+    )
+    if status:
+        return out + ", " + status + ", -"
+    speedup = "{:.2f}x".format(bt / nt) if nt > 0 else "-"
+    out += ", {}, {}".format(fmt_change(change), speedup)
+    if bc != nc:
+        out += ", avg {}/{} ({})".format(
+            fmt_time(bt / bc), fmt_time(nt / nc), fmt_change(avg_change)
+        )
+    return out
+
+
+def print_compare_table(title, rows, hidden, name_fct):
+    details = ""
+    if supported_only:
+        details += " supported"
+    if min_percent_reporting > 0:
+        details += ", {}%+ exec time in either run".format(min_percent_reporting)
+    if compare_threshold > 0:
+        details += ", {}%+ change or count change".format(compare_threshold)
+    details += ", ordered_by " + sorting_preference
+    print(title + " comparison start" + details)
+    for row in rows:
+        print(fmt_compare_row(name_fct(row[0]), row))
+    print(title + " comparison end" + details)
+    if hidden:
+        print(
+            "{} count changes below {}% exec time:".format(title, min_percent_reporting)
+        )
+        for row in hidden:
+            print(fmt_compare_row(name_fct(row[0]), row))
+
+
+def make_compare_report(base_file_name, new_file_name, warmup_num):
+    print('Base run "' + base_file_name + '"')
+    base = collect_run(base_file_name, warmup_num)
+    print('New run "' + new_file_name + '"')
+    new = collect_run(new_file_name, warmup_num)
+    unit = get_unit_str()
+
+    print('Compare base "{}" with new "{}"'.format(base_file_name, new_file_name))
+    print_compile_info_diff(base, new)
+
+    # Op count summary.
+    b_ops, n_ops = base["ops"], new["ops"]
+    count_changes = [op for op in n_ops if op in b_ops and b_ops[op][0] != n_ops[op][0]]
+    new_op_num = len([op for op in n_ops if op not in b_ops])
+    gone_op_num = len([op for op in b_ops if op not in n_ops])
+    b_num = sum(c for c, _ in b_ops.values())
+    n_num = sum(c for c, _ in n_ops.values())
+    if count_changes or new_op_num or gone_op_num:
+        print(
+            "> Op counts differ between the runs: for those ops, compare average"
+            " times (avg), not cumulative times."
+        )
+
+    print("Comparison legend:")
+    print(
+        "  op-name: num (base/new if different), base cumulative time ({u}), "
+        "new cumulative time ({u}), change, speedup (base/new) "
+        "[, avg base/new average time ({u}) (change), when num differs]".format(u=unit)
+    )
+    print("")
+    rows, hidden = compare_entries(b_ops, n_ops, base["tot"], new["tot"])
+    print_compare_table("Op", rows, hidden, lambda op: op)
+
+    if report_level == 3:
+        print("")
+        rows, hidden = compare_entries(
+            base["nodes"], new["nodes"], base["tot"], new["tot"]
+        )
+        print_compare_table(
+            "Node",
+            rows,
+            hidden,
+            lambda key: ", ".join(get_op_node_from_timing_key(key)),
+        )
+
+    # Summary.
+    bt, nt = base["tot"], new["tot"]
+    print(
+        "Comparison summary: tot_time {} -> {}({}), {}, speedup {}".format(
+            fmt_time(bt),
+            fmt_time(nt),
+            unit,
+            fmt_change(get_change(nt, bt)),
+            "{:.2f}x".format(bt / nt) if nt > 0 else "-",
+        )
+    )
+    if base["has_zhigh"] or new["has_zhigh"]:
+        for label, field in (("CPU", "cpu"), ("Zhigh", "zhigh")):
+            print(
+                "  {} time {} -> {}({}), {}".format(
+                    label,
+                    fmt_time(base[field]),
+                    fmt_time(new[field]),
+                    unit,
+                    fmt_change(get_change(new[field], base[field])),
+                )
+            )
+    print(
+        "  op count {} -> {} ({:+d}), {} op type(s) with count changes, "
+        "{} new, {} gone".format(
+            b_num, n_num, n_num - b_num, len(count_changes), new_op_num, gone_op_num
+        )
+    )
+    if base["missing"] or new["missing"]:
+        print("> Timing information was missing for some of the nodes.")
+        print("> Run with `-v` for detailed list of errors.")
 
 
 def output_plot(runtime_file_name, plot_file_name):
@@ -721,10 +1000,11 @@ def output_plot(runtime_file_name, plot_file_name):
 def main(argv):
     global report_level, focus_on_op_with_pattern, supported_only, time_unit
     global min_percent_reporting, verbose, reporting
-    global sorting_preference
+    global sorting_preference, compare_threshold
 
     compile_file_name = ""
     runtime_file_name = ""
+    compare_file_name = ""
     plot_file_name = ""
     make_stats = ""
     make_legend = ""
@@ -732,9 +1012,10 @@ def main(argv):
     try:
         opts, args = getopt.getopt(
             argv,
-            "c:f:hl:m:p:r:s:u:vw:",
+            "c:f:hl:m:p:r:s:t:u:vw:",
             [
                 "compile=",
+                "compare=",
                 "focus=",
                 "help",
                 "level=",
@@ -745,6 +1026,7 @@ def main(argv):
                 "stats=",
                 "sort=",
                 "supported",
+                "threshold=",
                 "unit=",
                 "verbose",
                 "warmup=",
@@ -755,6 +1037,10 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-c", "--compile"):
             compile_file_name = arg
+        elif opt == "--compare":
+            compare_file_name = arg
+        elif opt in ("-t", "--threshold"):
+            compare_threshold = float(arg)
         elif opt in ("-f", "--focus"):
             focus_on_op_with_pattern = arg
             if report_level == 0:
@@ -819,6 +1105,20 @@ def main(argv):
             verbose = True
         elif opt in ("-w", "--warmup"):
             warmup_num = int(arg)
+
+    # Compare mode: runtime statistics of two runs.
+    if compare_file_name:
+        if not runtime_file_name:
+            print_usage("--compare requires a base runtime file given with -r.")
+        if compile_file_name or (make_stats and make_stats != "PERF"):
+            print_usage("--compare only compares runtime (perf) statistics.")
+        if not sorting_preference:
+            sorting_preference = "time"
+        print("Analyze PERF comparison")
+        make_compare_report(runtime_file_name, compare_file_name, warmup_num)
+        if plot_file_name:
+            print("\n> No plot in compare mode, skip")
+        return
 
     # Default stats.
     if not make_stats:
