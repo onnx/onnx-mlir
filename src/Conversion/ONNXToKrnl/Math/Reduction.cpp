@@ -436,8 +436,13 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Test if loop trip count is long enough for a parallel execution.
   if (enableParallel) {
-    auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ 1, /*cost*/ {32 * totVL});
+    // The bound is in elements, the whole flattened input entered once, so the
+    // region must repay its fork cost: bodyCost is one element's work, the
+    // reduction ops (accumulated in registers).
+    auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ 1,
+        {.minTripCount = 32 * totVL,
+            .bodyCost = estimateWorkPerElement(mix),
+            .mustRepayFork = true});
     if (plan.findParallelDim(op, "simd reduction to one element", {lb}, {ub}) ==
         NO_PAR_FOUND)
       enableParallel = false;
@@ -1054,8 +1059,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> lbs3(outRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
-      auto plan = KrnlParallelPlan::noCollapse(
-          loop3Def, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
+      auto plan = KrnlParallelPlan::noCollapse(loop3Def, /*first*/ 0,
+          /*last excl*/ 1, {.minTripCount = 4});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "reduction scalar mean", lbs3, ubs3);
@@ -1180,8 +1185,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
-    auto plan = KrnlParallelPlan::noCollapse(
-        outLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {128});
+    auto plan = KrnlParallelPlan::noCollapse(outLoopDef, /*first*/ 0,
+        /*last excl*/ 1, {.minTripCount = 128});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "reduction h-simd", lbs, flatOutDims);
@@ -1333,7 +1338,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     // Innermost entry is a krnl.block result: can never collapse.
     auto plan = KrnlParallelPlan::noCollapse(optimizedOutLoopDef, /*first*/ 0,
-        /*last excl*/ flatOutRank, /*cost*/ {8 * VL});
+        /*last excl*/ flatOutRank, {.minTripCount = 8 * VL});
     if (enableParallel) {
       plan.tryCreateParallel(
           create.krnl, op, "reduction shuffle h-simd", lbs, flatOutDims);

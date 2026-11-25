@@ -104,7 +104,9 @@ public:
             .getValue();
 
     // When there is only a single entry point function in a model, use
-    // DEFAULT_DYN_ENTRY_POINT.
+    // DEFAULT_DYN_ENTRY_POINT. The NNPA pass ReplaceMallocByHugePageMalloc
+    // finds entry points by the "run_" prefix (and the call to the model's
+    // body by "_mlir_ciface_"): update it if this naming changes.
     std::string dynEntryPointName = "run_" + staticEntryPointFuncName.str();
     if (singleEntryPoint)
       dynEntryPointName = DEFAULT_DYN_ENTRY_POINT;

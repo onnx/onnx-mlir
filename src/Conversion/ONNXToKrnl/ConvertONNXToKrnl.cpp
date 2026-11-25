@@ -364,7 +364,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel, opsForCall);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXGridSampleOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXGridSampleOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXDeformConvOpPattern(patterns, typeConverter, ctx, enableParallel);
   // Recurrent neural network
   populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);

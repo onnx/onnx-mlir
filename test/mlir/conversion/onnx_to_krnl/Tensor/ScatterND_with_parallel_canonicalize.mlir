@@ -1,4 +1,7 @@
-// RUN: onnx-mlir-opt --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel and collapse code; by default most no longer repay a fork and stay
+// sequential.
 
 // Parallel coverage for ScatterND. With reduction "none" the spec requires
 // indices to have no duplicate entries, so the whole updates loop nest is
