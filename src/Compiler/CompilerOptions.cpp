@@ -849,7 +849,6 @@ static llvm::cl::opt<bool, true> disableGemmSmallNOpt("disable-gemm-small-n",
     llvm::cl::location(disableGemmSmallN), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
-
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
                    "to disable SIMD at O3."),
