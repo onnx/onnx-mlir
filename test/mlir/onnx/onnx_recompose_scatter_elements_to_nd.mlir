@@ -1,6 +1,6 @@
-// RUN: onnx-mlir-opt --test-compiler-opt --recompose-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --recompose-onnx %s -split-input-file | FileCheck %s
 
-// GROUND-ALL: -t="--test-compiler-opt" --lower-bound=int64:-6 --upper-bound=int64:5 --rtol=1e-5 --atol=1e-5
+// GROUND-ALL: --lower-bound=int64:-6 --upper-bound=int64:5 --rtol=1e-5 --atol=1e-5
 
 // ScatterElements whose index is an Expand of a value constant along every row
 // (one index per row, copied along the feature dims, as PyG scatter_add /
@@ -8,6 +8,9 @@
 // index: out[x[e], :] op= upd[e, :], without the expanded index tensor.
 // Indices are drawn from [-6, 5] for data with 6 rows (negative ones count
 // from the back), so rows repeat and the reductions see duplicate rows.
+// Grounded in file mode against onnx_recompose_scatter_elements_to_nd.baseline.mlir:
+// the same functions with the index built by Tile, which the pattern does not
+// match, so they keep ScatterElements and its element-by-element lowering.
 
 // GNN aggregation: dynamic rows, 3-D, reduction add. The Expand keeps dim 0 of
 // x (shape 1 there); dim 0 of x and of the updates are not statically equal,

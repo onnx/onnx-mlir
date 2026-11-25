@@ -1,13 +1,14 @@
-// RUN: onnx-mlir-opt -O3 --march=z16 --test-compiler-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --march=z16 --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-// GROUND-ALL: -c="-O3 --march=arm64" -t="--test-compiler-opt" --lower-bound=int64:-6 --upper-bound=int64:5 --rtol=1e-5 --atol=1e-5
+// GROUND-ALL: -c="-O3 --march=arm64" -r="--disable-simd" --lower-bound=int64:-6 --upper-bound=int64:5 --rtol=1e-5 --atol=1e-5
 
 // ScatterND row form: with k = indices.shape[-1] < rank(data), each update is
 // a slice of S = prod(data.shape[k:]) contiguous elements. The k index values
 // are loaded once per slice, then the slice is combined with SIMD (z16: 4
 // floats per vector, a scalar tail when S is not a multiple of 4). -O3 and
 // --march are both needed for SIMD. Grounded on arm64 (same vector length)
-// against the element-by-element lowering (no --test-compiler-opt). Indices
+// against the element-by-element lowering, which --disable-simd selects (the
+// fill of a broadcast scalar does not depend on SIMD, so it is in both). Indices
 // are drawn from [-6, 5] for dims of size 6, so rows repeat and negative ones
 // are normalized.
 

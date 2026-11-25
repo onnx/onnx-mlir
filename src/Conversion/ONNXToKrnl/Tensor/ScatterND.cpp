@@ -203,14 +203,11 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
       output = data;
     } else {
       output = create.mem.alignedAlloc(outputMemRefType, dataDims);
-      // In development (--test-compiler-opt): when `data` is a broadcast
-      // scalar, fill the output with it instead of copying the shared buffer.
-      // The fill only writes; the shared buffer, if no one else reads it, is
-      // then removed as write-only after lowering.
-      Value fillVal = debugTestCompilerOpt
-                          ? getFillValue(scatterNDOp,
-                                outputMemRefType.getElementType(), create.math)
-                          : nullptr;
+      // When `data` is a broadcast scalar, fill the output with it instead
+      // of copying the shared buffer. The fill only writes; the shared buffer,
+      // if no one else reads it, is then removed as write-only after lowering.
+      Value fillVal = getFillValue(
+          scatterNDOp, outputMemRefType.getElementType(), create.math);
       if (fillVal)
         create.krnl.memset(output, fillVal);
       else
@@ -218,13 +215,11 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
             "scatterND copy");
     }
 
-    // In development (--test-compiler-opt): the row form. With k =
-    // indices.shape[-1] < rank(data), each update is a whole slice of S =
-    // prod(data.shape[k:]) contiguous elements, in both `updates` and the
-    // output. Load the k index values once per slice, then combine the slice
-    // with SIMD.
-    if (debugTestCompilerOpt &&
-        succeeded(emitRows(scatterNDOp, op, adaptor, output, dataDims,
+    // The row form. With k = indices.shape[-1] < rank(data), each update is a
+    // whole slice of S = prod(data.shape[k:]) contiguous elements, in both
+    // `updates` and the output. Load the k index values once per slice, then
+    // combine the slice with SIMD.
+    if (succeeded(emitRows(scatterNDOp, op, adaptor, output, dataDims,
             outputMemRefType, reduction, indicesMayBeNegative, rewriter,
             loc))) {
       rewriter.replaceOp(op, output);

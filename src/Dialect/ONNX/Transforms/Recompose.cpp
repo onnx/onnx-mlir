@@ -1332,8 +1332,6 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 // so dims are compared statically. When dim 0 of %x is not statically equal to
 // dim 0 of %upd, %x may be broadcast along it by the Expand, so the [E, 1]
 // index is expanded to dim 0 of %upd.
-//
-// In development, enabled with --test-compiler-opt (Debug builds only).
 struct ScatterElementsToScatterNDPattern
     : public OpRewritePattern<ONNXScatterElementsOp> {
   using OpRewritePattern<ONNXScatterElementsOp>::OpRewritePattern;
@@ -1646,9 +1644,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
   if (!disableSplitMatMulBySlice)
     patterns.insert<SplitMatMulBySlicePattern>(context);
-  // In development: enabled with --test-compiler-opt (Debug builds only).
-  if (debugTestCompilerOpt)
-    patterns.insert<ScatterElementsToScatterNDPattern>(context);
+  patterns.insert<ScatterElementsToScatterNDPattern>(context);
 }
 
 /*!
