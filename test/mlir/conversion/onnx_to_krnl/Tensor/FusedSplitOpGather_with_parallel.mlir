@@ -1,5 +1,8 @@
-// RUN: onnx-mlir-opt --march=arm64 --shape-inference --fusion-op-transform --convert-onnx-to-krnl="enable-simd=true enable-parallel=true" %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt --march=arm64 --shape-inference --fusion-op-transform --convert-onnx-to-krnl="enable-simd=true enable-parallel=true enable-collapse=false" %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false --march=arm64 --shape-inference --fusion-op-transform --convert-onnx-to-krnl="enable-simd=true enable-parallel=true" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false --march=arm64 --shape-inference --fusion-op-transform --convert-onnx-to-krnl="enable-simd=true enable-parallel=true enable-collapse=false" %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel and collapse code; by default most no longer repay a fork and stay
+// sequential.
 
 // Tests that onnx.Fused(kind="simd-split-op-gather")'s outer (non-split-axis)
 // loop, see src/Conversion/ONNXToKrnl/Tensor/FusedSplitOpGather.cpp, is

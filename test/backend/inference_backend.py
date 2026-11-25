@@ -3281,7 +3281,6 @@ def get_test_models():
         "test_scan9_sum_cpu": {STATIC_SHAPE: {}},
         # ==OP== ScatterElements
         # ==MIN== 11
-        # ==LIM== Does not support duplicate indices.
         "test_scatter_elements_without_axis_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -3297,17 +3296,63 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_scatter_elements_with_duplicate_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # ==OP== ScatterND
-        # ==MIN== 11
-        # ==LIM== Does not support scatternd add/multiply.
-        "test_scatternd_cpu": {
+        "test_scatter_elements_with_duplicate_indices_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_scatternd_add_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_scatternd_multiply_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_scatter_elements_with_reduction_max_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatter_elements_with_reduction_min_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatter_elements_with_reduction_mul_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # ==OP== ScatterND
+        # ==MIN== 11
+        "test_scatternd_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatternd_add_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatternd_multiply_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatternd_max_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatternd_min_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatternd_max_with_element_indices_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_scatternd_min_with_element_indices_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Selu
         # ==MIN== 6
         "test_selu_cpu": {

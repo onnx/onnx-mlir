@@ -1,4 +1,9 @@
-// RUN: onnx-mlir-opt -O3 --march=z17 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --march=z17 --parallel-must-repay-fork=false --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// GROUND-ALL: -c="-O3 --parallel --parallel-must-repay-fork=false" -r="--disable-collapse"
+
+// --parallel-must-repay-fork=false: these shapes are far too small to
+// repay a fork, so by default only the 16-batch 3-D case keeps a region; the
+// flag keeps the parallel and collapse placement under test.
 
 // Note here: we added the march = z17 because not all machines have support for round even operation.
 // Recent Z machines have it, same with recent macs.
@@ -31,7 +36,8 @@ func.func @test_gridsample_2d_parallel_small_batch(%arg0: tensor<1x20x4x4xf32>, 
 
 // -----
 
-// COM: Test 2D GridSample with large batch (BS=16) and few channels (C=3) for parallelization
+// COM: Test 2D GridSample with large batch (BS=16) and few channels (C=3) for parallelization.
+// COM: C=3 alone is too narrow for a region; collapsing C x H_out x W_out gives 12.
 func.func @test_gridsample_2d_parallel_large_batch(%arg0: tensor<16x3x4x4xf32>, %arg1: tensor<16x2x2x2xf32>) -> tensor<16x3x2x2xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 0 : si64, mode = "linear", padding_mode = "zeros"} : (tensor<16x3x4x4xf32>, tensor<16x2x2x2xf32>) -> tensor<16x3x2x2xf32>
   return %0 : tensor<16x3x2x2xf32>
@@ -48,7 +54,9 @@ func.func @test_gridsample_2d_parallel_large_batch(%arg0: tensor<16x3x4x4xf32>, 
 // CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_PLAN_]]#0, [[LOOP_PLAN_]]#1)
 // CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
-// CHECK:             krnl.iterate([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2)
+// CHECK:             [[COLLAPSED_:%.+]] = krnl.collapse([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2)
+// CHECK:             krnl.parallel([[COLLAPSED_]])
+// CHECK:             krnl.iterate([[COLLAPSED_]]) with ([[LOOP_APPLY_]]#0 -> {{%.+}} = 0 to 3, [[LOOP_APPLY_]]#1 -> {{%.+}} = 0 to 2, [[LOOP_APPLY_]]#2 -> {{%.+}} = 0 to 2)
 // CHECK:               krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<16x3x2x2xf32>

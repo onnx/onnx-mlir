@@ -109,7 +109,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/2,
-          {.minTripCountForParallel = 4, .bodyCost = 1},
+          {.minTripCount = 4, .bodyCost = 1, .mustRepayFork = true},
           /*excl dims*/ {axis});
       if (enableParallel)
         plan.tryCreateParallel(create.krnl, op, "concat", lbs, commonUB);

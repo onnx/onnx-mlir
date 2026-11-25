@@ -1581,15 +1581,21 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // never reaches it. Both windows stop at the top two levels, as in the other
   // migrated sites, which keeps index recovery to a single divide.
   //
-  // bodyCost: one outer iteration runs the whole flattened SIMD loop, so its
-  // trip count when literal. When it is dynamic, assume one vector: the least
-  // the loop does, so a group is never grown on the strength of a guess.
+  // bodyCost: one outer iteration runs the whole flattened SIMD loop, its
+  // trip count times one element's work (the op mix). When the trip count is
+  // dynamic, assume one vector: the least the loop does, so a group is never
+  // grown on the strength of a guess; that dynamic size is invisible to the
+  // decision, so only a literal one opts in to the fork-cost test.
+  GenOpMix mix = getGenOpMix<OP_TYPE>(outputElementType, op);
+  int64_t workPerElement = estimateWorkPerElement(mix);
   int64_t parLevels = std::min(outerLoopRank, (int64_t)2);
   KrnlParallelPlan plan(loopDef, enableCollapse,
       /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parLevels,
       /*collapseLastExclusiveDim=*/parLevels,
-      {.minTripCountForParallel = 4,
-          .bodyCost = simdUb.isLiteral() ? simdUb.getLiteral() : VL});
+      {.minTripCount = 4,
+          .bodyCost =
+              (simdUb.isLiteral() ? simdUb.getLiteral() : VL) * workPerElement,
+          .mustRepayFork = simdUb.isLiteral()});
   if (enableParallel) {
     // Prefer an outer loop whenever there is one, including a single outer
     // loop (e.g. [1, S] - [S, 1] -> [S, S], where only the innermost dim
@@ -1606,8 +1612,15 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       // no parallelism when none qualifies. These bounds are the flattened
       // SIMD loop's, which forLoopIE defines internally -- no loop ref of ours
       // describes it.
-      auto simdPlan = KrnlParallelPlan::noLoopRefs(
-          /*first*/ 0, /*last excl*/ 1, /*cost*/ {VL * 32});
+      //
+      // The bound is in elements, a whole flattened tensor entered once, so
+      // the region must repay its fork cost: bodyCost is one element's work,
+      // from the op mix.
+      auto simdPlan = KrnlParallelPlan::noLoopRefs(/*first*/ 0,
+          /*last excl*/ 1,
+          {.minTripCount = VL * 32,
+              .bodyCost = workPerElement,
+              .mustRepayFork = true});
       if (simdPlan.findParallelDim(op,
               "inner-loop of elementwise simd partially flattened", {zero},
               {simdUb}) != NO_PAR_FOUND)
@@ -1747,6 +1760,10 @@ public:
 
   bool isFusibleListEmpty() { return fusibleOps.size() == 0; }
 
+  // Work per element of the fused ops, in KrnlParallelCost::bodyCost's units:
+  // each op's mix (estimateWorkPerElement).
+  int64_t fusedOpsWork() const;
+
   // The final output type after fusion.
   // The element type of an elementwise op may be different from its inputs.
   // For example, comparison ops, and cast Op.
@@ -1768,6 +1785,16 @@ private:
   llvm::SmallVector<mlir::Operation *, 2> fusibleOps;
   llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFuctions;
 }; // End of OpFusionHelper Declaration
+
+int64_t OpFusionHelper::fusedOpsWork() const {
+  int64_t work = 0;
+  for (Operation *fusedOp : fusibleOps) {
+    Type elementType = getElementTypeOrSelf(fusedOp->getResult(0).getType());
+    work += estimateWorkPerElement(
+        getGenOpMixForElementwiseOp(elementType, fusedOp));
+  }
+  return work;
+}
 
 // Check a node with type T is fusible or not.
 // If true, record the op to data structure
@@ -2223,10 +2250,17 @@ struct ONNXElementwiseUnaryOpLowering
       // the nest may be collapsed. The collapse window stops at the top two
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
+      //
+      // bodyCost: one element, the op's mix plus the fused consumers (loads
+      // and stores overlap with them; LLVM vectorizes these loops).
+      int64_t scalarWork =
+          estimateWorkPerElement(
+              getGenOpMix<ElementwiseUnaryOp>(outputElementType, op)) +
+          opFusionHelper.fusedOpsWork();
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = scalarWork, .mustRepayFork = true});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise unary not simdized", lbs, ubs);
@@ -2412,10 +2446,17 @@ struct ONNXElementwiseBinaryOpLowering
       // the nest may be collapsed. The collapse window stops at the top two
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
+      //
+      // bodyCost: one element, the op's mix plus the fused consumers (loads
+      // and stores overlap with them; LLVM vectorizes these loops).
+      int64_t scalarWork =
+          estimateWorkPerElement(
+              getGenOpMix<ElementwiseBinaryOp>(outputElementType, op)) +
+          opFusionHelper.fusedOpsWork();
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = scalarWork, .mustRepayFork = true});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise binary not simdized", lbs, ubs);
@@ -2592,10 +2633,19 @@ struct ONNXElementwiseVariadicOpLowering
       // the nest may be collapsed. The collapse window stops at the top two
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
+      //
+      // bodyCost: one element, the op's mix once per pair of inputs, plus the
+      // fused consumers (loads and stores overlap with them).
+      int64_t numInputs = op->getNumOperands();
+      int64_t scalarWork =
+          estimateWorkPerElement(
+              getGenOpMix<ElementwiseVariadicOp>(outputElementType, op)) *
+              std::max<int64_t>(1, numInputs - 1) +
+          opFusionHelper.fusedOpsWork();
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = scalarWork, .mustRepayFork = true});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "elementwise variable not simdized", lbs, ubs);
@@ -2718,10 +2768,12 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       // the nest may be collapsed. The collapse window stops at the top two
       // levels and never includes the innermost one: a group there would
       // recover indices with a divide per element.
+      //
+      // bodyCost 1: one element, a select (loads and stores overlap with it).
       KrnlParallelPlan plan(loopDef, enableCollapse,
           /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
           /*collapseLastExclusiveDim=*/std::min(outputRank - 1, (int64_t)2),
-          {.minTripCountForParallel = 4, .bodyCost = 10});
+          {.minTripCount = 4, .bodyCost = 1, .mustRepayFork = true});
       if (enableParallel)
         plan.tryCreateParallel(
             create.krnl, op, "where op not simdized", lbs, ubs);

@@ -94,7 +94,7 @@ public:
     // and a store.
     KrnlParallelPlan plan = KrnlParallelPlan::noCollapse(loopDef,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
-        {.minTripCountForParallel = 4, .bodyCost = 1});
+        {.minTripCount = 4, .bodyCost = 1});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "tensor scatter", lbs, ubs);
 

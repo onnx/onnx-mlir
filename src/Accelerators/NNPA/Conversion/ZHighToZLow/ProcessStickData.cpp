@@ -77,7 +77,7 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     // The window excludes the innermost level: E1 is iterated as sticks below,
     // so splitting it across threads would cut a stick in two.
     auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank - 1, /*cost*/ {8});
+        /*first*/ 0, /*last excl*/ rank - 1, {.minTripCount = 8});
     parId =
         plan.findParallelDim(op, "simd min/max for DQL in parallel", lbs, ubs);
     if (parId == NO_PAR_FOUND) {
@@ -203,7 +203,7 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
-    bool enablePrefetch,
+    bool enablePrefetch, int64_t workPerValue,
     UnifiedStickSupportList::IterateFctOver4xF32 processVectorOfF32Vals) {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
@@ -236,8 +236,13 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    auto plan = KrnlParallelPlan::noLoopRefs(
-        /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    // One iteration processes one stick of 64 values, workPerValue each.
+    // Small tensors are entered once for little work, so the region must
+    // repay its fork cost.
+    auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0, /*last excl*/ rank,
+        {.minTripCount = 8,
+            .bodyCost = workPerValue * stickLen,
+            .mustRepayFork = true});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
     if (parId == NO_PAR_FOUND)
@@ -540,9 +545,14 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
         };
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
     int64_t unrollFactor = 8;
+    // Work per value, for the parallel decision: the op itself, plus a dlf16
+    // conversion per input and one for the output.
+    GenOpMix mix = getGenOpMix<ElementwiseOp>(rewriter.getF32Type(), op);
+    int64_t workPerValue =
+        estimateWorkPerElement(mix, (int64_t)op->getNumOperands() + 1);
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
         shapeHelper->getOutputDims(), unrollFactor, enableParallel,
-        disableSaturation, true /*prefetch*/, fct);
+        disableSaturation, true /*prefetch*/, workPerValue, fct);
 
     // replace op.
     rewriter.replaceOp(op, alloc);
@@ -670,13 +680,18 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     //
     // The plan is handed E2's bound in tiles, ceil(E2 / B): that is the tile
     // loop's trip count, and what a collapsed E2 iterates. bodyCost: one
-    // iteration normalizes B rows of E1 values, reading each value a few times.
+    // iteration normalizes B rows of E1 values, ~10 work units per value, as
+    // for the CPU LayerNorm (Normalization.cpp, where 10 matched the z17
+    // break-even): the statistics pass and the normalize pass, with their
+    // dlf16 conversions.
     int64_t outerRank = ubs.size();
     int64_t parRank = std::min(outerRank, static_cast<int64_t>(2));
     KrnlParallelPlan plan(outerOptLoops, enableCollapse,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/parRank,
         /*collapseLastExclusiveDim=*/outerRank,
-        {.minTripCountForParallel = 4, .bodyCost = B * E1.getLiteral()});
+        {.minTripCount = 4,
+            .bodyCost = 10 * B * E1.getLiteral(),
+            .mustRepayFork = true});
     if (enableParallel) {
       // LBs and UBs are here only used to determine when/where parallelism is
       // good; not used in the actual LB/UB of the actual loops.

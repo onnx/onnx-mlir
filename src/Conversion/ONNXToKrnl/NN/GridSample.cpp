@@ -321,7 +321,7 @@ static void computeBilinearSamplingPlan(const KrnlBuilder &createKrnl,
 static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
     ONNXGridSampleOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper,
-    bool enableParallel) {
+    bool enableParallel, bool enableCollapse) {
 
   Value input = adaptor.getX();
   Value grid = adaptor.getGrid();
@@ -409,10 +409,20 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
         SmallVector<IndexExpr, 3> applyUbs = {
             SymIE(outputDims[1]), SymIE(H_out), SymIE(W_out)};
 
-        // Plan holds the whole nest, not just the channel loop: the window
-        // stops at 1, so the same ref is chosen either way.
-        auto plan = KrnlParallelPlan::noCollapse(
-            applyLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
+        // out[n, c, h, w] is written once per iteration, which reads only the
+        // input and this batch's sampling plan (phase 1 is done), so the nest
+        // is order-independent and the collapse claim can be all of it: with
+        // few channels, C x H_out (x W_out) still makes a wide region.
+        //
+        // bodyCost 30: eight plan loads (four indices, four weights), four
+        // pixel gathers, a weighted sum and a store, ~21; zeros padding adds a
+        // mask load and the mask tests, ~34. The region
+        // is entered once per batch, a loop the plan does not see, so each
+        // entry must repay its own fork cost (mustRepayFork).
+        KrnlParallelPlan plan(applyLoopDef, enableCollapse,
+            /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/3,
+            /*collapseLastExclusiveDim=*/3,
+            {.minTripCount = 4, .bodyCost = 30, .mustRepayFork = true});
         if (enableParallel) {
           plan.tryCreateParallel(create.krnl, op, "gridsample 2d bilinear opt",
               applyLbs, applyUbs);
@@ -509,7 +519,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
 static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
     ONNXGridSampleOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper,
-    bool enableParallel) {
+    bool enableParallel, bool enableCollapse) {
 
   Value input = adaptor.getX();
   Value grid = adaptor.getGrid();
@@ -537,12 +547,19 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
   DimsExpr ubs = shapeHelper.getOutputDims();
 
-  // Parallelize outer loops (N, C) for better performance.
-  // The two outer loops (batch and channel) are independent and can be
-  // parallelized.
-  // Plan holds the whole nest, not the 2-element slice: same ref either way.
-  auto plan = KrnlParallelPlan::noCollapse(
-      loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {4});
+  // Parallelize outer loops (N, C, H_out). Each iteration writes its own
+  // output element and reads only the input and the grid, so the nest is
+  // order-independent and any run of these levels may be collapsed: with a
+  // small batch and few channels, N x C x H_out still makes a wide region.
+  //
+  // bodyCost: one output element, by mode: nearest ~30 (two grid loads, the
+  // coordinate transforms, a rounding, bounds checks and a gather), bilinear
+  // ~70 (four taps with their bounds checks and address math, and the blend),
+  // cubic ~350 (eight weights, sixteen taps and the blend).
+  int64_t bodyCost = mode == "nearest" ? 30 : (mode == "cubic" ? 350 : 70);
+  KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+      /*parLastExclusiveDim=*/3, /*collapseLastExclusiveDim=*/3,
+      {.minTripCount = 4, .bodyCost = bodyCost, .mustRepayFork = true});
   if (enableParallel) {
     plan.tryCreateParallel(create.krnl, op, "gridsample 2d", lbs, ubs);
   }
@@ -688,7 +705,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
 static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
     ONNXGridSampleOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper,
-    bool enableParallel) {
+    bool enableParallel, bool enableCollapse) {
 
   Value input = adaptor.getX();
   Value grid = adaptor.getGrid();
@@ -717,12 +734,14 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
   SmallVector<IndexExpr, 5> lbs(outputRank, LitIE(0));
   DimsExpr ubs = shapeHelper.getOutputDims();
 
-  // Parallelize outer loops (N, C) for better performance.
-  // The two outer loops (batch and channel) are independent and can be
-  // parallelized.
-  // Plan holds the whole nest, not the 2-element slice: same ref either way.
-  auto plan = KrnlParallelPlan::noCollapse(
-      loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {4});
+  // Parallelize outer loops (N, C, D_out), as in the 2-D case.
+  //
+  // bodyCost: one output element, by mode: nearest ~35, trilinear ~130
+  // (eight taps with their bounds checks and address math, and the blend).
+  int64_t bodyCost = mode == "nearest" ? 35 : 130;
+  KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+      /*parLastExclusiveDim=*/3, /*collapseLastExclusiveDim=*/3,
+      {.minTripCount = 4, .bodyCost = bodyCost, .mustRepayFork = true});
   if (enableParallel) {
     plan.tryCreateParallel(create.krnl, op, "gridsample 3d", lbs, ubs);
   }
@@ -848,16 +867,18 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
 //===----------------------------------------------------------------------===//
 
 struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
-  ONNXGridSampleOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXGridSampleOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXGridSampleOp::getOperationName());
+    this->enableCollapse = enableCollapse;
   }
 
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   LogicalResult matchAndRewrite(ONNXGridSampleOp gridSampleOp,
       ONNXGridSampleOpAdaptor adaptor,
@@ -923,14 +944,14 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
       if (ENABLE_GRIDSAMPLE_BILINEAR_OPT &&
           (mode == "linear" || mode == "bilinear")) {
         result = lowerGridSample2DBilinearOptimized(gridSampleOp, adaptor,
-            rewriter, loc, alloc, shapeHelper, enableParallel);
+            rewriter, loc, alloc, shapeHelper, enableParallel, enableCollapse);
       } else {
         result = lowerGridSample2D(gridSampleOp, adaptor, rewriter, loc, alloc,
-            shapeHelper, enableParallel);
+            shapeHelper, enableParallel, enableCollapse);
       }
     } else if (inputRank == 5) {
       result = lowerGridSample3D(gridSampleOp, adaptor, rewriter, loc, alloc,
-          shapeHelper, enableParallel);
+          shapeHelper, enableParallel, enableCollapse);
     } else {
       return emitError(
           loc, "GridSample only supports 2D (4D input) and 3D (5D input)");
@@ -946,8 +967,10 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
 };
 
 void populateLoweringONNXGridSampleOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXGridSampleOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXGridSampleOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

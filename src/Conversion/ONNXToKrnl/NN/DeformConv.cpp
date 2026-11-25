@@ -237,7 +237,7 @@ public:
     // parallel level. Searching all of them matters because `n` alone leaves
     // the common batch of one with nothing to parallelize over.
     auto plan = KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0,
-        /*last excl*/ 3, {.minTripCountForParallel = 16});
+        /*last excl*/ 3, {.minTripCount = 16});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "deformconv", outerLbs, outerUbs);
     create.krnl.iterateIE(outerLoops, plan.optimizedLoopDef(), outerLbs,

@@ -1,5 +1,8 @@
-// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel and collapse code; by default most no longer repay a fork and stay
+// sequential.
 
 // GROUND-ALL: -c="-O3 --parallel" -r="--disable-collapse"
 
@@ -23,7 +26,8 @@
 // The trace shows why the group is {0,1} and not {1}: both are wide enough
 // (verdict YES), but {1} leaves the dynamic level *above* the region, so the
 // number of region entries is unknown and it loses on that gate. Absorbing that
-// level costs {0,1} one shift and mask, 3% of the work a fused iteration does.
+// level costs {0,1} one shift and mask, 3% of the work a collapsed iteration
+// does.
 // GROUND-THIS: --shape-info=0:3x16x7x128
 func.func @test_collapse_dyn_outer(%arg0 : tensor<?x16x?x128xf32>) -> tensor<?x16x?x64xf32> {
   %axes = onnx.Constant dense<[3]> : tensor<1xi64>
@@ -70,9 +74,9 @@ func.func @test_collapse_dyn_outer(%arg0 : tensor<?x16x?x128xf32>) -> tensor<?x1
 
 // -----
 
-// STEP 1: a single level that is literally wide enough, under a statically small
-// prefix, so there is nothing to fuse and no index recovery to pay for. A group
-// would be strictly worse here, and the step exists to say so.
+// STEP 1: a single level that is literally wide enough, under a statically
+// small prefix, so there is nothing to collapse and no index recovery to pay
+// for. A group would be strictly worse here, and the step exists to say so.
 func.func @test_par_single_static_outer(%arg0 : tensor<64x4x16xf32>) -> tensor<64x4x8xf32> {
   %axes = onnx.Constant dense<[2]> : tensor<1xi64>
   %starts = onnx.Constant dense<[8]> : tensor<1xi64>
@@ -247,7 +251,7 @@ func.func @test_collapse_concat_axis_outside_window(%arg0 : tensor<?x4x?x128xf32
 // The same Concat with axis = 1, where the exclusion bites: it removes level 1
 // from a window of 2, leaving {0} as the only safe level and no run of two
 // adjacent ones. The frame therefore never reaches a policy -- the debug trace
-// reads "Pick dim 0 because ub is dyn", STEP 0's own message -- and the IR is
+// reads "Pick level 0 because ub is dyn", STEP 0's own message -- and the IR is
 // identical to flag-off rather than being subject to STEP 1's stricter rules.
 // This is the exclusion path, and the only outcome it can produce for a window
 // of 2.
@@ -378,10 +382,11 @@ func.func @test_collapse_block_transpose(%arg0 : tensor<?x16x?x128xf32>) -> tens
 
 // Gather, and the case no other covered site can produce: a group that starts
 // *below* level 0. Level 0 has a trip count of 1, which STEP 2 refuses to lead
-// with -- it buys no width and costs a recovery level -- so the run [0,4) yields
-// its best candidate at d = 1, and levels 1 and 2 fuse to a guaranteed 4 while
-// level 0 stays a sequential `0 to 1` wrapper above the region. Level 3 is
-// rejected outright: its prefix is a static 4, above maxForkCount.
+// with -- it buys no width and costs a recovery level -- so the run [0,4)
+// yields its best candidate at d = 1, and levels 1 and 2 collapse to a
+// guaranteed 4 while level 0 stays a sequential `0 to 1` wrapper above the
+// region. Level 3 is rejected outright: its prefix is a static 4, above
+// maxForkCount.
 //
 // Gather is also the only migrated site whose windows are the whole rank, which
 // is what lets a run of three exist here at all.
@@ -422,13 +427,13 @@ func.func @test_collapse_gather_group_below_level_0(%arg0: tensor<8x2x2x?xf32>, 
 
 // Gather on an all-static shape, where the flag changes which level carries the
 // region rather than widening one. Flag off, the search takes the first level
-// wide enough and lands on level 2 (4), entered 2 x 2 = 4 times. Flag on, STEP 1
-// refuses it because that prefix is above maxForkCount, and STEP 2 fuses {0,1}
-// into a guaranteed 4 entered once. Narrower but entered once, which is the
-// trade maxForkCount encodes -- worth pinning because it is the clearest case of
-// the flag *moving* a region instead of growing one.
-// The slice is kept at 4 floats so that the nest stays element-wise: a
-// contiguous slice of 64 bytes or more takes the row-copy path instead.
+// wide enough and lands on level 2 (4), entered 2 x 2 = 4 times. Flag on, STEP
+// 1 refuses it because that prefix is above maxForkCount, and STEP 2 collapses
+// {0,1} into a guaranteed 4 entered once. Narrower but entered once, which is
+// the trade maxForkCount encodes -- worth pinning because it is the clearest
+// case of the flag *moving* a region instead of growing one. The slice is kept
+// at 4 floats so that the nest stays element-wise: a contiguous slice of 64
+// bytes or more takes the row-copy path instead.
 // GROUND-THIS: --shape-info=0:2x2x4,1:2 --lower-bound=int64:0 --upper-bound=int64:1
 func.func @test_collapse_gather_static_moves_region(%arg0: tensor<2x2x4xf32>, %arg1: tensor<2xi64>) -> tensor<2x2x4xf32> {
   %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<2x2x4xf32>, tensor<2xi64>) -> tensor<2x2x4xf32>
@@ -514,9 +519,9 @@ func.func @test_collapse_gather_two_dyn_over_small_slice(%arg0: tensor<100x4xf32
 // Gather of embedding rows, the BERT word-embedding shape scaled down: the
 // slice after the axis is 64 contiguous floats, so the lowering iterates only
 // over the [batch, seq] index levels and copies each row with one krnl.memcpy.
-// Flag on, both dynamic levels fuse into one region; flag off, the region sits
-// on the batch level. Before the row-copy path, the element-wise nest put the
-// region on the 64-wide slice level, so one region was entered per row.
+// Flag on, both dynamic levels collapse into one region; flag off, the region
+// sits on the batch level. Before the row-copy path, the element-wise nest put
+// the region on the 64-wide slice level, so one region was entered per row.
 // GROUND-THIS: --shape-info=0:100x64,1:3x37 --lower-bound=int64:0 --upper-bound=int64:99
 func.func @test_collapse_gather_rows(%arg0: tensor<100x64xf32>, %arg1: tensor<?x?xi64>) -> tensor<?x?x64xf32> {
   %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<100x64xf32>, tensor<?x?xi64>) -> tensor<?x?x64xf32>
@@ -571,8 +576,8 @@ func.func @test_collapse_gather_rows(%arg0: tensor<100x64xf32>, %arg1: tensor<?x
 
 // Elementwise, SIMD path (outer loop of a partially flattened nest): the 768
 // innermost elements are one flattened SIMD loop, and the outer [batch, seq]
-// levels fuse into one region instead of sitting on the dynamic batch alone,
-// which is 1 at inference. As in BERT's embedding Adds.
+// levels collapse into one region instead of sitting on the dynamic batch
+// alone, which is 1 at inference. As in BERT's embedding Adds.
 // GROUND-THIS: --shape-info=0:3x37x768,1:3x37x768
 func.func @test_collapse_elementwise_simd(%arg0: tensor<?x?x768xf32>, %arg1: tensor<?x?x768xf32>) -> tensor<?x?x768xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x?x768xf32>, tensor<?x?x768xf32>) -> tensor<?x?x768xf32>
@@ -629,7 +634,7 @@ func.func @test_collapse_elementwise_simd(%arg0: tensor<?x?x768xf32>, %arg1: ten
 
 // Elementwise, scalar path (a broadcast the SIMD path rules out), as in an
 // attention-mask Add [batch, 12, seq, seq] + [batch, 1, seq, seq]. The top two
-// levels fuse; the collapse window stops there and never reaches the
+// levels collapse; the collapse window stops there and never reaches the
 // innermost level, so indices are recovered once per row, not per element.
 // GROUND-THIS: --shape-info=0:2x12x33x33,1:2x1x33x33
 func.func @test_collapse_elementwise_bcast(%arg0: tensor<?x12x?x?xf32>, %arg1: tensor<?x1x?x?xf32>) -> tensor<?x12x?x?xf32> {
@@ -755,10 +760,10 @@ func.func @test_collapse_where(%arg0: tensor<?x1x?xi1>, %arg1: tensor<?x7x?xf32>
 // -----
 
 // A rank-0 nest: Gather declares its whole window collapse-eligible, but a
-// scalar output defines no loop at all, so there is nothing to fuse. The plan
-// must degrade to a no-collapse plan rather than assert (it used to abort with
-// "a collapse-eligible plan needs loop refs to fuse"), and the IR is the same
-// with collapse on or off.
+// scalar output defines no loop at all, so there is nothing to collapse. The
+// plan must degrade to a no-collapse plan rather than assert (it used to abort
+// with "a collapse-eligible plan needs loop refs to collapse"), and the IR is
+// the same with collapse on or off.
 // GROUND-THIS: --lower-bound=int64:0 --upper-bound=int64:3
 func.func @test_collapse_gather_scalar(%arg0: tensor<4xi64>, %arg1: tensor<i64>) -> tensor<i64> {
   %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<4xi64>, tensor<i64>) -> tensor<i64>

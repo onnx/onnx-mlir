@@ -311,9 +311,13 @@ public:
     int64_t totVL = unrollVL * archVL;
     assert(totVL <= 64 && "bad unroll");
 
-    // Parallel...
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDefs, /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    // Parallel... One iteration stickifies one tile of 64 values: conversion
+    // and saturation, about 1 work unit per value (z17: ~0.7 measured, loads
+    // and stores included). Small tensors are entered once for little work,
+    // so the region must repay its fork cost.
+    auto plan = KrnlParallelPlan::noCollapse(loopDefs, /*first*/ 0,
+        /*last excl*/ rank,
+        {.minTripCount = 8, .bodyCost = 64, .mustRepayFork = true});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
       plan.tryCreateParallel(

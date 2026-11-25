@@ -4,7 +4,7 @@
 
 //===------------------ Scatter.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -196,6 +196,17 @@ LogicalResult ONNXScatterNDOp::verify() {
       return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
           *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
           "<= " + std::to_string(dataRank));
+  } else {
+    // indices.shape[-1] is dynamic, but the ranks still fix it:
+    // rank(updates) = rank(indices) - 1 + rank(data) - indices.shape[-1].
+    // The lowering relies on that value, so it must lie in [0, rank(data)].
+    int64_t derivedLastDim = dataRank + indicesRank - 1 - updatesRank;
+    if (derivedLastDim < 0 || derivedLastDim > dataRank)
+      return emitOpError("the ranks of 'data' (")
+             << dataRank << "), 'indices' (" << indicesRank
+             << ") and 'updates' (" << updatesRank
+             << ") give indices.shape[-1] = " << derivedLastDim
+             << ", outside [0, " << dataRank << "]";
   }
 
   // The constraints check following this point requires the input tensors shape

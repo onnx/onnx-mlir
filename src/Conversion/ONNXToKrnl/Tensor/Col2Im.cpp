@@ -127,7 +127,7 @@ public:
     SmallVector<IndexExpr, 4> outerLbs(outRank, LiteralIndexExpr(0));
     KrnlParallelPlan plan = KrnlParallelPlan::noCollapse(outerLoopDef,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
-        {.minTripCountForParallel = 16});
+        {.minTripCount = 16});
     if (enableParallel)
       plan.tryCreateParallel(
           create.krnl, op, "col2im outer loop", outerLbs, outputDims);
