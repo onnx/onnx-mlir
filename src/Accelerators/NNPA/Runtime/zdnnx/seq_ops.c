@@ -1098,7 +1098,7 @@ zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   // (b / H) for each of them.
   uint32_t BH = zdnnx_get_transformed_dim(Q, E4);
   uint32_t BM = zdnnx_get_transformed_dim(Mask, E4);
-  if (broadcasting_mask && BM != BH) {
+  if (BM != BH) {
     assert(BH % BM == 0 && "BH must be divisible by BM for broadcasting");
     uint32_t H = BH / BM;
     zdnn_status status = ZDNN_OK;
