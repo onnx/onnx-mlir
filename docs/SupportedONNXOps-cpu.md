@@ -155,16 +155,16 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 24. Limitatio
 | **RandomUniformLike** |none | | | |
 | **Range** |11 - * | | |
 | **Reciprocal** |6 - * | | |
-| **ReduceL1** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceL2** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceLogSum** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceLogSumExp** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceMax** |6 - * |do_not_keep_dims not supported. | |
-| **ReduceMean** |6 - * |do_not_keep_dims not supported. | |
-| **ReduceMin** |6 - * |do_not_keep_dims not supported. | |
-| **ReduceProd** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceSum** |6 - * |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
-| **ReduceSumSquare** |13 - * |Default axis and do_not_keep_dim not supported. | |
+| **ReduceL1** |13 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceL2** |13 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceLogSum** |13 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceLogSumExp** |13 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceMax** |6 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceMean** |6 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceMin** |6 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceProd** |13 - * |`axes` must be a constant when `keepdims` is 0. | |
+| **ReduceSum** |6 - * |Default axis not supported. `axes` must be a constant when `keepdims` is 0. |Default axis temporarily removed due to changes in onnx 1.8.1. |
+| **ReduceSumSquare** |13 - * |Default axis not supported. `axes` must be a constant when `keepdims` is 0. | |
 | **Relu** |6 - * | | |
 | **Reshape** |6 - * |allowzero not supported. Input `shape` must have static dimension. Does not support int4 and uint4. | |
 | **Resize** |10 - * |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. `scales` and `sizes` must have static dimension. | |
