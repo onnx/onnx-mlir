@@ -2807,11 +2807,14 @@ def get_test_models():
         },
         # ==OP== ReduceLogSumExp
         # ==MIN== 13
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_log_sum_exp_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2834,9 +2837,12 @@ def get_test_models():
         },
         # ==OP== ReduceLogSum
         # ==MIN== 13
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_log_sum_desc_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_log_sum_asc_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_log_sum_desc_axes_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_log_sum_asc_axes_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_log_sum_default_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2855,11 +2861,14 @@ def get_test_models():
         },
         # ==OP== ReduceL1
         # ==MIN== 13
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_l1_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_l1_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_l1_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_l1_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_l1_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_l1_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_l1_keep_dims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2878,11 +2887,14 @@ def get_test_models():
         },
         # ==OP== ReduceL2
         # ==MIN== 13
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_l2_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_l2_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_l2_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_l2_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_l2_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_l2_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_l2_keep_dims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2905,7 +2917,7 @@ def get_test_models():
         },
         # ==OP== ReduceMax
         # ==MIN== 1
-        # ==LIM== do_not_keep_dims not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         "test_reduce_max_default_axes_keepdim_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2918,6 +2930,9 @@ def get_test_models():
         },
         # "test_reduce_max_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_max_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_max_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_max_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_max_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2940,11 +2955,14 @@ def get_test_models():
         },
         # ==OP== ReduceMean
         # ==MIN== 1
-        # ==LIM== do_not_keep_dims not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_mean_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_mean_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_mean_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_mean_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_mean_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_mean_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_mean_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2967,7 +2985,7 @@ def get_test_models():
         },
         # ==OP== ReduceMin
         # ==MIN== 1
-        # ==LIM== do_not_keep_dims not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         "test_reduce_min_default_axes_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2980,6 +2998,9 @@ def get_test_models():
         },
         # "test_reduce_min_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_min_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_min_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_min_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_min_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3002,11 +3023,14 @@ def get_test_models():
         },
         # ==OP== ReduceProd
         # ==MIN== 13
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_prod_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_prod_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_prod_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_prod_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_prod_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_prod_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_prod_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3029,10 +3053,13 @@ def get_test_models():
         },
         # ==OP== ReduceSum
         # ==MIN== 1
-        # ==LIM== Default axis and do_not_keep_dim not supported.
-        # ==TODO== Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1
+        # ==LIM== Default axis not supported. `axes` must be a constant when `keepdims` is 0.
+        # ==TODO== Default axis temporarily removed due to changes in onnx 1.8.1
         # "test_reduce_sum_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_sum_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_sum_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_sum_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_sum_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3062,11 +3089,14 @@ def get_test_models():
         },
         # ==OP== ReduceSumSquare
         # ==MIN== 13
-        # ==LIM== Default axis and do_not_keep_dim not supported.
+        # ==LIM== Default axis not supported. `axes` must be a constant when `keepdims` is 0.
         # "test_reduce_sum_square_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_sum_square_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_sum_square_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_sum_square_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Enabled to test with constant axes, required when keepdims is 0.
+        "test_reduce_sum_square_do_not_keepdims_example_cpu": {CONSTANT_INPUT: {1}},
+        "test_reduce_sum_square_do_not_keepdims_random_cpu": {CONSTANT_INPUT: {1}},
         "test_reduce_sum_square_keepdims_example_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
