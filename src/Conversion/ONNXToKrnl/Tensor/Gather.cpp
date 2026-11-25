@@ -123,7 +123,7 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/outputRank,
         /*collapseLastExclusiveDim=*/outputRank,
-        {.minTripCountForParallel = 4, .bodyCost = 10});
+        {.minTripCount = 4, .bodyCost = 10, .mustRepayFork = true});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "gather", lbs, ubs);
     create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
@@ -244,13 +244,15 @@ private:
     DimsExpr ubs(outDims.begin(), outDims.begin() + outerRank);
     // Each (ii, jj) writes its own disjoint K-element slice of the output and
     // reads only operands, so the whole outer nest is order-independent and
-    // the collapse claim is the whole window. bodyCost is K: one iteration
-    // copies K elements (plus one index load and clamp, negligible against a
-    // literal K of at least minRowCopyBytes).
+    // the collapse claim is the whole window. bodyCost is K + 20: one
+    // iteration copies K elements, plus ~20 for the index load and clamp, the
+    // two offsets and the memcpy call, which matter near minRowCopyBytes.
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/outerRank,
         /*collapseLastExclusiveDim=*/outerRank,
-        {.minTripCountForParallel = 4, .bodyCost = K.getLiteral()});
+        {.minTripCount = 4,
+            .bodyCost = K.getLiteral() + 20,
+            .mustRepayFork = true});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "gather rows", lbs, ubs);
     create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,

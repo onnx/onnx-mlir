@@ -114,7 +114,7 @@ struct ONNXUpsampleAndPadOpLowering
     // the whole nest: the window stops at 2, so the same ref is chosen either
     // way.
     auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
+        loopDef, /*first*/ 0, /*last excl*/ 2, {.minTripCount = 8});
     if (enableParallel && rank >= 2) {
       plan.tryCreateParallel(create.krnl, op, "upsample and pad", lbs, ubs);
     }

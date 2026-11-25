@@ -450,7 +450,8 @@ void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
 void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGridSampleOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXDeformConvOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 
@@ -847,6 +848,18 @@ bool isOverComputeSafe(mlir::Operation *op);
 int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount);
+
+// Rough work of one element of a loop with this op mix, in
+// KrnlParallelCost::bodyCost's work units: 1 per group of up to three simple
+// ops, 10 per divide, square root, exp or log, 30 per erf, 50 per pow or
+// trigonometric op, plus extraWorkPerElement (e.g. dlf16 conversions, about 1
+// each); at least 1. Loads and stores are not counted: they overlap with the
+// ops, in SIMD loops and in the scalar ones LLVM vectorizes. An order of
+// magnitude, as bodyCost asks for. Measured on z17 (2026-11-23, sequential,
+// per value): Abs 0.8, Relu 0.6, ReduceSum 0.5, PRelu 1.0, Greater with a
+// Cast 0.9, Erf 14, Sin on sticks 48, Pow 62.
+int64_t estimateWorkPerElement(
+    const GenOpMix &mix, int64_t extraWorkPerElement = 0);
 
 // Compute a suitable SIMD Vector Length (totVL). If no SIMD is suitable,
 // return totVL = 1. Type determine the archVL for the given memRefType. Then

@@ -170,6 +170,9 @@ extern bool disableOMPNowait;                                 // onnx-mlir only
 extern int64_t collapseMinParTripCountFloor;                  // common for both
 extern int64_t collapseMinAmortWork;                          // common for both
 extern int64_t collapseMaxForkCount;                          // common for both
+extern int64_t parallelForkCost;                              // common for both
+extern bool parallelMustRepayFork;                            // common for both
+extern int64_t parallelExpectedThreads;                       // onnx-mlir only
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only

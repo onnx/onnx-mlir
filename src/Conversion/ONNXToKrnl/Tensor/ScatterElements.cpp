@@ -114,7 +114,8 @@ struct ONNXScatterElementsOpLowering
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/updatesRank,
         /*collapseLastExclusiveDim=*/updatesRank,
-        {.minTripCountForParallel = 4, .bodyCost = 10}, exclusiveDims);
+        {.minTripCount = 4, .bodyCost = 10, .mustRepayFork = true},
+        exclusiveDims);
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "scatterElements", lbs, ubs);
     create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,

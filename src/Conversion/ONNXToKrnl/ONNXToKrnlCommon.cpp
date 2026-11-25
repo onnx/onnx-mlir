@@ -22,6 +22,7 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/ParallelMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
@@ -710,6 +711,33 @@ bool isOverComputeSafe(Operation *op) {
 }
 
 // New style.
+int64_t estimateWorkPerElement(
+    const GenOpMix &mix, int64_t extraWorkPerElement) {
+  int64_t work = extraWorkPerElement;
+  int64_t simpleOps = 0;
+  for (auto [gop, count] : mix) {
+    if (gop >= GenericOps::LastGop)
+      continue; // A metric, not an operation.
+    bool veryExpensive =
+        gop == GenericOps::PowGop || gop == GenericOps::TrigGop ||
+        gop == GenericOps::TrigArcGop || gop == GenericOps::TrigHyperbolicGop;
+    bool expensive = gop == GenericOps::DivGop || gop == GenericOps::SqrtGop ||
+                     gop == GenericOps::ExpGop || gop == GenericOps::LogGop;
+    if (veryExpensive)
+      work += 50 * count;
+    else if (gop == GenericOps::ErfGop)
+      work += 30 * count; // Measured 14, but compute-bound: pays off sooner.
+    else if (expensive)
+      work += 10 * count;
+    else
+      simpleOps += count;
+  }
+  // Up to three simple ops issue together: z17 measured ~1 per value for one
+  // to three of them (Abs, Relu, PRelu, Greater with a Cast).
+  work += (simpleOps + 2) / 3;
+  return std::max<int64_t>(1, work);
+}
+
 int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {
@@ -1093,12 +1121,6 @@ bool canWriteInPlace(ConversionPatternRewriter &rewriter, Operation *op,
 // Copy of a whole buffer, possibly in parallel.
 //===----------------------------------------------------------------------===//
 
-// A parallel copy is split into chunks of this many bytes, one memcpy each.
-static constexpr int64_t memcpyChunkBytes = 1 << 20;
-// Smallest copy, in bytes, worth a parallel region. Measured on an 18-thread
-// CPU: a parallel copy was slower at 1 MB and faster at 17 MB.
-static constexpr int64_t minParallelMemcpyBytes = 8 << 20;
-
 void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
     Value dest, Value src, DimsExprRef srcDims, bool enableParallel,
     const std::string &msg) {
@@ -1117,7 +1139,10 @@ void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
     numElems = numElems * dim;
   int64_t eltBytes =
       getMemRefEltSizeInBytes(mlir::cast<MemRefType>(src.getType()));
-  int64_t chunkElems = std::max<int64_t>(1, memcpyChunkBytes / eltBytes);
+  // A parallel copy is split into chunks, one memcpy each; the gate and the
+  // chunk size are per target (ParallelTuning).
+  const ParallelTuning &tune = ParallelMachineSupport::getTuning();
+  int64_t chunkElems = std::max<int64_t>(1, tune.memcpyChunkBytes / eltBytes);
   IndexExpr numChunks = numElems.ceilDiv(chunkElems);
   auto emitParallelCopy = [&](const KrnlBuilder &createKrnl) {
     ValueRange loopDef = createKrnl.defineLoops(1);
@@ -1125,7 +1150,7 @@ void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
     // bodyCost: one iteration copies a chunk of chunkElems elements.
     auto plan = KrnlParallelPlan::noCollapse(loopDef,
         /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/1,
-        {.minTripCountForParallel = 2, .bodyCost = chunkElems});
+        {.minTripCount = 2, .bodyCost = chunkElems});
     plan.tryCreateParallel(createKrnl, op, msg, lbs, ubs);
     createKrnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -1140,7 +1165,7 @@ void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
         });
   };
 
-  int64_t minParallelElems = minParallelMemcpyBytes / eltBytes;
+  int64_t minParallelElems = tune.memcpyMinParallelBytes / eltBytes;
   if (numElems.isLiteral()) {
     if (numElems.getLiteral() >= minParallelElems)
       emitParallelCopy(create.krnl);

@@ -100,14 +100,19 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     // iterations of the leading (q-1) loops may read-modify-write the same
     // output element, so the nest stays sequential.
     //
-    // bodyCost 10: one innermost iteration loads k index values, optionally
-    // normalizes each with a compare and a select, loads the update, and
-    // stores through a non-affine access function.
+    // bodyCost 2 + 3 k (at least 10): one innermost iteration loads k index
+    // values and normalizes each with a compare and a select, loads the
+    // update, and stores through a non-affine access function. k, the index
+    // depth, is the static last dimension of 'indices' (asserted below).
     bool parallelizable = (reduction == "none");
+    int64_t indexDepthForCost = indicesType.getShape()[indicesRank - 1];
+    int64_t bodyCost = ShapedType::isDynamic(indexDepthForCost)
+                           ? 10
+                           : std::max<int64_t>(10, 2 + 3 * indexDepthForCost);
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/updatesRank,
         /*collapseLastExclusiveDim=*/updatesRank,
-        {.minTripCountForParallel = 4, .bodyCost = 10});
+        {.minTripCount = 4, .bodyCost = bodyCost, .mustRepayFork = true});
     if (enableParallel && parallelizable)
       plan.tryCreateParallel(create.krnl, op, "scatterND", lbs, ubs);
     create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,

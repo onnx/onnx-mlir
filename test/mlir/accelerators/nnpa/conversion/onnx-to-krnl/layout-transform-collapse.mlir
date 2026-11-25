@@ -17,20 +17,21 @@
 // onto the innermost level alone under an unknown entry count -- worse than
 // emitting no collapse.
 //
-// The collapse claim stops at E1, one short of the search window. E1 is the tile
-// counter this pattern just created, not a data dimension, and its body is the
-// bulk memcpy. Fusing it in dissolves that: measured per 128-byte copy, a claim
-// over the whole rank costs 42 instructions and 2 hardware divides, while stopping
-// at E1 costs 13 and 0.25 -- the recovery arithmetic and the layout map's own
-// floordiv stay amortized over a row of tiles rather than one, and the backend can
-// unroll the tile loop.
+// The collapse claim stops at E1, one short of the search window. E1 is the
+// tile counter this pattern just created, not a data dimension, and its body is
+// the bulk memcpy. Collapsing it in dissolves that: measured per 128-byte copy,
+// a claim over the whole rank costs 42 instructions and 2 hardware divides,
+// while stopping at E1 costs 13 and 0.25 -- the recovery arithmetic and the
+// layout map's own floordiv stay amortized over a row of tiles rather than one,
+// and the backend can unroll the tile loop.
 
-// The granite-4 shape: ?x?x512 retiles to [batch, seq, 8]. The two dynamic levels
-// fuse and are entered once; the 8-tile loop stays sequential inside. Verdict is
-// MAYBE rather than YES -- the fused trip count is guaranteed only 1 -- and that is
-// accepted deliberately: if batch and seq really are both 1 then the whole op is
-// eight 128-byte copies, and no placement of a region helps. The group is wide
-// exactly when there is work to be wide over.
+// The granite-4 shape: ?x?x512 retiles to [batch, seq, 8]. The two dynamic
+// levels collapse and are entered once; the 8-tile loop stays sequential
+// inside. Verdict is MAYBE rather than YES -- the collapsed trip count is
+// guaranteed only 1 -- and that is accepted deliberately: if batch and seq
+// really are both 1 then the whole op is eight 128-byte copies, and no
+// placement of a region helps. The group is wide exactly when there is work to
+// be wide over.
 func.func @test_collapse_layout_transform_fast(%arg0: tensor<?x?x512xf16>) -> tensor<?x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
   %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<?x?x512xf16>) -> tensor<?x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   return %0 : tensor<?x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
@@ -75,10 +76,11 @@ func.func @test_collapse_layout_transform_fast(%arg0: tensor<?x?x512xf16>) -> te
 
 // -----
 
-// Fully static, so nothing is unknown: level 0 is 32, wide enough on its own and
-// entered once, and STEP 1 takes it. Pins that a full-rank collapse window does
-// not mean the site always fuses -- when a single level is already adequate under
-// a known entry count, no group is built and no recovery is paid.
+// Fully static, so nothing is unknown: level 0 is 32, wide enough on its own
+// and entered once, and STEP 1 takes it. Pins that a full-rank collapse window
+// does not mean the site always collapses -- when a single level is already
+// adequate under a known entry count, no group is built and no recovery is
+// paid.
 func.func @test_par_layout_transform_fast_static(%arg0: tensor<32x8x512xf16>) -> tensor<32x8x512xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
   %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<32x8x512xf16>) -> tensor<32x8x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   return %0 : tensor<32x8x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>

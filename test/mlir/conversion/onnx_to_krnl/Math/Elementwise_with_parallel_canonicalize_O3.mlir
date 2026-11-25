@@ -1,4 +1,6 @@
-// RUN: onnx-mlir-opt -O3 --march=x86-64 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false -O3 --march=x86-64 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel code; by default most no longer repay a fork and stay sequential.
 
 // -----
 

@@ -1,4 +1,7 @@
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --parallel-must-repay-fork=false --march=z16 --maccel=NNPA --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s
+// --parallel-must-repay-fork=false: these small static shapes pin the
+// parallel and collapse code; by default most no longer repay a fork and stay
+// sequential.
 
 // Parallel coverage for the retiled LayoutTransform fast path, which is the only
 // LayoutTransform path with a full-rank selection window ([0, rank), floor 8).

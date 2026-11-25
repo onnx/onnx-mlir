@@ -145,7 +145,7 @@ struct ONNXLayoutTransformOpLowering
     // level, no fusion is possible, and the site keeps today's behaviour.
     KrnlParallelPlan plan(loopDefs, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/rank, /*collapseLastExclusiveDim=*/E1,
-        {.minTripCountForParallel = 8, .bodyCost = modVal});
+        {.minTripCount = 8, .bodyCost = modVal, .mustRepayFork = true});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
       plan.tryCreateParallel(
@@ -276,8 +276,8 @@ struct ONNXLayoutTransformOpLowering
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
 
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {128});
+    auto plan = KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0,
+        /*last excl*/ 1, {.minTripCount = 128});
     if (enableParallel) {
       plan.tryCreateParallel(create.krnl, op,
           "LayoutTransform op fully parallelized with perfectly nested loops",
