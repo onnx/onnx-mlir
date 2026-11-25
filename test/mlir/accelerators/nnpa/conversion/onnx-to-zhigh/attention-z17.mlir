@@ -11,7 +11,7 @@ func.func @test_attention_hw_transpose(%q: tensor<2x16x8x64xf32>, %k: tensor<2x1
   // CHECK-LABEL: func.func @test_attention_hw_transpose
   // CHECK-NOT: "onnx.Attention"
   // CHECK-NOT: "onnx.Transpose"
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 1 : si64, transposeKT = 1 : si64}> : (tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 1 : si64}> : (tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   // CHECK: "zhigh.Unstick"
   // CHECK: return
 }

@@ -33,6 +33,6 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
 
 zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
-    bool broadcasting_mask, zdnn_ztensor *output);
+    zdnn_ztensor *output);
 
 #endif // ZDNNX_SEQ_OPS_H

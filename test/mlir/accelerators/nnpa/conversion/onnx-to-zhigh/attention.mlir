@@ -12,7 +12,7 @@ func.func @test_attention_non_broadcasting_mask(%q: tensor<?x16x?x128xf32> {onnx
   // CHECK-NOT: "onnx.Attention"
   // CHECK: "onnx.Transpose"(%{{.*}}) <{perm = [0, 1, 3, 2]}>
   // CHECK-DAG: "zhigh.Stick"(%{{.*}}) <{layout = "3DS"}>
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 0 : si64, transposeKT = 0 : si64}>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 0 : si64}>
   // CHECK: "zhigh.Unstick"
   // CHECK: "onnx.Reshape"
   // CHECK: return
@@ -30,7 +30,7 @@ func.func @test_attention_broadcasting_mask(%q: tensor<?x16x?x128xf32> {onnx.dim
   // CHECK-NOT: "onnx.Attention"
   // CHECK: "onnx.Transpose"(%{{.*}}) <{perm = [0, 1, 3, 2]}>
   // CHECK-DAG: "zhigh.Stick"(%{{.*}}) <{layout = "3DS"}>
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 1 : si64, transposeKT = 0 : si64}>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 0 : si64}>
   // CHECK: "zhigh.Unstick"
   // CHECK: "onnx.Reshape"
   // CHECK: return
@@ -47,7 +47,7 @@ func.func @test_attention_static_broadcasting_mask(%q: tensor<2x16x8x64xf32>, %k
   // CHECK-LABEL: func.func @test_attention_static_broadcasting_mask
   // CHECK-NOT: "onnx.Attention"
   // CHECK: "onnx.Transpose"(%{{.*}}) <{perm = [0, 1, 3, 2]}>
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 1 : si64, transposeKT = 0 : si64}> : (tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x64x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 0 : si64}> : (tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x64x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x8x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<32x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<32x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   // CHECK: "zhigh.Unstick"
   // CHECK: return
 }

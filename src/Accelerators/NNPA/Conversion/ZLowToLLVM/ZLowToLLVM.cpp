@@ -1119,20 +1119,15 @@ public:
         transposeKT ? SmallVector<Value>{S, P, N} : SmallVector<Value>{S, N, P},
         /*isTransformed=*/true);
 
-    // Mask: 3DS {S, M, P}, or {B, M, P} when broadcasting. B is the first
-    // dimension of the mask memref.
-    bool broadcastingMask = fusedOp.getBroadcastingMask() != 0;
-    Value maskB = S;
-    if (broadcastingMask) {
-      SmallVector<Value, 3> maskDims;
-      getDimsFromMemRef(
-          rewriter, loc, module, operandAdaptor.getMask(), maskDims);
-      maskB = maskDims[0];
-    }
+    // Mask: 3DS {B, M, P}, where B is the first dimension of the mask memref.
+    // The runtime broadcasts the mask when B < S.
+    SmallVector<Value, 3> maskDims;
+    getDimsFromMemRef(
+        rewriter, loc, module, operandAdaptor.getMask(), maskDims);
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getMask());
     ZTensor maskZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_3DS, /*originalDims=*/{maskB, M, P},
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{maskDims[0], M, P},
             /*isTransformed=*/true);
 
     // V: 3DS {S, P, Q}
@@ -1149,12 +1144,10 @@ public:
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, Q},
             /*isTransformed=*/true);
 
-    // transposeKT and broadcasting_mask values for runtime.
+    // transposeKT value for runtime.
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     Value transposeKTVal = create.llvm.constant(
         rewriter.getI64Type(), static_cast<int64_t>(transposeKT ? 1 : 0));
-    Value broadcastingMaskVal = create.llvm.constant(
-        rewriter.getI64Type(), static_cast<int64_t>(broadcastingMask ? 1 : 0));
 
     // Call zdnnx_sdpa_3d runtime function.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNNX_SDPA3D,
@@ -1164,7 +1157,6 @@ public:
             toOpaquePtr(rewriter, loc, module, maskZTensor.val),
             toOpaquePtr(rewriter, loc, module, vZTensor.val),
             transposeKTVal,
-            broadcastingMaskVal,
             toOpaquePtr(rewriter, loc, module, outZTensor.val),
         });
 

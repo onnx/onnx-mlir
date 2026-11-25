@@ -1077,10 +1077,9 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
 
 zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
-    bool broadcasting_mask, zdnn_ztensor *output) {
+    zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
-  printf("[SDPA3D, transpose_kt: %s, broadcasting_mask: %s]\n",
-      transpose_kt ? "true" : "false", broadcasting_mask ? "true" : "false");
+  printf("[SDPA3D, transpose_kt: %s]\n", transpose_kt ? "true" : "false");
 #endif
 
   static int use_basic = -1;

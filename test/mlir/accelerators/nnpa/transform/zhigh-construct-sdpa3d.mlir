@@ -16,7 +16,7 @@ func.func @test_sdpa3d_no_transpose(
   return %3 : tensor<*xf16>
 
   // CHECK-LABEL: test_sdpa3d_no_transpose
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 0 : si64, transposeKT = 0 : si64}>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 0 : si64}>
   // CHECK-NOT: zhigh.MatMul
 }
 
@@ -38,7 +38,7 @@ func.func @test_sdpa3d_transpose_kt(
   return %3 : tensor<*xf16>
 
   // CHECK-LABEL: test_sdpa3d_transpose_kt
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 0 : si64, transposeKT = 1 : si64}>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 1 : si64}>
   // CHECK-NOT: zhigh.MatMul
 }
 
@@ -83,7 +83,7 @@ func.func @test_sdpa3d_dynamic_no_transpose(
   return %3 : tensor<*xf16>
 
   // CHECK-LABEL: test_sdpa3d_dynamic_no_transpose
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 0 : si64, transposeKT = 0 : si64}>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 0 : si64}>
   // CHECK-NOT: zhigh.MatMul
 }
 
@@ -104,6 +104,6 @@ func.func @test_sdpa3d_dynamic_transpose_kt(
   return %3 : tensor<*xf16>
 
   // CHECK-LABEL: test_sdpa3d_dynamic_transpose_kt
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{broadcasting_mask = 0 : si64, transposeKT = 1 : si64}>
+  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 1 : si64}>
   // CHECK-NOT: zhigh.MatMul
 }

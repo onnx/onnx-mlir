@@ -113,19 +113,17 @@ LogicalResult ZHighSDPA3DOp::verify() {
   if (vLayout != ZTensorEncodingAttr::DataLayout::_3DS)
     return emitOpError("V must be 3DS layout");
 
-  // A broadcasting mask has b entries along its first dimension, where b
-  // divides the first dimension s of Q.
-  if (getBroadcastingMask() != 0) {
-    auto qType = mlir::dyn_cast<RankedTensorType>(Q.getType());
-    auto maskType = mlir::dyn_cast<RankedTensorType>(Mask.getType());
-    if (qType && maskType && qType.getRank() == 3 && maskType.getRank() == 3) {
-      int64_t s = qType.getDimSize(0);
-      int64_t b = maskType.getDimSize(0);
-      if (!ShapedType::isDynamic(s) && !ShapedType::isDynamic(b) &&
-          (b == 0 || s % b != 0))
-        return emitOpError("the first dimension of a broadcasting Mask must "
-                           "divide the first dimension of Q");
-    }
+  // The mask has b entries along its first dimension, where b divides the
+  // first dimension s of Q. The mask is broadcast when b < s.
+  auto qType = mlir::dyn_cast<RankedTensorType>(Q.getType());
+  auto maskType = mlir::dyn_cast<RankedTensorType>(Mask.getType());
+  if (qType && maskType && qType.getRank() == 3 && maskType.getRank() == 3) {
+    int64_t s = qType.getDimSize(0);
+    int64_t b = maskType.getDimSize(0);
+    if (!ShapedType::isDynamic(s) && !ShapedType::isDynamic(b) &&
+        (b == 0 || s % b != 0))
+      return emitOpError("the first dimension of Mask must divide the first "
+                         "dimension of Q");
   }
 
   return success();

@@ -249,17 +249,15 @@ def ZLowSDPA3DOp:ZLow_Op<"sdpa3d",
   Computes Output = Softmax(Q * KT + Mask) * V on stickified zTensors.
 
   Operands (all 3DS stickified memrefs):
-    Q:    [s, m, n]  — queries
-    KT:   [s, n, p]  — keys (already transposed if transposeKT=0)
-          [s, p, n]  — keys (not transposed if transposeKT=1)
-    Mask: [s, m, p]  — additive attention mask (broadcasting_mask=0)
-          [b, m, p]  — additive attention mask (broadcasting_mask=1)
-    V:    [s, p, q]  — values
-    Out:  [s, m, q]  — attention output
+    Q:    [s, m, n]  -- queries
+    KT:   [s, n, p]  -- keys (already transposed if transposeKT=0)
+          [s, p, n]  -- keys (not transposed if transposeKT=1)
+    Mask: [b, m, p]  -- additive attention mask, where b divides s. The mask
+                       is broadcast along the first dimension when b < s.
+    V:    [s, p, q]  -- values
+    Out:  [s, m, q]  -- attention output
   shape: memref<5xi64> = [s, m, n, p, q].
   transposeKT: 0 = KT already transposed, 1 = KT is K, transpose done in hardware.
-  broadcasting_mask: 0 = Mask has the same first dimension as Q,
-                     1 = Mask first dimension b divides s and is broadcast.
   }];
   let arguments = (ins ZMemRef:$Q,
                        ZMemRef:$KT,
@@ -267,7 +265,6 @@ def ZLowSDPA3DOp:ZLow_Op<"sdpa3d",
                        ZMemRef:$V,
                        MemRefOf<[I64]>:$shape,
                        DefaultValuedAttr<SI64Attr, "0">:$transposeKT,
-                       DefaultValuedAttr<SI64Attr, "0">:$broadcasting_mask,
                        ZMemRef:$Out);
 }
 

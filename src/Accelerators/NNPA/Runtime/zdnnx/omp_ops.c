@@ -655,7 +655,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 
 zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     const zdnn_ztensor *Mask, const zdnn_ztensor *V, bool transpose_kt,
-    bool broadcasting_mask, zdnn_ztensor *output) {
+    zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP SDPA3D]\n");
 #endif
@@ -691,8 +691,7 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   zdnnx_prepare_split_info(&si_out, output, tile_size, 0, 0, 0, "SDPA3D Out");
 
   if (zdnnx_has_one_tile(&si_q))
-    return zdnnx_seq_sdpa_3d(
-        Q, KT, Mask, V, transpose_kt, broadcasting_mask, output);
+    return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, transpose_kt, output);
 
   uint32_t num_tiles = zdnnx_get_num_tiles(&si_q, E4);
   // First error reported by any thread.
@@ -713,8 +712,8 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     zdnnx_copy_data_to_tile(&tv);
     zdnnx_set_tile(&si_out, &tout, NULL, i, 0, 0, 0);
 
-    zdnn_status tile_status = zdnnx_seq_sdpa_3d(&tq.data, &tkt.data,
-        &tmask.data, &tv.data, transpose_kt, broadcasting_mask, &tout.data);
+    zdnn_status tile_status = zdnnx_seq_sdpa_3d(
+        &tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt, &tout.data);
     if (tile_status == ZDNN_OK) {
       zdnnx_copy_data_to_full(&tout);
     } else {

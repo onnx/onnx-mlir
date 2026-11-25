@@ -652,49 +652,35 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
       q: value head dimension (output embedding size per head)
 
     All operands use 3DS layout with a shared batch dimension s:
-      Q:    [s, m, n]  — queries
-      KT:   [s, n, p]  — keys (already transposed, when transposeKT=0)
-            [s, p, n]  — keys (not transposed, when transposeKT=1)
-      Mask: [s, m, p]  — additive attention mask (when broadcasting_mask=0)
-            [b, m, p]  — additive attention mask (when broadcasting_mask=1)
-      V:    [s, p, q]  — values
-      Out:  [s, m, q]  — attention output
+      Q:    [s, m, n]  -- queries
+      KT:   [s, n, p]  -- keys (already transposed, when transposeKT=0)
+            [s, p, n]  -- keys (not transposed, when transposeKT=1)
+      Mask: [b, m, p]  -- additive attention mask, where b divides s
+      V:    [s, p, q]  -- values
+      Out:  [s, m, q]  -- attention output
 
     When transposeKT=1, KT is actually K and the inner Q*K matmul uses
     hardware transpose to produce KT.
 
-    When broadcasting_mask=1, the mask is shared by all the heads of a batch
-    element: s = b * h, where h is the number of heads, and the mask has only b
-    entries in its first dimension. The mask of the batch element i is
-    broadcast to the s entries [i * h, (i + 1) * h).
+    When b < s, the mask is shared by all the heads of a batch element:
+    s = b * h, where h is the number of heads. The mask of the batch element i
+    is broadcast to the s entries [i * h, (i + 1) * h).
 
-    The transposeKT and broadcasting_mask attributes default to 0 (off).
+    The transposeKT attribute defaults to 0 (off).
   }];
   let arguments = (ins ZTensor_3DS:$Q,
                        ZTensor_3DS:$KT,
                        ZTensor_3DS:$Mask,
                        ZTensor_3DS:$V,
-                       DefaultValuedAttr<SI64Attr, "0">:$transposeKT,
-                       DefaultValuedAttr<SI64Attr, "0">:$broadcasting_mask);
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeKT);
   let results = (outs ZTensor_3DS:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
-                   "::mlir::Value":$Mask, "::mlir::Value":$V,
-                   "::mlir::IntegerAttr":$transposeKT,
-                   "::mlir::IntegerAttr":$broadcasting_mask), [{
-      Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
-      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, Q, KT, Mask, V, transposeKT,
-            broadcasting_mask);
-    }]>,
     OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
                    "::mlir::Value":$Mask, "::mlir::Value":$V,
                    "::mlir::IntegerAttr":$transposeKT), [{
       Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, Q, KT, Mask, V, transposeKT,
-            $_builder.getIntegerAttr(
-                $_builder.getIntegerType(64, /*isSigned=*/true), 0));
+      build($_builder, $_state, resType, Q, KT, Mask, V, transposeKT);
     }]>,
     OpBuilder<(ins "::mlir::Value":$Q, "::mlir::Value":$KT,
                    "::mlir::Value":$Mask, "::mlir::Value":$V), [{
@@ -702,7 +688,7 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       IntegerAttr zero = $_builder.getIntegerAttr(
           $_builder.getIntegerType(64, /*isSigned=*/true), 0);
-      build($_builder, $_state, resType, Q, KT, Mask, V, zero, zero);
+      build($_builder, $_state, resType, Q, KT, Mask, V, zero);
     }]>
   ];
   let hasVerifier = 1;

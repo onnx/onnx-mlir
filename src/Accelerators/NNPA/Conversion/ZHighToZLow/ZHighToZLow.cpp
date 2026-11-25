@@ -1275,19 +1275,16 @@ struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
     Value shapeMemRef =
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
-    // Get transposeKT and broadcasting_mask attributes from ZHigh op.
+    // Get transposeKT attribute from ZHigh op.
     ZHighSDPA3DOp sdpa3dOp = mlir::cast<ZHighSDPA3DOp>(op);
     IntegerAttr transposeKTAttr =
         rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
             sdpa3dOp.getTransposeKT());
-    IntegerAttr broadcastingMaskAttr =
-        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
-            sdpa3dOp.getBroadcastingMask());
 
     // Emit zlow.sdpa3d.
     ZLowSDPA3DOp::create(rewriter, loc, operandAdaptor.getQ(),
         operandAdaptor.getKT(), operandAdaptor.getMask(), operandAdaptor.getV(),
-        shapeMemRef, transposeKTAttr, broadcastingMaskAttr, alloc);
+        shapeMemRef, transposeKTAttr, alloc);
     rewriter.replaceOp(op, alloc);
     return success();
   }
