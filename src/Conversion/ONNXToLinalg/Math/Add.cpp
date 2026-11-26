@@ -4,19 +4,15 @@
 //
 // Lowers `onnx.Add` into tensor-based `linalg.generic`.
 
-#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "llvm/Support/Debug.h"
-
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -52,30 +48,17 @@ struct ONNXAddOpLoweringToLinalg : public OpRewritePattern<ONNXAddOp> {
       return rewriter.notifyMatchFailure(
           addOp, "dynamic dimensions are not supported yet");
 
-    if (lhsTy.getRank() != rhsTy.getRank() ||
-        lhsTy.getRank() != outTy.getRank())
+    if (lhsTy.getShape() != rhsTy.getShape() ||
+        lhsTy.getShape() != outTy.getShape())
       return rewriter.notifyMatchFailure(
-          addOp, "rank broadcasting is not supported yet");
-
-    ONNXAddOpShapeHelper shapeHelper(op, op->getOperands());
-    if (failed(shapeHelper.computeShape()))
-      return rewriter.notifyMatchFailure(
-          addOp, "failed to compute result shape");
-
-    if (!shapeHelper.hasNoBroadcast())
-      return rewriter.notifyMatchFailure(
-          addOp, "broadcasting is not supported yet");
-
-    if (outTy.getShape() != lhsTy.getShape())
-      return rewriter.notifyMatchFailure(addOp, "unexpected result shape");
+          addOp, "expected identical input and result shapes");
 
     if (lhsTy.getElementType() != rhsTy.getElementType() ||
         lhsTy.getElementType() != outTy.getElementType())
       return rewriter.notifyMatchFailure(addOp, "mismatched element types");
 
     Type elemTy = outTy.getElementType();
-    if (!isa<FloatType>(elemTy) && !elemTy.isSignlessInteger() &&
-        !elemTy.isUnsignedInteger())
+    if (!isa<FloatType>(elemTy) && !elemTy.isSignlessInteger())
       return rewriter.notifyMatchFailure(addOp, "unsupported element type");
 
     Value empty = tensor::EmptyOp::create(
@@ -114,7 +97,6 @@ private:
 void populateLoweringONNXAddOpToLinalgPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx,
     const std::string &linalgOps, bool useLinalgPath) {
-  (void)typeConverter;
   patterns.add<ONNXAddOpLoweringToLinalg>(ctx, linalgOps, useLinalgPath);
 }
 

@@ -52,20 +52,17 @@ func.func @test_add_integer(%arg0: tensor<2x3xi32> {onnx.name = "A"},
 
 // -----
 
-func.func @test_add_unsigned(%arg0: tensor<2x3xui32> {onnx.name = "A"},
+func.func @test_add_reject_unsigned(%arg0: tensor<2x3xui32> {onnx.name = "A"},
     %arg1: tensor<2x3xui32> {onnx.name = "B"})
     -> (tensor<2x3xui32> {onnx.name = "Y"}) {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<2x3xui32>, tensor<2x3xui32>) -> tensor<2x3xui32>
   return %0 : tensor<2x3xui32>
 
-  // CHECK-LABEL: func.func @test_add_unsigned
-  // CHECK: linalg.generic
-  // CHECK: ^bb0(%[[A:[^:]+]]: ui32, %[[B:[^:]+]]: ui32,
-  // CHECK: %[[AI:[^ ]+]] = builtin.unrealized_conversion_cast %[[A]] : ui32 to i32
-  // CHECK: %[[BI:[^ ]+]] = builtin.unrealized_conversion_cast %[[B]] : ui32 to i32
-  // CHECK: %[[SUM:[^ ,]+]], {{%[^ ]+}} = arith.addui_extended %[[AI]], %[[BI]] : i32, i1
-  // CHECK: %[[RESULT:[^ ]+]] = builtin.unrealized_conversion_cast %[[SUM]] : i32 to ui32
-  // CHECK-NEXT: linalg.yield %[[RESULT]] : ui32
+  // CHECK-LABEL: func.func @test_add_reject_unsigned
+  // CHECK-NOT: linalg.generic
+  // CHECK: "onnx.Add"
+  // CHECK-NOT: linalg.generic
+  // CHECK: return
 }
 
 // -----
