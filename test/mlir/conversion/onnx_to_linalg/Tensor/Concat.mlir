@@ -81,6 +81,22 @@ func.func @concat_dynamic_non_axis_dimension(
 
 // -----
 
+func.func @concat_dynamic_inputs_static_result(
+    %arg0: tensor<2x?xf32>, %arg1: tensor<2x?xf32>) -> tensor<2x8xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64} :
+      (tensor<2x?xf32>, tensor<2x?xf32>) -> tensor<2x8xf32>
+  return %0 : tensor<2x8xf32>
+
+// CHECK-LABEL:  func.func @concat_dynamic_inputs_static_result
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?xf32>, [[PARAM_1_:%.+]]: tensor<2x?xf32>) -> tensor<2x8xf32> {
+// CHECK:           [[VAR_concat_:%.+]] = tensor.concat dim(1) [[PARAM_0_]], [[PARAM_1_]] : (tensor<2x?xf32>, tensor<2x?xf32>) -> tensor<2x8xf32>
+// CHECK:           return [[VAR_concat_]] : tensor<2x8xf32>
+// CHECK:         }
+
+}
+
+// -----
+
 func.func @concat_single_input(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
   %0 = "onnx.Concat"(%arg0) {axis = 0 : si64} :
       (tensor<2x3xf32>) -> tensor<2x3xf32>
@@ -133,6 +149,3 @@ func.func @concat_unranked_not_lowered(
   // CHECK: [[RESULT:%.+]] = "onnx.Concat"(%arg0, %arg1)
   // CHECK: return [[RESULT]] : tensor<*xf32>
 }
-
-// -----
-

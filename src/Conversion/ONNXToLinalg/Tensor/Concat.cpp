@@ -18,7 +18,7 @@
 #include "mlir/IR/PatternMatch.h"
 
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "llvm/ADT/STLExtras.h"
 
 #include <algorithm>
 
@@ -46,7 +46,7 @@ struct ONNXConcatOpLoweringToLinalg : public OpRewritePattern<ONNXConcatOp> {
     auto outputType =
         dyn_cast<RankedTensorType>(concatOp->getResult(0).getType());
 
-    if (std::any_of(concatOp.getInputs().begin(), concatOp.getInputs().end(),
+    if (llvm::any_of(concatOp.getInputs(),
             [](const Value &input) {
               return !isa<RankedTensorType>(input.getType());
             }) ||
