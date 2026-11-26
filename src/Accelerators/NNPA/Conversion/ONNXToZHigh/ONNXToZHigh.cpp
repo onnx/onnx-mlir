@@ -1502,6 +1502,66 @@ public:
   }
 };
 
+/// Replace onnx.Attention by zhigh.SDPA3D. The legality of the op is checked in
+/// isSuitableForZDNN<ONNXAttentionOp>.
+///
+/// Q: [B, H, SQ, D], K: [B, H, S, D], V: [B, H, S, DV], and the mask is
+/// [B, H, SQ, S] or [B, 1, SQ, S]. The first two dimensions of the inputs are
+/// collapsed to get 3D tensors, which are stickified with the 3DS layout. The
+/// result is unstickified and its first dimension is unfolded to B and H.
+class replaceONNXAttentionPattern : public OpRewritePattern<ONNXAttentionOp> {
+public:
+  using OpRewritePattern<ONNXAttentionOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAttentionOp attnOp, PatternRewriter &rewriter) const override {
+    Location loc = attnOp.getLoc();
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    Value Q = attnOp.getQ();
+    Value K = attnOp.getK();
+    Value V = attnOp.getV();
+    Value mask = attnOp.getAttnMask();
+
+    // The hardware transposes K only on NNPA level M15 or newer. Otherwise, K
+    // is transposed explicitly: [B, H, S, D] -> [B, H, D, S].
+    bool hwTransposeK = isCompatibleWithNNPALevel(NNPALevel::M15);
+    if (!hwTransposeK)
+      K = create.onnx.transposeInt64(K, {0, 1, 3, 2});
+
+    // Collapse the first two dimensions, then stickify with the 3DS layout.
+    StringAttr layout = rewriter.getStringAttr(LAYOUT_3DS);
+    auto collapseAndStick = [&](Value val) {
+      Value val3D = create.onnx.reshapeToNDim(val, 3, /*collapseMostSig*/ true);
+      return ZHighStickOp::create(rewriter, loc, val3D, layout);
+    };
+    Value stickQ = collapseAndStick(Q);
+    Value stickK = collapseAndStick(K);
+    Value stickV = collapseAndStick(V);
+    Value stickMask = collapseAndStick(mask);
+
+    IntegerType si64Ty = rewriter.getIntegerType(64, /*isSigned=*/true);
+    ZHighSDPA3DOp sdpa3dOp =
+        ZHighSDPA3DOp::create(rewriter, loc, stickQ, stickK, stickMask, stickV,
+            rewriter.getIntegerAttr(si64Ty, hwTransposeK ? 1 : 0));
+    (void)sdpa3dOp.inferShapes([](Region &region) {});
+    Value unstick = ZHighUnstickOp::create(rewriter, loc, sdpa3dOp.getResult());
+
+    // Unfold the first dimension: [B * H, SQ, DV] -> [B, H, SQ, DV].
+    Value Y = attnOp.getY();
+    SmallVector<Value, 4> dims = {create.onnx.dim(Q, 0), create.onnx.dim(Q, 1),
+        create.onnx.dim(Q, 2), create.onnx.dim(V, 3)};
+    Value shape = create.onnx.concat(
+        RankedTensorType::get({4}, rewriter.getI64Type()), dims, /*axis*/ 0);
+    Value result = create.onnx.reshape(Y.getType(), unstick, shape);
+
+    // The other outputs are none.
+    Value none = create.onnx.none();
+    rewriter.replaceOp(attnOp, {result, none, none, none});
+    return success();
+  }
+};
+
 struct ONNXToZHighLoweringPass
     : public PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>> {
 
@@ -1527,6 +1587,7 @@ void getONNXToZHighOneOpPatterns(RewritePatternSet &patterns) {
   patterns.insert<normalizeONNXGemmTransAPattern>(context);
   patterns.insert<normalizeONNXGemmTransBPattern>(context);
   patterns.insert<replaceONNXAddPattern>(context);
+  patterns.insert<replaceONNXAttentionPattern>(context);
   patterns.insert<replaceONNXAveragePoolPattern>(context);
   patterns.insert<replaceONNXConv2DPattern>(context);
   patterns.insert<replaceONNXDivBroadcastPattern1>(context);
@@ -1616,6 +1677,7 @@ void getONNXToZHighOneOpDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXMatMulIntegerOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXQLinearMatMulOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXAttentionOp>(target, dimAnalysis);
 }
 
 void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {

@@ -15,6 +15,7 @@
 
 #ifdef ZDNNX_WITH_OMP
 
+#include <assert.h>
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@
 #include "seq_ops.h"
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
+#include "zdnnx_private.h"
 
 // Keep these values to avoid calling omp functions multiple times.
 static uint32_t zdnnx_num_zaiu_threads = 0;
@@ -658,44 +660,78 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   printf("[OMP SDPA3D]\n");
 #endif
 
+  // The mask has BM entries along E4 and each of them is shared by
+  // H = BH / BM consecutive batch elements (H = 1 if not broadcasting).
+  uint32_t BH = zdnnx_get_transformed_dim(Q, E4);
+  uint32_t BM = zdnnx_get_transformed_dim(Mask, E4);
+  assert(BH % BM == 0 && "BH must be divisible by BM for broadcasting");
+  uint32_t H = BH / BM;
+  uint32_t num_threads = zdnnx_get_num_zaiu_threads();
+
+  // Split E4 into one tile per thread so that zdnnx_seq_sdpa_3d works on many
+  // batch elements per call. A tile must not cover a mask entry partially, so
+  // its size is either a multiple of H (tile_size / H mask entries) or a
+  // divisor of H (one mask entry).
+  uint32_t tile_size = CEIL(BH, num_threads);
+  uint32_t mask_tile_size = 1;
+  if (tile_size >= H) {
+    tile_size = CEIL(tile_size, H) * H;
+    mask_tile_size = tile_size / H;
+  } else {
+    while (H % tile_size != 0)
+      --tile_size;
+  }
+
   zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
-  zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "SDPA3D Q");
-  zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, 0, "SDPA3D KT");
-  zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "SDPA3D Mask");
-  zdnnx_prepare_split_info(&si_v, V, 1, 0, 0, 0, "SDPA3D V");
-  zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "SDPA3D Out");
+  zdnnx_prepare_split_info(&si_q, Q, tile_size, 0, 0, 0, "SDPA3D Q");
+  zdnnx_prepare_split_info(&si_kt, KT, tile_size, 0, 0, 0, "SDPA3D KT");
+  zdnnx_prepare_split_info(
+      &si_mask, Mask, mask_tile_size, 0, 0, 0, "SDPA3D Mask");
+  zdnnx_prepare_split_info(&si_v, V, tile_size, 0, 0, 0, "SDPA3D V");
+  zdnnx_prepare_split_info(&si_out, output, tile_size, 0, 0, 0, "SDPA3D Out");
 
   if (zdnnx_has_one_tile(&si_q))
     return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, transpose_kt, output);
 
-  uint32_t BH = zdnnx_get_num_tiles(&si_q, E4);
-  uint32_t num_threads = zdnnx_get_num_zaiu_threads();
+  uint32_t num_tiles = zdnnx_get_num_tiles(&si_q, E4);
+  // First error reported by any thread.
+  zdnn_status status = ZDNN_OK;
 
 #pragma omp parallel for num_threads(num_threads)
-  for (uint32_t b = 0; b < BH; ++b) {
+  for (uint32_t i = 0; i < num_tiles; ++i) {
     zdnnx_tile tq, tkt, tmask, tv, tout;
-    zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
-    /* Copy if reuse is off. */
+    zdnnx_set_tile(&si_q, &tq, NULL, i, 0, 0, 0);
     zdnnx_copy_data_to_tile(&tq);
-    zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
-    /* Copy if reuse is off. */
+    zdnnx_set_tile(&si_kt, &tkt, NULL, i, 0, 0, 0);
     zdnnx_copy_data_to_tile(&tkt);
-    zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, 0);
-    /* Copy if reuse is off. */
+    // Mask entry of the first batch element (i * tile_size) in this tile.
+    uint32_t im = (i * tile_size / H) / mask_tile_size;
+    zdnnx_set_tile(&si_mask, &tmask, NULL, im, 0, 0, 0);
     zdnnx_copy_data_to_tile(&tmask);
-    /* Copy if reuse is off. */
-    zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
-    /* Copy if reuse is off. */
+    zdnnx_set_tile(&si_v, &tv, NULL, i, 0, 0, 0);
     zdnnx_copy_data_to_tile(&tv);
+    zdnnx_set_tile(&si_out, &tout, NULL, i, 0, 0, 0);
 
-    zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
-    zdnnx_seq_sdpa_3d(
+    zdnn_status tile_status = zdnnx_seq_sdpa_3d(
         &tq.data, &tkt.data, &tmask.data, &tv.data, transpose_kt, &tout.data);
-    /* Copy if reuse is off. */
-    zdnnx_copy_data_to_full(&tout);
+    if (tile_status == ZDNN_OK) {
+      zdnnx_copy_data_to_full(&tout);
+    } else {
+#pragma omp critical(zdnnx_omp_sdpa_3d_status)
+      {
+        if (status == ZDNN_OK)
+          status = tile_status;
+      }
+    }
+
+    zdnnx_free_tile_buffer(&tq);
+    zdnnx_free_tile_buffer(&tkt);
+    zdnnx_free_tile_buffer(&tmask);
+    zdnnx_free_tile_buffer(&tv);
+    zdnnx_free_tile_buffer(&tout);
   }
 
-  return ZDNN_OK;
+  return status;
 }
 
 #endif // ZDNNX_WITH_OMP

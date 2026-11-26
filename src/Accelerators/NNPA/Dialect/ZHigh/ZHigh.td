@@ -652,15 +652,19 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
       q: value head dimension (output embedding size per head)
 
     All operands use 3DS layout with a shared batch dimension s:
-      Q:    [s, m, n]  — queries
-      KT:   [s, n, p]  — keys (already transposed, when transposeKT=0)
-            [s, p, n]  — keys (not transposed, when transposeKT=1)
-      Mask: [s, m, p]  — additive attention mask
-      V:    [s, p, q]  — values
-      Out:  [s, m, q]  — attention output
+      Q:    [s, m, n]  -- queries
+      KT:   [s, n, p]  -- keys (already transposed, when transposeKT=0)
+            [s, p, n]  -- keys (not transposed, when transposeKT=1)
+      Mask: [b, m, p]  -- additive attention mask, where b divides s
+      V:    [s, p, q]  -- values
+      Out:  [s, m, q]  -- attention output
 
     When transposeKT=1, KT is actually K and the inner Q*K matmul uses
     hardware transpose to produce KT.
+
+    When b < s, the mask is shared by all the heads of a batch element:
+    s = b * h, where h is the number of heads. The mask of the batch element i
+    is broadcast to the s entries [i * h, (i + 1) * h).
 
     The transposeKT attribute defaults to 0 (off).
   }];
@@ -682,9 +686,9 @@ def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
                    "::mlir::Value":$Mask, "::mlir::Value":$V), [{
       Type elementType = mlir::cast<ShapedType>(Q.getType()).getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, Q, KT, Mask, V,
-            $_builder.getIntegerAttr(
-                $_builder.getIntegerType(64, /*isSigned=*/true), 0));
+      IntegerAttr zero = $_builder.getIntegerAttr(
+          $_builder.getIntegerType(64, /*isSigned=*/true), 0);
+      build($_builder, $_state, resType, Q, KT, Mask, V, zero);
     }]>
   ];
   let hasVerifier = 1;

@@ -1119,11 +1119,15 @@ public:
         transposeKT ? SmallVector<Value>{S, P, N} : SmallVector<Value>{S, N, P},
         /*isTransformed=*/true);
 
-    // Mask: 3DS {S, M, P}
+    // Mask: 3DS {B, M, P}, where B is the first dimension of the mask memref.
+    // The runtime broadcasts the mask when B < S.
+    SmallVector<Value, 3> maskDims;
+    getDimsFromMemRef(
+        rewriter, loc, module, operandAdaptor.getMask(), maskDims);
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getMask());
     ZTensor maskZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, P},
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{maskDims[0], M, P},
             /*isTransformed=*/true);
 
     // V: 3DS {S, P, Q}

@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <assert.h>
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -668,7 +669,8 @@ static zdnn_status create_2ds_zero_bias(
 // Inputs (all 3DS stickified):
 //   Q      [B, S, H]   -- queries
 //   KT     [B, H, SK]  -- transposed keys
-//   Mask   [B, S, SK]  -- attention mask (additive)
+//   Mask   [BM, S, SK] -- attention mask (additive), B % BM == 0. When BM != B,
+//                         mask entry b / (B / BM) is used for batch element b.
 //   V      [B, SK, HV] -- values
 // Output:
 //   output [B, S, HV]
@@ -707,9 +709,28 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
   }
   free_ztensor(&bias1);
 
-  // masks = scores + Mask
-  if (status == ZDNN_OK)
-    zdnnx_add(&scores, Mask, &scores);
+  // scores = scores + Mask
+  if (status == ZDNN_OK) {
+    uint32_t BM = zdnnx_get_transformed_dim(Mask, E4);
+    if (BM == B) {
+      zdnnx_add(&scores, Mask, &scores);
+    } else {
+      // zdnn_add does not broadcast, so add mask entry b / H to each batch
+      // element b of scores. Splitting along E4 only gives zero-copy views.
+      assert(B % BM == 0 && "B must be divisible by BM for broadcasting");
+      uint32_t H = B / BM;
+      zdnnx_split_info si_scores, si_mask;
+      zdnnx_prepare_split_info(
+          &si_scores, &scores, 1, 0, 0, 0, "SDPA3D Basic scores");
+      zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "SDPA3D Basic Mask");
+      for (uint32_t b = 0; b < B; ++b) {
+        zdnnx_tile ts, tm;
+        zdnnx_set_tile(&si_scores, &ts, NULL, b, 0, 0, 0);
+        zdnnx_set_tile(&si_mask, &tm, NULL, b / H, 0, 0, 0);
+        zdnnx_add(&ts.data, &tm.data, &ts.data);
+      }
+    }
+  }
 
   // probs = softmax(scores);
   if (status == ZDNN_OK)
@@ -1067,8 +1088,48 @@ zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 
   uint32_t S = zdnnx_get_transformed_dim(Q, E2);
   uint32_t tile_size = 1024;
+  // sdpa_3d_basic handles a broadcasting mask by itself.
   if (use_basic || S <= tile_size)
     return sdpa_3d_basic(Q, KT, Mask, V, transpose_kt, output);
+
+  // For flash attention, the mask has B entries along E4 while Q has B*H
+  // entries. Process one batch element at a time, and use the mask entry
+  // (b / H) for each of them.
+  uint32_t BH = zdnnx_get_transformed_dim(Q, E4);
+  uint32_t BM = zdnnx_get_transformed_dim(Mask, E4);
+  if (BM != BH) {
+    assert(BH % BM == 0 && "BH must be divisible by BM for broadcasting");
+    uint32_t H = BH / BM;
+    zdnn_status status = ZDNN_OK;
+    zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
+    zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "SDPA3D bcast Q");
+    zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, 0, "SDPA3D bcast KT");
+    zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "SDPA3D bcast Mask");
+    zdnnx_prepare_split_info(&si_v, V, 1, 0, 0, 0, "SDPA3D bcast V");
+    zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "SDPA3D bcast Out");
+    for (uint32_t b = 0; b < BH && status == ZDNN_OK; ++b) {
+      zdnnx_tile tq, tkt, tmask, tv, tout;
+      zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tq);
+      zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tkt);
+      zdnnx_set_tile(&si_mask, &tmask, NULL, b / H, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tmask);
+      zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
+      zdnnx_copy_data_to_tile(&tv);
+      zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
+      status = flash_attention(&tq.data, &tkt.data, &tmask.data, &tv.data,
+          tile_size, transpose_kt, &tout.data);
+      zdnnx_copy_data_to_full(&tout);
+      zdnnx_free_tile_buffer(&tq);
+      zdnnx_free_tile_buffer(&tkt);
+      zdnnx_free_tile_buffer(&tmask);
+      zdnnx_free_tile_buffer(&tv);
+      zdnnx_free_tile_buffer(&tout);
+    }
+    return status;
+  }
+
   // Choose tile size T: aligned to 64.
   return flash_attention(
       Q, KT, Mask, V, /*tile_size*/ tile_size, transpose_kt, output);
