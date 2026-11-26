@@ -23,7 +23,8 @@ func.func @test_sdpa3d_no_transpose(
 // -----
 
 // Test: Fuse MatMul(Softmax(MatMul(Q, K) + Mask), V) into zhigh.SDPA3D
-// when inner MatMul has transposeB=1 (K is not transposed, hardware transposes it).
+// when inner MatMul has transposeB=1. The hardware transpose of K requires
+// z17, so on z16 K is transposed explicitly and transposeKT is 0.
 func.func @test_sdpa3d_transpose_kt(
     %Q: tensor<2x64x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>,
     %K: tensor<2x128x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>,
@@ -38,7 +39,11 @@ func.func @test_sdpa3d_transpose_kt(
   return %3 : tensor<*xf16>
 
   // CHECK-LABEL: test_sdpa3d_transpose_kt
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 1 : si64}>
+  // CHECK-SAME: ([[Q:%.+]]: tensor<2x64x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[K:%.+]]: tensor<2x128x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[MASK:%.+]]: tensor<2x64x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[V:%.+]]: tensor<2x128x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>)
+  // CHECK: [[UNSTICK:%.+]] = "zhigh.Unstick"([[K]]) : (tensor<2x128x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x128x32xf32>
+  // CHECK: [[TRANS:%.+]] = "onnx.Transpose"([[UNSTICK]]) <{perm = [0, 2, 1]}> : (tensor<2x128x32xf32>) -> tensor<2x32x128xf32>
+  // CHECK: [[KT:%.+]] = "zhigh.Stick"([[TRANS]]) <{layout = "3DS"}> : (tensor<2x32x128xf32>) -> tensor<2x32x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  // CHECK: "zhigh.SDPA3D"([[Q]], [[KT]], [[MASK]], [[V]]) <{transposeKT = 0 : si64}>
   // CHECK-NOT: zhigh.MatMul
 }
 
@@ -89,7 +94,7 @@ func.func @test_sdpa3d_dynamic_no_transpose(
 
 // -----
 
-// Test: Dynamic dimensions, transposeB=1.
+// Test: Dynamic dimensions, transposeB=1. K is transposed explicitly on z16.
 func.func @test_sdpa3d_dynamic_transpose_kt(
     %Q: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>,
     %K: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>,
@@ -104,6 +109,10 @@ func.func @test_sdpa3d_dynamic_transpose_kt(
   return %3 : tensor<*xf16>
 
   // CHECK-LABEL: test_sdpa3d_dynamic_transpose_kt
-  // CHECK: "zhigh.SDPA3D"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{transposeKT = 1 : si64}>
+  // CHECK-SAME: ([[Q:%.+]]: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[K:%.+]]: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[MASK:%.+]]: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, [[V:%.+]]: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>)
+  // CHECK: [[UNSTICK:%.+]] = "zhigh.Unstick"([[K]]) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf32>
+  // CHECK: [[TRANS:%.+]] = "onnx.Transpose"([[UNSTICK]]) <{perm = [0, 2, 1]}> : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  // CHECK: [[KT:%.+]] = "zhigh.Stick"([[TRANS]]) <{layout = "3DS"}> : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  // CHECK: "zhigh.SDPA3D"([[Q]], [[KT]], [[MASK]], [[V]]) <{transposeKT = 0 : si64}>
   // CHECK-NOT: zhigh.MatMul
 }

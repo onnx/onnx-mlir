@@ -20,6 +20,9 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -49,7 +52,8 @@ namespace {
 //   - Trailing MatMul must have transposeA=0 and transposeB=0.
 //   - Inner MatMul must have transposeA=0; transposeB is propagated as
 //     the transposeKT attribute so the runtime can use NNPA hardware
-//     transpose (zero-cost, no data copy).
+//     transpose (zero-cost, no data copy). On NNPA levels older than M15, K
+//     is transposed explicitly and transposeKT is 0.
 //   - Softmax must use ACT_NONE.
 //   - All intermediate results must be single-use.
 struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
@@ -113,11 +117,26 @@ struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
         ZTensorEncodingAttr::DataLayout::_3DS)
       return failure();
 
-    // Pass transposeKT through to SDPA3D — runtime handles the transpose
-    // inside zdnn_matmul_transpose_op (zero-cost NNPA hardware transpose).
-    IntegerAttr transposeKTAttr =
-        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
-            innerMatmul.getTransposeB() != 0 ? 1 : 0);
+    // The hardware transposes K only on NNPA level M15 or newer, where the
+    // runtime uses zdnn_matmul_transpose_op. Otherwise, K is transposed
+    // explicitly: [s, p, n] -> [s, n, p].
+    bool transposeKT = innerMatmul.getTransposeB() != 0;
+    if (transposeKT && !isCompatibleWithNNPALevel(NNPALevel::M15)) {
+      Location loc = innerMatmul.getLoc();
+      MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+      Value K = ZHighUnstickOp::create(rewriter, loc, KT);
+      auto kType = mlir::cast<RankedTensorType>(K.getType());
+      ArrayRef<int64_t> kShape = kType.getShape();
+      Type ktType = RankedTensorType::get(
+          {kShape[0], kShape[2], kShape[1]}, kType.getElementType());
+      Value transposedK =
+          create.onnx.transpose(ktType, K, rewriter.getI64ArrayAttr({0, 2, 1}));
+      KT = ZHighStickOp::create(
+          rewriter, loc, transposedK, rewriter.getStringAttr(LAYOUT_3DS));
+      transposeKT = false;
+    }
+    IntegerAttr transposeKTAttr = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true), transposeKT ? 1 : 0);
 
     // Replace the trailing MatMul with the fused op.
     rewriter.replaceOpWithNewOp<ZHighSDPA3DOp>(
